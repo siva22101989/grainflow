@@ -26,6 +26,7 @@ const BulkOutflowSchema = z.object({
         return !isNaN(date.getTime()) && date <= new Date();
     }, { message: "Date cannot be in the future" }),
     finalRent: z.coerce.number().nonnegative('Final rent cannot be negative'),
+    discount: z.coerce.number().nonnegative('Discount cannot be negative').optional(),
     amountPaidNow: z.coerce.number().nonnegative().optional(),
     sendSms: z.boolean().optional(),
     specificRecordIds: z.string().optional(), // Comma-separated IDs
@@ -51,6 +52,7 @@ export async function processBulkOutflow(_prevState: any, formData: FormData): P
                 totalBagsToWithdraw: formData.get('totalBagsToWithdraw'),
                 withdrawalDate: formData.get('withdrawalDate'),
                 finalRent: formData.get('finalRent'),
+                discount: formData.get('discount'),
                 amountPaidNow: formData.get('amountPaidNow'),
                 sendSms: formData.get('sendSms') === 'true',
                 specificRecordIds: formData.get('specificRecordIds'),
@@ -73,6 +75,7 @@ export async function processBulkOutflow(_prevState: any, formData: FormData): P
                 totalBagsToWithdraw, 
                 withdrawalDate, 
                 amountPaidNow,
+                discount,
                 sendSms,
                 specificRecordIds 
             } = validatedFields.data;
@@ -103,13 +106,18 @@ export async function processBulkOutflow(_prevState: any, formData: FormData): P
                 return { success: false, message: 'No active records found for this commodity (or selection).' };
             }
 
-            // Map to our app type (simplified mapping for what we need)
-            const activeRecords: StorageRecord[] = await Promise.all(records.map(async (r) => {
-                 return await getStorageRecord(r.id) as StorageRecord; // Re-fetch through data layer to ensure consistent typing/joins if needed, effectively "hydrating"
+            // Map to our app type and filter out any where actual stock is 0
+            // (The DB query above might select them if the bags_stored DB column is corrupt)
+            const resolvedRecords = await Promise.all(records.map(async (r) => {
+                 return await getStorageRecord(r.id) as StorageRecord;
             }));
+            const activeRecords = resolvedRecords.filter(r => r && r.bagsStored > 0);
 
             // 2. Validate total available
             const totalAvailable = activeRecords.reduce((sum, r) => sum + r.bagsStored, 0);
+            if (activeRecords.length === 0) {
+                 return { success: false, message: 'No records with available stock found for this commodity (or selection).' };
+            }
             if (totalBagsToWithdraw > totalAvailable) {
                  return { success: false, message: `Requested ${totalBagsToWithdraw} bags, but only ${totalAvailable} are available.` };
             }
@@ -163,10 +171,29 @@ export async function processBulkOutflow(_prevState: any, formData: FormData): P
                 // Total Rent for the batch:
                 const totalBatchRent = operations.reduce((sum, op) => sum + op.rent, 0);
                 let paymentRemaining = amountPaidNow || 0;
+                let discountRemaining = discount || 0;
 
                 for (const op of operations) {
                     const { record, bags, rent } = op;
                     
+                    // 1. Allocate Discount
+                    let allocatedDiscount = 0;
+                    if (totalBatchRent > 0 && discountRemaining > 0) {
+                         allocatedDiscount = (rent / totalBatchRent) * (discount || 0);
+                         allocatedDiscount = Math.round(allocatedDiscount * 100) / 100;
+                         // Prevent floating point overshoot and apply remainder to the final op
+                         if (allocatedDiscount > discountRemaining || op === operations[operations.length - 1]) {
+                             allocatedDiscount = discountRemaining;
+                         }
+                         discountRemaining -= allocatedDiscount;
+                    } else if (discountRemaining > 0 && totalBatchRent === 0) {
+                        allocatedDiscount = discountRemaining;
+                        discountRemaining = 0;
+                    }
+
+                    const rentAfterDiscount = Math.max(0, rent - allocatedDiscount);
+
+                    // 2. Allocate Payment
                     // Simple proportion for payment allocation: (This Record Rent / Total Batch Rent) * Total Payment
                     // Safeguard against division by zero
                     let allocatedPayment = 0;
@@ -174,6 +201,11 @@ export async function processBulkOutflow(_prevState: any, formData: FormData): P
                          allocatedPayment = (rent / totalBatchRent) * (amountPaidNow || 0);
                          // Round to 2 decimals
                          allocatedPayment = Math.round(allocatedPayment * 100) / 100;
+                         // Prevent floating point overshoot
+                         if (allocatedPayment > paymentRemaining || op === operations[operations.length - 1]) {
+                             allocatedPayment = paymentRemaining;
+                         }
+                         paymentRemaining -= allocatedPayment;
                     } else if (paymentRemaining > 0 && totalBatchRent === 0) {
                         // If no rent due (e.g. grace period), just dump payment into the first record?
                         // Or spread evenly by bags?
@@ -185,7 +217,7 @@ export async function processBulkOutflow(_prevState: any, formData: FormData): P
                     const { updates: recordUpdate } = BillingService.calculateOutflowImpact(
                         record,
                         bags,
-                        rent, // Use calculated rent for this slice
+                        rentAfterDiscount, // Use calculated rent (after discount) for this slice
                         withdrawalDateObj
                     );
 
@@ -210,7 +242,7 @@ export async function processBulkOutflow(_prevState: any, formData: FormData): P
                     await updateStorageRecord(record.id, recordUpdate);
 
                     // Save Transaction
-                    const txId = await saveWithdrawalTransaction(record.id, bags, withdrawalDateObj, rent);
+                    const txId = await saveWithdrawalTransaction(record.id, bags, withdrawalDateObj, rentAfterDiscount, allocatedDiscount);
                     if (txId) transactionIds.push(txId);
 
                     processedCount++;

@@ -2,10 +2,8 @@
 
 import { useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { Inter } from 'next/font/google';
 import { AlertTriangle } from 'lucide-react';
 
-const inter = Inter({ subsets: ['latin'] });
 
 export default function GlobalError({
   error,
@@ -21,7 +19,7 @@ export default function GlobalError({
 
   return (
     <html lang="en">
-      <body className={inter.className}>
+      <body className="font-sans font-body">
         <div className="flex min-h-screen w-full flex-col items-center justify-center gap-6 bg-background p-4 text-foreground">
           <div className="flex flex-col items-center gap-2 text-center">
             <div className="rounded-full bg-destructive/10 p-4">
@@ -46,3 +44,4 @@ export default function GlobalError({
     </html>
   );
 }
+

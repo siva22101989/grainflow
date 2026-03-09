@@ -157,7 +157,7 @@ export async function addOutflow(_prevState: OutflowFormState, formData: FormDat
                     operation: 'addOutflow',
                     metadata: { recordId, bagsToWithdraw }
                 });
-                throw error; // Or return error state
+                return { message: error.message || "Failed to save outflow transaction.", success: false, data: rawData };
             }
             redirect(`/outflow/receipt/${recordId}?withdrawn=${bagsToWithdraw}&rent=${finalRent}&paidNow=${paymentMade}`);
         }

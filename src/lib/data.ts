@@ -674,7 +674,7 @@ export const saveWithdrawalTransaction = async (
 
     if (error) {
         logError(error, { operation: 'save_withdrawal_transaction', warehouseId, metadata: { recordId } });
-        return null;
+        throw error;
     }
     
     // AUDIT LOG

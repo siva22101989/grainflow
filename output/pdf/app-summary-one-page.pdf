@@ -1,0 +1,548 @@
+%PDF-1.3
+%ºß¬à
+3 0 obj
+<</Type /Page
+/Parent 1 0 R
+/Resources 2 0 R
+/MediaBox [0 0 612. 792.]
+/Contents 4 0 R
+>>
+endobj
+4 0 obj
+<<
+/Length 4935
+>>
+stream
+0.200025 w
+0 G
+BT
+/F2 14 Tf
+16.0999999999999979 TL
+0 g
+42. 750. Td
+(Grain Flow App Summary) Tj
+ET
+BT
+/F1 10.5 Tf
+12.0749999999999993 TL
+0 g
+42. 734. Td
+(Evidence source: README.md, docs/ARCHITECTURE.md, package.json, src/utils/supabase/middleware.ts,) Tj
+T* (supabase/functions/*) Tj
+ET
+BT
+/F2 14 Tf
+16.0999999999999979 TL
+0 g
+42. 704. Td
+(What It Is) Tj
+ET
+BT
+/F1 10.5 Tf
+12.0749999999999993 TL
+0 g
+42. 688. Td
+(Grain Flow is a multi-tenant warehouse management web app for agricultural storage operations. It digitizes) Tj
+T* (stock, customer, billing, payment, and subscription workflows using a Next.js + Supabase stack.) Tj
+ET
+BT
+/F2 14 Tf
+16.0999999999999979 TL
+0 g
+42. 659. Td
+(Who It Is For) Tj
+ET
+BT
+/F1 10.5 Tf
+12.0749999999999993 TL
+0 g
+44. 643. Td
+(ÿý) Tj
+ET
+BT
+/F1 10.5 Tf
+12.0749999999999993 TL
+0 g
+56. 643. Td
+(Primary persona: warehouse owners/admins and operations staff managing grain storage, inflow/outflow, rent) Tj
+T* (billing, and collections.) Tj
+ET
+BT
+/F2 14 Tf
+16.0999999999999979 TL
+0 g
+42. 616. Td
+(What It Does) Tj
+ET
+BT
+/F1 10.5 Tf
+12.0749999999999993 TL
+0 g
+44. 600. Td
+(ÿý) Tj
+ET
+BT
+/F1 10.5 Tf
+12.0749999999999993 TL
+0 g
+56. 600. Td
+(Tracks inflow, outflow, storage records, lot occupancy, and customer history.) Tj
+ET
+BT
+/F1 10.5 Tf
+12.0749999999999993 TL
+0 g
+44. 587.5 Td
+(ÿý) Tj
+ET
+BT
+/F1 10.5 Tf
+12.0749999999999993 TL
+0 g
+56. 587.5 Td
+(Calculates storage rent and tracks rent vs hamali \(labor\) payments.) Tj
+ET
+BT
+/F1 10.5 Tf
+12.0749999999999993 TL
+0 g
+44. 575. Td
+(ÿý) Tj
+ET
+BT
+/F1 10.5 Tf
+12.0749999999999993 TL
+0 g
+56. 575. Td
+(Provides dashboard metrics and operational reporting views.) Tj
+ET
+BT
+/F1 10.5 Tf
+12.0749999999999993 TL
+0 g
+44. 562.5 Td
+(ÿý) Tj
+ET
+BT
+/F1 10.5 Tf
+12.0749999999999993 TL
+0 g
+56. 562.5 Td
+(Supports role-based access and multi-warehouse membership/workflow.) Tj
+ET
+BT
+/F1 10.5 Tf
+12.0749999999999993 TL
+0 g
+44. 550. Td
+(ÿý) Tj
+ET
+BT
+/F1 10.5 Tf
+12.0749999999999993 TL
+0 g
+56. 550. Td
+(Offers customer/portal-style access patterns and profile-linked data views.) Tj
+ET
+BT
+/F1 10.5 Tf
+12.0749999999999993 TL
+0 g
+44. 537.5 Td
+(ÿý) Tj
+ET
+BT
+/F1 10.5 Tf
+12.0749999999999993 TL
+0 g
+56. 537.5 Td
+(Runs subscription lifecycle flows \(renewal links, expiry checks, notifications\).) Tj
+ET
+BT
+/F2 14 Tf
+16.0999999999999979 TL
+0 g
+42. 523. Td
+(How It Works \(Repo-Evidenced Architecture\)) Tj
+ET
+BT
+/F1 10.5 Tf
+12.0749999999999993 TL
+0 g
+44. 507. Td
+(ÿý) Tj
+ET
+BT
+/F1 10.5 Tf
+12.0749999999999993 TL
+0 g
+56. 507. Td
+(Frontend: Next.js App Router \(`src/app`\) with Server Components and client UI components) Tj
+T* (\(`src/components`\).) Tj
+ET
+BT
+/F1 10.5 Tf
+12.0749999999999993 TL
+0 g
+44. 482. Td
+(ÿý) Tj
+ET
+BT
+/F1 10.5 Tf
+12.0749999999999993 TL
+0 g
+56. 482. Td
+(Auth + data: Supabase SSR clients \(`src/utils/supabase/server.ts`, `client.ts`\) and route middleware guard) Tj
+T* (\(`middleware.ts`\) control access.) Tj
+ET
+BT
+/F1 10.5 Tf
+12.0749999999999993 TL
+0 g
+44. 457. Td
+(ÿý) Tj
+ET
+BT
+/F1 10.5 Tf
+12.0749999999999993 TL
+0 g
+56. 457. Td
+(Business logic: server actions and query modules in `src/lib/actions`, `src/lib`, and `src/lib/queries`.) Tj
+ET
+BT
+/F1 10.5 Tf
+12.0749999999999993 TL
+0 g
+44. 444.5 Td
+(ÿý) Tj
+ET
+BT
+/F1 10.5 Tf
+12.0749999999999993 TL
+0 g
+56. 444.5 Td
+(Database: Supabase PostgreSQL with migrations/RLS policies in `supabase/migrations` and docs in) Tj
+T* (`docs/DATABASE.md`.) Tj
+ET
+BT
+/F1 10.5 Tf
+12.0749999999999993 TL
+0 g
+44. 419.5 Td
+(ÿý) Tj
+ET
+BT
+/F1 10.5 Tf
+12.0749999999999993 TL
+0 g
+56. 419.5 Td
+(Background services: Supabase Edge Functions and cron SQL \(`supabase/functions/*`,) Tj
+T* (`supabase/cron_setup.sql`\) process subscription expiry/renewal tasks.) Tj
+ET
+BT
+/F1 10.5 Tf
+12.0749999999999993 TL
+0 g
+44. 394.5 Td
+(ÿý) Tj
+ET
+BT
+/F1 10.5 Tf
+12.0749999999999993 TL
+0 g
+56. 394.5 Td
+(Observability: Sentry Next.js configs \(`sentry.client.config.ts`, `sentry.server.config.ts`, `sentry.edge.config.ts`\).) Tj
+ET
+BT
+/F1 10.5 Tf
+12.0749999999999993 TL
+0 g
+44. 382. Td
+(ÿý) Tj
+ET
+BT
+/F1 10.5 Tf
+12.0749999999999993 TL
+0 g
+56. 382. Td
+(Message broker / event bus layer: Not found in repo.) Tj
+ET
+BT
+/F2 14 Tf
+16.0999999999999979 TL
+0 g
+42. 367.5 Td
+(How To Run \(Minimal\)) Tj
+ET
+BT
+/F1 10.5 Tf
+12.0749999999999993 TL
+0 g
+44. 351.5 Td
+(ÿý) Tj
+ET
+BT
+/F1 10.5 Tf
+12.0749999999999993 TL
+0 g
+56. 351.5 Td
+(Prereqs: Node.js 18+ and a Supabase project.) Tj
+ET
+BT
+/F1 10.5 Tf
+12.0749999999999993 TL
+0 g
+44. 339. Td
+(ÿý) Tj
+ET
+BT
+/F1 10.5 Tf
+12.0749999999999993 TL
+0 g
+56. 339. Td
+(Install deps: run `npm install` in repo root.) Tj
+ET
+BT
+/F1 10.5 Tf
+12.0749999999999993 TL
+0 g
+44. 326.5 Td
+(ÿý) Tj
+ET
+BT
+/F1 10.5 Tf
+12.0749999999999993 TL
+0 g
+56. 326.5 Td
+(Create `.env.local` with `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY`.) Tj
+ET
+BT
+/F1 10.5 Tf
+12.0749999999999993 TL
+0 g
+44. 314. Td
+(ÿý) Tj
+ET
+BT
+/F1 10.5 Tf
+12.0749999999999993 TL
+0 g
+56. 314. Td
+(Start dev server: `npm run dev` \(package script runs on port 9002\).) Tj
+ET
+endstream
+endobj
+1 0 obj
+<</Type /Pages
+/Kids [3 0 R ]
+/Count 1
+>>
+endobj
+5 0 obj
+<<
+/Type /Font
+/BaseFont /Helvetica
+/Subtype /Type1
+/Encoding /WinAnsiEncoding
+/FirstChar 32
+/LastChar 255
+>>
+endobj
+6 0 obj
+<<
+/Type /Font
+/BaseFont /Helvetica-Bold
+/Subtype /Type1
+/Encoding /WinAnsiEncoding
+/FirstChar 32
+/LastChar 255
+>>
+endobj
+7 0 obj
+<<
+/Type /Font
+/BaseFont /Helvetica-Oblique
+/Subtype /Type1
+/Encoding /WinAnsiEncoding
+/FirstChar 32
+/LastChar 255
+>>
+endobj
+8 0 obj
+<<
+/Type /Font
+/BaseFont /Helvetica-BoldOblique
+/Subtype /Type1
+/Encoding /WinAnsiEncoding
+/FirstChar 32
+/LastChar 255
+>>
+endobj
+9 0 obj
+<<
+/Type /Font
+/BaseFont /Courier
+/Subtype /Type1
+/Encoding /WinAnsiEncoding
+/FirstChar 32
+/LastChar 255
+>>
+endobj
+10 0 obj
+<<
+/Type /Font
+/BaseFont /Courier-Bold
+/Subtype /Type1
+/Encoding /WinAnsiEncoding
+/FirstChar 32
+/LastChar 255
+>>
+endobj
+11 0 obj
+<<
+/Type /Font
+/BaseFont /Courier-Oblique
+/Subtype /Type1
+/Encoding /WinAnsiEncoding
+/FirstChar 32
+/LastChar 255
+>>
+endobj
+12 0 obj
+<<
+/Type /Font
+/BaseFont /Courier-BoldOblique
+/Subtype /Type1
+/Encoding /WinAnsiEncoding
+/FirstChar 32
+/LastChar 255
+>>
+endobj
+13 0 obj
+<<
+/Type /Font
+/BaseFont /Times-Roman
+/Subtype /Type1
+/Encoding /WinAnsiEncoding
+/FirstChar 32
+/LastChar 255
+>>
+endobj
+14 0 obj
+<<
+/Type /Font
+/BaseFont /Times-Bold
+/Subtype /Type1
+/Encoding /WinAnsiEncoding
+/FirstChar 32
+/LastChar 255
+>>
+endobj
+15 0 obj
+<<
+/Type /Font
+/BaseFont /Times-Italic
+/Subtype /Type1
+/Encoding /WinAnsiEncoding
+/FirstChar 32
+/LastChar 255
+>>
+endobj
+16 0 obj
+<<
+/Type /Font
+/BaseFont /Times-BoldItalic
+/Subtype /Type1
+/Encoding /WinAnsiEncoding
+/FirstChar 32
+/LastChar 255
+>>
+endobj
+17 0 obj
+<<
+/Type /Font
+/BaseFont /ZapfDingbats
+/Subtype /Type1
+/FirstChar 32
+/LastChar 255
+>>
+endobj
+18 0 obj
+<<
+/Type /Font
+/BaseFont /Symbol
+/Subtype /Type1
+/FirstChar 32
+/LastChar 255
+>>
+endobj
+2 0 obj
+<<
+/ProcSet [/PDF /Text /ImageB /ImageC /ImageI]
+/Font <<
+/F1 5 0 R
+/F2 6 0 R
+/F3 7 0 R
+/F4 8 0 R
+/F5 9 0 R
+/F6 10 0 R
+/F7 11 0 R
+/F8 12 0 R
+/F9 13 0 R
+/F10 14 0 R
+/F11 15 0 R
+/F12 16 0 R
+/F13 17 0 R
+/F14 18 0 R
+>>
+/XObject <<
+>>
+>>
+endobj
+19 0 obj
+<<
+/Producer (jsPDF 4.0.0)
+/CreationDate (D:20260305161919+05'30')
+>>
+endobj
+20 0 obj
+<<
+/Type /Catalog
+/Pages 1 0 R
+/OpenAction [3 0 R /FitH null]
+/PageLayout /OneColumn
+>>
+endobj
+xref
+0 21
+0000000000 65535 f 
+0000005107 00000 n 
+0000006924 00000 n 
+0000000015 00000 n 
+0000000120 00000 n 
+0000005164 00000 n 
+0000005289 00000 n 
+0000005419 00000 n 
+0000005552 00000 n 
+0000005689 00000 n 
+0000005812 00000 n 
+0000005941 00000 n 
+0000006073 00000 n 
+0000006209 00000 n 
+0000006337 00000 n 
+0000006464 00000 n 
+0000006593 00000 n 
+0000006726 00000 n 
+0000006828 00000 n 
+0000007172 00000 n 
+0000007258 00000 n 
+trailer
+<<
+/Size 21
+/Root 20 0 R
+/Info 19 0 R
+/ID [ <0310F0CC7D6F75B09CE7AA64A6211CCA> <0310F0CC7D6F75B09CE7AA64A6211CCA> ]
+>>
+startxref
+7362
+%%EOF

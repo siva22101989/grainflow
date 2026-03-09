@@ -55,6 +55,7 @@ export function BulkOutflowDialog({ customer, records, onOpenChange: _onOpenChan
     const [commodity, setCommodity] = useState<string>('');
     const [bagsToWithdraw, setBagsToWithdraw] = useState<string>('');
     const [rentPaidNow, setRentPaidNow] = useState<string>('');
+    const [discount, setDiscount] = useState<string>('');
     const [withdrawalDate, setWithdrawalDate] = useState<string>(new Date().toISOString().split('T')[0] || '');
     const [sendSms, setSendSms] = useState(true);
 
@@ -143,6 +144,7 @@ export function BulkOutflowDialog({ customer, records, onOpenChange: _onOpenChan
             router.refresh();
             setBagsToWithdraw('');
             setRentPaidNow('');
+            setDiscount('');
             setExcludedRecordIds(new Set());
         }
     }, [state, open, showSuccess, router]);
@@ -150,6 +152,7 @@ export function BulkOutflowDialog({ customer, records, onOpenChange: _onOpenChan
     const reset = () => {
         setBagsToWithdraw('');
         setRentPaidNow('');
+        setDiscount('');
         setCommodity('');
         setExcludedRecordIds(new Set());
     };
@@ -185,6 +188,7 @@ export function BulkOutflowDialog({ customer, records, onOpenChange: _onOpenChan
                         <input type="hidden" name="totalBagsToWithdraw" value={bagsToWithdraw} />
                         <input type="hidden" name="withdrawalDate" value={withdrawalDate} />
                         <input type="hidden" name="finalRent" value={previewPlan?.totalRent || 0} />
+                        <input type="hidden" name="discount" value={discount} />
                         <input type="hidden" name="amountPaidNow" value={rentPaidNow} />
                         <input type="hidden" name="sendSms" value={String(sendSms)} />
                         <input type="hidden" name="specificRecordIds" value={specificRecordIdsValue} />
@@ -263,7 +267,7 @@ export function BulkOutflowDialog({ customer, records, onOpenChange: _onOpenChan
                                         <AlertDescription className="flex flex-col gap-1 mt-1">
                                             <div className="flex justify-between font-medium">
                                                 <span>Total Bags: {bagsToWithdraw}</span>
-                                                <span>Total Rent Due: {formatCurrency(previewPlan.totalRent)}</span>
+                                                <span>Total Rent Due: {formatCurrency(Math.max(0, (previewPlan.totalRent || 0) - (parseFloat(discount || '0') || 0)))}</span>
                                             </div>
                                             {previewPlan.impossible && (
                                                 <span className="font-bold text-destructive mt-1">
@@ -380,18 +384,37 @@ export function BulkOutflowDialog({ customer, records, onOpenChange: _onOpenChan
                                         </div>
                                     </div>
 
-                                    <div className="pt-2">
-                                        <Label className="mb-2 block">Rent Payment (Optional)</Label>
-                                        <div className="flex gap-4 items-center">
-                                            <Input 
-                                                type="number" 
-                                                placeholder="Enter amount to pay now" 
-                                                value={rentPaidNow} 
-                                                onChange={(e) => setRentPaidNow(e.target.value)}
-                                                className="max-w-[200px]"
-                                            />
+                                    <div className="pt-4 grid grid-cols-1 sm:grid-cols-2 gap-6 mt-2 border-t border-border/50">
+                                        <div>
+                                            <Label className="mb-2 block">Discount (Optional)</Label>
+                                            <div className="flex gap-4 items-center">
+                                                <Input 
+                                                    type="number" 
+                                                    placeholder="Enter discount amount" 
+                                                    value={discount} 
+                                                    onChange={(e) => setDiscount(e.target.value)}
+                                                    className="w-full"
+                                                />
+                                            </div>
+                                            {discount && (
+                                                <div className="text-xs text-muted-foreground mt-1">
+                                                    Distributed across records.
+                                                </div>
+                                            )}
+                                        </div>
+                                        <div>
+                                            <Label className="mb-2 block">Rent Payment (Optional)</Label>
+                                            <div className="flex gap-4 items-center">
+                                                <Input 
+                                                    type="number" 
+                                                    placeholder="Amount to pay now" 
+                                                    value={rentPaidNow} 
+                                                    onChange={(e) => setRentPaidNow(e.target.value)}
+                                                    className="w-full"
+                                                />
+                                            </div>
                                             {rentPaidNow && (
-                                                <div className="text-sm text-muted-foreground">
+                                                <div className="text-xs text-muted-foreground mt-1">
                                                     Will be distributed proportionally.
                                                 </div>
                                             )}

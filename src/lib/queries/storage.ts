@@ -339,6 +339,7 @@ export const searchActiveStorageRecords = cache(async (query: string, limit = 20
       commodity_description,
       location,
       bags_stored,
+      bags_in,
       customer:customers!inner(name),
       withdrawal_transactions (bags_withdrawn) 
     `)
@@ -361,15 +362,21 @@ export const searchActiveStorageRecords = cache(async (query: string, limit = 20
 
   if (error) return [];
 
-  return data.map((r: any) => ({
-      id: r.id,
-      recordNumber: r.record_number,
-      customerName: r.customer?.name,
-      commodity: r.commodity_description,
-      location: r.location,
-      date: new Date(r.storage_start_date),
-      bags: r.bags_stored || 0 // records.bags_stored is already the current balance
-  }));
+  return data.map((r: any) => {
+      const totalWithdrawn = (r.withdrawal_transactions || []).reduce((sum: number, wt: any) => sum + (wt.bags_withdrawn || 0), 0);
+      const initialBags = r.bags_in || r.bags_stored || 0;
+      const currentBalance = initialBags - totalWithdrawn;
+
+      return {
+          id: r.id,
+          recordNumber: r.record_number,
+          customerName: r.customer?.name,
+          commodity: r.commodity_description,
+          location: r.location,
+          date: new Date(r.storage_start_date),
+          bags: currentBalance
+      };
+  });
 });
 
 export const getPaginatedStorageRecords = cache(async (
