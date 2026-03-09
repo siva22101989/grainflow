@@ -42,12 +42,13 @@ export function OutflowForm({
     const [discount, setDiscount] = useState(0);
     const [storageMonths, setStorageMonths] = useState(0);
     const [hamaliPending, setHamaliPending] = useState(0);
+    const [advanceAmount, setAdvanceAmount] = useState(0);
     const [isLoadingRecord, setIsLoadingRecord] = useState(false);
     const [sendSms] = useState(smsEnabledDefault);
 
     // Calculate net rent based on discount
     const netRent = Math.max(0, standardRent - discount);
-    const totalPayable = netRent + hamaliPending;
+    const totalPayable = Math.max(0, netRent + hamaliPending - advanceAmount);
 
     const handleRecordSelect = async (recordId: string) => {
         setSelectedRecordId(recordId);
@@ -73,7 +74,14 @@ export function OutflowForm({
         if (selectedRecord) {
             const amountPaid = (selectedRecord.payments || []).reduce((acc, p) => acc + p.amount, 0);
             const pending = selectedRecord.hamaliPayable - amountPaid;
-            setHamaliPending(pending > 0 ? pending : 0);
+            
+            if (pending > 0) {
+                setHamaliPending(pending);
+                setAdvanceAmount(0);
+            } else {
+                setHamaliPending(0);
+                setAdvanceAmount(Math.abs(pending));
+            }
             
             const safeRecord = {
                 ...selectedRecord,
@@ -104,6 +112,7 @@ export function OutflowForm({
             setStandardRent(0);
             setStorageMonths(0);
             setHamaliPending(0);
+            setAdvanceAmount(0);
         }
     }, [selectedRecord, bagsToWithdraw, withdrawalDate, crops]);
     
@@ -261,6 +270,14 @@ export function OutflowForm({
                                         <span className="text-muted-foreground">Pending Hamali Charges</span>
                                         <span className="font-mono">₹{hamaliPending.toFixed(2)}</span>
                                     </div>
+
+                                    {advanceAmount > 0 && (
+                                        <div className="flex justify-between items-center text-sm font-medium text-emerald-600 dark:text-emerald-500">
+                                            <span>Prior Credit / Advance</span>
+                                            <span className="font-mono">- ₹{advanceAmount.toFixed(2)}</span>
+                                        </div>
+                                    )}
+
                                     <Separator />
                                     <div className="flex justify-between items-center font-semibold text-lg">
                                         <span className="text-foreground">Total Payable</span>

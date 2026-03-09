@@ -3,6 +3,7 @@
 import { createClient } from '@/utils/supabase/server';
 import { revalidatePath } from 'next/cache';
 import { logError } from './error-logger';
+import { LIMITS } from '@/lib/feature-flags';
 
 export type SubscriptionState = {
   success: boolean;
@@ -43,7 +44,7 @@ export async function getSubscriptionAction(warehouseId: string) {
              display_name: 'Free',
              tier: 'free',
              max_warehouses: 1,
-             max_storage_records: 50,
+             max_storage_records: LIMITS.STORAGE_RECORDS!.limit.free,
              features: {}
           },
           usage
@@ -581,6 +582,18 @@ export async function activateSubscriptionPayment(
   try {
     const { createAdminClient } = await import('@/utils/supabase/admin');
     const supabase = await createAdminClient();
+
+    // 0. Idempotency Check: Verify if this payment has already been processed
+    const { data: existingPayment } = await supabase
+      .from('subscription_payments')
+      .select('id')
+      .eq('razorpay_payment_id', paymentDetails.razorpay_payment_id)
+      .single();
+
+    if (existingPayment) {
+      console.log('Payment already processed (Idempotency check passed):', paymentDetails.razorpay_payment_id);
+      return { success: true };
+    }
 
     // 1. Get plan details
     const { data: plan, error: planError } = await supabase

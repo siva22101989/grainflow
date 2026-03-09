@@ -97,6 +97,8 @@ export function BulkOutflowDialog({ customer, records, onOpenChange: _onOpenChan
 
         let remaining = targetBags;
         const plan = [];
+        let totalHamaliPending = 0;
+        let totalAdvanceAmount = 0;
 
         for (const r of activeRecords) {
             if (remaining <= 0) break;
@@ -104,6 +106,15 @@ export function BulkOutflowDialog({ customer, records, onOpenChange: _onOpenChan
             const take = Math.min(r.bagsStored, remaining);
             const { rent } = calculateFinalRent(r, new Date(withdrawalDate), take);
             
+            const amountPaid = (r.payments || []).reduce((acc, p) => acc + p.amount, 0);
+            const pending = r.hamaliPayable - amountPaid;
+            
+            if (pending > 0) {
+                totalHamaliPending += pending;
+            } else {
+                totalAdvanceAmount += Math.abs(pending);
+            }
+
             plan.push({
                 record: r,
                 take,
@@ -116,6 +127,8 @@ export function BulkOutflowDialog({ customer, records, onOpenChange: _onOpenChan
         return {
             operations: plan,
             totalRent: plan.reduce((sum, p) => sum + p.rent, 0),
+            totalHamaliPending,
+            totalAdvanceAmount,
             impossible: remaining > 0,
             activeRecordCount: activeRecords.length
         };
@@ -264,10 +277,32 @@ export function BulkOutflowDialog({ customer, records, onOpenChange: _onOpenChan
                                     <Alert className={previewPlan.impossible ? "border-destructive text-destructive" : "bg-primary/5 border-primary/20"}>
                                         <Calculator className="h-4 w-4" />
                                         <AlertTitle>Summary</AlertTitle>
-                                        <AlertDescription className="flex flex-col gap-1 mt-1">
+                                         <AlertDescription className="flex flex-col gap-1 mt-1">
                                             <div className="flex justify-between font-medium">
                                                 <span>Total Bags: {bagsToWithdraw}</span>
-                                                <span>Total Rent Due: {formatCurrency(Math.max(0, (previewPlan.totalRent || 0) - (parseFloat(discount || '0') || 0)))}</span>
+                                                <span className="text-muted-foreground">Standard Rent: {formatCurrency(previewPlan.totalRent || 0)}</span>
+                                            </div>
+                                            {(previewPlan.totalHamaliPending > 0) && (
+                                                <div className="flex justify-between text-sm">
+                                                    <span>Pending Hamali:</span>
+                                                    <span>{formatCurrency(previewPlan.totalHamaliPending)}</span>
+                                                </div>
+                                            )}
+                                            {(previewPlan.totalAdvanceAmount > 0) && (
+                                                <div className="flex justify-between text-sm text-emerald-600 dark:text-emerald-500 font-medium">
+                                                    <span>Prior Credit / Advance:</span>
+                                                    <span>- {formatCurrency(previewPlan.totalAdvanceAmount)}</span>
+                                                </div>
+                                            )}
+                                            {discount && (
+                                                <div className="flex justify-between text-sm">
+                                                    <span>Discount Applied:</span>
+                                                    <span>- {formatCurrency(parseFloat(discount || '0') || 0)}</span>
+                                                </div>
+                                            )}
+                                            <div className="flex justify-between font-bold text-lg mt-2 pt-2 border-t border-border/50">
+                                                <span>Total Payable Today:</span>
+                                                <span>{formatCurrency(Math.max(0, (previewPlan.totalRent || 0) + previewPlan.totalHamaliPending - previewPlan.totalAdvanceAmount - (parseFloat(discount || '0') || 0)))}</span>
                                             </div>
                                             {previewPlan.impossible && (
                                                 <span className="font-bold text-destructive mt-1">

@@ -769,9 +769,9 @@ export function generateCustomReportPDF(
                <td style="padding: 6px 8px; border-bottom: 1px solid #eee;">${t.invoiceNo}</td>
                <td style="padding: 6px 8px; border-bottom: 1px solid #eee; text-align: right;">${t.bagsIn || ''}</td>
                <td style="padding: 6px 8px; border-bottom: 1px solid #eee; text-align: right;">${t.bagsOut || ''}</td>
-               <td style="padding: 6px 8px; border-bottom: 1px solid #eee; text-align: right;">${t.hamali ? formatCurrency(t.hamali) : ''}</td>
-               <td style="padding: 6px 8px; border-bottom: 1px solid #eee; text-align: right;">${t.rent ? formatCurrency(t.rent) : ''}</td>
-               <td style="padding: 6px 8px; border-bottom: 1px solid #eee; text-align: right;">${t.credit ? formatCurrency(t.credit) : ''}</td>
+               <td style="padding: 6px 8px; border-bottom: 1px solid #eee; text-align: right;">${t.hamali !== null && t.hamali !== undefined ? formatCurrency(t.hamali) : ''}</td>
+               <td style="padding: 6px 8px; border-bottom: 1px solid #eee; text-align: right;">${t.rent !== null && t.rent !== undefined ? formatCurrency(t.rent) : ''}</td>
+               <td style="padding: 6px 8px; border-bottom: 1px solid #eee; text-align: right;">${t.credit !== null && t.credit !== undefined ? formatCurrency(t.credit) : ''}</td>
                <td style="padding: 6px 8px; border-bottom: 1px solid #eee; text-align: right; font-weight: bold;">${formatCurrency(t.balance)}</td>
              </tr>
            `).join('');

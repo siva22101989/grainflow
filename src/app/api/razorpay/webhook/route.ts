@@ -4,9 +4,17 @@ import { textBeeService } from '@/lib/textbee';
 import { logError } from '@/lib/error-logger';
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/utils/supabase/server';
+import { rateLimit } from '@/lib/rate-limit';
 
 export async function POST(request: NextRequest) {
   try {
+    // 0. Rate limit the webhook endpoint (max 100 requests per minute per IP)
+    const ip = request.headers.get('x-forwarded-for') || 'unknown';
+    const limitResult = await rateLimit(`razorpay_webhook_${ip}`, { limit: 100, windowMs: 60000 });
+    if (!limitResult.success) {
+      return NextResponse.json({ error: 'Too many requests' }, { status: 429 });
+    }
+
     // Get webhook signature from headers
     const signature = request.headers.get('x-razorpay-signature');
     if (!signature) {

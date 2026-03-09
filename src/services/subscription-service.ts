@@ -1,6 +1,7 @@
 import { createClient } from '@/utils/supabase/server';
 import { logError } from '@/lib/error-logger';
 import { Database, UserRole, SubscriptionStatus } from '@/types/db';
+import { LIMITS } from '@/lib/feature-flags';
 
 type Subscription = Database['public']['Tables']['subscriptions']['Row'] & {
     plans: Database['public']['Tables']['plans']['Row'] | null;
@@ -103,12 +104,10 @@ export async function checkSubscriptionLimits(warehouseId: string, action: 'add_
     
     if (!subscription || !subscription.plans) {
         // Fallback for "Free Tier" or "No Plan"
-        // This logic should ideally be driven by a default plan in DB, but hardcoding for safety here as per original code.
-        // Since we already fetched usage, we check usage direct
-        
-        const FREE_LIMIT = 50;
-        if ((usage.total_records || 0) >= FREE_LIMIT && action === 'add_record') {
-             return { allowed: false, message: `Free Tier limit reached (${FREE_LIMIT} records). Please upgrade to add more.` };
+        // This relies on the central feature-flags constants rather than a local magic number.
+        const freeLimit = LIMITS.STORAGE_RECORDS!.limit.free;
+        if ((usage.total_records || 0) >= freeLimit && action === 'add_record') {
+             return { allowed: false, message: `Free Tier limit reached (${freeLimit} records). Please upgrade to add more.` };
         }
         return { allowed: true };
     }
@@ -134,18 +133,8 @@ export async function checkSubscriptionLimits(warehouseId: string, action: 'add_
         }
     }
     
-    if (action === 'add_user') {
-         // Assuming max_warehouses is not the user limit. 
-         // Original code didn't check user limit in checkSubscriptionLimits explicitly for 'add_user' in the snippet I saw? 
-         // Wait, I saw `checkSubscriptionLimits(warehouseId, 'add_user')` call in `warehouse-actions.ts`.
-         // Let's implement a safe default or check if plans has max_users field.
-         // The DB types I wrote didn't have max_users. Let's assume unlimited or check max_warehouses?
-         // Checking original code... it just returned { allowed: true } or similar logic. 
-         // Update: Original code logic for 'add_user' was missing inside the `if (action === 'add_record')` block. 
-         // It seems the original code passed 'add_user' but didn't have specific logic for it?
-         // Let's look at `plans` table structure in my DB types. I only saw `max_warehouses`, `max_storage_records`.
-         // I'll stick to permissive for now.
-    }
+    // Note: 'add_user' logic was explicitly removed as there is currently no `max_users` DB column
+    // and staff accounts are typically managed by application logic, not hard subscription DB limits.
 
     return { allowed: true };
 }
