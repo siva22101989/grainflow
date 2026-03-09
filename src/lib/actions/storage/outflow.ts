@@ -36,6 +36,14 @@ export type OutflowFormState = {
     data?: Record<string, any>;
 };
 
+/**
+ * Core server action to record an outflow (withdrawal) of stock for a single storage record.
+ * Handles validation, stock checks, rent calculation impact, payment recording, and auditing.
+ * 
+ * @param {OutflowFormState} _prevState - Form state (provided by useActionState).
+ * @param {FormData} formData - Form data containing recordId, bagsToWithdraw, withdrawalDate, finalRent, amountPaidNow, etc.
+ * @returns {Promise<OutflowFormState>} The result of the operation, containing success status and message.
+ */
 export async function addOutflow(_prevState: OutflowFormState, formData: FormData): Promise<OutflowFormState> {
     return Sentry.startSpan(
         {
@@ -164,6 +172,14 @@ export async function addOutflow(_prevState: OutflowFormState, formData: FormDat
     );
 }
 
+/**
+ * Soft-deletes (reverts) a specific outflow transaction.
+ * Restores the withdrawn bags back to the storage record, reverses the billed rent,
+ * and reopens the record if it was previously marked as completed.
+ * 
+ * @param {string} transactionId - The UUID of the `withdrawal_transactions` row to revert.
+ * @returns {Promise<{ success: boolean, message: string }>} Result of the reversal operation.
+ */
 export async function deleteOutflow(transactionId: string) {
     const user = await getAuthUser();
     await checkRateLimit(user?.id || 'anon', 'deleteOutflow', { limit: 10 });
@@ -235,6 +251,14 @@ export async function deleteOutflow(transactionId: string) {
     return { success: true, message: 'Outflow reverted successfully.' };
 }
 
+/**
+ * Modifies an existing outflow transaction's details (bags, rent, date).
+ * Re-calculates the final impact on the storage record (e.g. adjusting stock).
+ * 
+ * @param {string} transactionId - The UUID of the transaction to update.
+ * @param {FormData} formData - Data containing the corrected `bags`, `date`, and `rent`.
+ * @returns {Promise<{ success: boolean, message: string }>} Result of the update operation.
+ */
 export async function updateOutflow(transactionId: string, formData: FormData) {
     const user = await getAuthUser();
     await checkRateLimit(user?.id || 'anon', 'updateOutflow', { limit: 10 });

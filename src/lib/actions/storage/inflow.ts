@@ -21,6 +21,14 @@ const FinalizeDryingSchema = z.object({
   finalBags: z.coerce.number().positive(),
 });
 
+/**
+ * Finalizes the drying process of a plot.
+ * Converts "Plot Bags" into actual "Stored Bags" and updates warehouse lot capacity accordingly.
+ * 
+ * @param {_prevState} _prevState - Form state (provided by useActionState).
+ * @param {FormData} formData - Data containing recordId and finalBags.
+ * @returns {Promise<{ message: string, success: boolean, recordId?: string }>} The result of the operation.
+ */
 export async function finalizePlotDrying(_prevState: FormState, formData: FormData) {
   try {
       const validatedFields = FinalizeDryingSchema.safeParse({
@@ -140,6 +148,15 @@ export type InflowFormState = {
   data?: Record<string, any>;
 };
 
+/**
+ * Core server action to record a new inflow (deposit) of stock.
+ * Validates input, checks warehouse capacity limit, performs security checks,
+ * saves the initial record, and triggers an SMS notification if requested.
+ * 
+ * @param {InflowFormState} _prevState - Form state (provided by useActionState).
+ * @param {FormData} formData - Data containing all inflow fields (customer, bags, lot, etc.).
+ * @returns {Promise<InflowFormState>} Object indicating success or returning error messages.
+ */
 export async function addInflow(_prevState: InflowFormState, formData: FormData): Promise<InflowFormState> {
   return Sentry.startSpan(
       {

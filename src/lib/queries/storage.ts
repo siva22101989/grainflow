@@ -6,6 +6,12 @@ import { logError } from '@/lib/error-logger';
 import { getUserWarehouse } from './warehouses';
 import { measureQuery } from '@/lib/utils/query-logger';
 
+/**
+ * Fetches high-level metrics for the dashboard view.
+ * Calculates total capacity, total stock, active record count, and pending revenue.
+ * 
+ * @returns {Promise<{totalCapacity: number, totalStock: number, occupancyRate: number, activeRecordsCount: number, pendingRevenue: number} | null>} Dashboard metrics.
+ */
 export const getDashboardMetrics = cache(async () => {
     const supabase = await createClient();
     const warehouseId = await getUserWarehouse();
@@ -64,7 +70,13 @@ export const getDashboardMetrics = cache(async () => {
     };
 });
 
-// Helper to map DB result to types
+/**
+ * Helper function to map database storage records to the frontend `StorageRecord` type.
+ * Also recalculates `bagsStored` dynamically to ensure data integrity against corrupt historical entries.
+ * 
+ * @param {any[]} records - Raw database records.
+ * @returns {StorageRecord[]} Array of mapped storage records.
+ */
 function mapRecords(records: any[]): StorageRecord[] {
   return records.map((r: any) => {
     // Calculate total withdrawn bags from withdrawal transactions
@@ -114,7 +126,15 @@ function mapRecords(records: any[]): StorageRecord[] {
   });
 }
 
-// Query builder helper to reduce duplication
+/**
+ * Query builder helper to construct common storage record queries.
+ * Handles joins for payments, customers, and withdrawal transactions.
+ * 
+ * @param {any} supabase - Supabase client instance.
+ * @param {string} warehouseId - The warehouse UUID.
+ * @param {StorageQueryOptions} [options={}] - Query filtering and inclusion options.
+ * @returns {any} A Supabase query builder object.
+ */
 function buildStorageRecordsQuery(
   supabase: any,
   warehouseId: string,
@@ -151,6 +171,13 @@ function buildStorageRecordsQuery(
 }
 
 
+/**
+ * Fetches all storage records for a warehouse with pagination.
+ * 
+ * @param {number} [limit=20] - Number of records to return.
+ * @param {number} [offset=0] - Number of records to skip.
+ * @returns {Promise<StorageRecord[]>} Array of storage records.
+ */
 export const getStorageRecords = cache(async (limit = 20, offset = 0): Promise<StorageRecord[]> => {
   const supabase = await createClient();
   const warehouseId = await getUserWarehouse();
@@ -176,6 +203,13 @@ export const getStorageRecords = cache(async (limit = 20, offset = 0): Promise<S
   );
 });
 
+/**
+ * Fetches only active storage records (where stock > 0) with pagination.
+ * 
+ * @param {number} [limit=20] - Number of records to return.
+ * @param {number} [offset=0] - Number of records to skip.
+ * @returns {Promise<StorageRecord[]>} Array of active storage records.
+ */
 export const getActiveStorageRecords = cache(async (limit = 20, offset = 0): Promise<StorageRecord[]> => {
   const supabase = await createClient();
   const warehouseId = await getUserWarehouse();
@@ -194,6 +228,11 @@ export const getActiveStorageRecords = cache(async (limit = 20, offset = 0): Pro
   return mapRecords(records);
 });
 
+/**
+ * Calculates total historical inflow, outflow, and current balance stock across the warehouse.
+ * 
+ * @returns {Promise<{totalInflow: number, totalOutflow: number, balanceStock: number}>} Overall stock statistics.
+ */
 export const getStorageStats = cache(async () => {
     const supabase = await createClient();
     const warehouseId = await getUserWarehouse();
@@ -218,6 +257,12 @@ export const getStorageStats = cache(async () => {
     };
 });
 
+/**
+ * Retrieves a single storage record by ID, including its related entities.
+ * 
+ * @param {string} id - The UUID of the storage record.
+ * @returns {Promise<StorageRecord | null>} The storage record details or null.
+ */
 export const getStorageRecord = cache(async (id: string): Promise<StorageRecord | null> => {
   const supabase = await createClient();
   const { data: r, error } = await supabase
@@ -237,6 +282,14 @@ export const getStorageRecord = cache(async (id: string): Promise<StorageRecord 
   return mapRecords([r])[0] || null;
 });
 
+/**
+ * Fetches all storage records for a specific customer.
+ * 
+ * @param {string} customerId - The UUID of the customer.
+ * @param {number} [limit=200] - Max records to return.
+ * @param {number} [offset=0] - Pagination offset.
+ * @returns {Promise<StorageRecord[]>} Array of customer's storage records.
+ */
 export async function getCustomerRecords(customerId: string, limit = 200, offset = 0): Promise<StorageRecord[]> {
     const supabase = await createClient();
     const warehouseId = await getUserWarehouse();
@@ -252,6 +305,12 @@ export async function getCustomerRecords(customerId: string, limit = 200, offset
     return mapRecords(records);
 }
 
+/**
+ * Fetches the most recent initial deposits (inflows).
+ * 
+ * @param {number} [limit=5] - Number of recent inflows to fetch.
+ * @returns {Promise<any[]>} Array of recent inflows for dashboard cards.
+ */
 export const getRecentInflows = cache(async (limit = 5) => {
   const supabase = await createClient();
   const warehouseId = await getUserWarehouse();
@@ -284,6 +343,12 @@ export const getRecentInflows = cache(async (limit = 5) => {
   }));
 });
 
+/**
+ * Fetches the most recent withdrawal transactions (outflows).
+ * 
+ * @param {number} [limit=5] - Number of recent outflows to fetch.
+ * @returns {Promise<any[]>} Array of recent outflows for dashboard cards.
+ */
 export const getRecentOutflows = cache(async (limit = 5) => {
   const supabase = await createClient();
   const warehouseId = await getUserWarehouse();
@@ -325,6 +390,15 @@ export const getRecentOutflows = cache(async (limit = 5) => {
   }));
 });
 
+/**
+ * Searches and fetches active storage records specifically for selection in the outflow feature.
+ * Performs dynamic calculation of bags stored to prevent using corrupted values.
+ * 
+ * @param {string} query - The search term (customer name or record number).
+ * @param {number} [limit=20] - Max records.
+ * @param {number} [offset=0] - Pagination offset.
+ * @returns {Promise<any[]>} Array of matching simplified storage records.
+ */
 export const searchActiveStorageRecords = cache(async (query: string, limit = 20, offset = 0) => {
   const supabase = await createClient();
   const warehouseId = await getUserWarehouse();
@@ -379,6 +453,16 @@ export const searchActiveStorageRecords = cache(async (query: string, limit = 20
   });
 });
 
+/**
+ * Fetches storage records with advanced filtering, search, pagination and total count metadata.
+ * Useful for data tables requiring server-side pagination.
+ * 
+ * @param {number} [page=1] - Standard 1-indexed page number.
+ * @param {number} [limit=20] - Items per page.
+ * @param {string} [search] - Keyword to search by customer name or record number.
+ * @param {'active' | 'all' | 'released'} [status='active'] - Filtering by record status.
+ * @returns {Promise<{ records: StorageRecord[], totalCount: number, totalPages: number }>}
+ */
 export const getPaginatedStorageRecords = cache(async (
     page: number = 1, 
     limit: number = 20, 

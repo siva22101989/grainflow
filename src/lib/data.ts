@@ -71,6 +71,12 @@ import { logError } from '@/lib/error-logger';
 
 
 
+/**
+ * Retrieves the warehouse ID assigned to the currently authenticated user.
+ * Looks up the user's profile in the `profiles` table.
+ * 
+ * @returns {Promise<string | null>} The warehouse UUID or null if the user is unauthenticated or has no warehouse.
+ */
 export const getUserWarehouse = cache(async () => {
   const supabase = await createClient();
   const user = await getAuthUser();
@@ -85,6 +91,12 @@ export const getUserWarehouse = cache(async () => {
   return profile?.warehouse_id;
 });
 
+/**
+ * Fetches all available crop types for the current user's warehouse.
+ * Used for populating dropdowns and validating entries.
+ * 
+ * @returns {Promise<any[]>} Array of crop records. Empty array if no warehouse is assigned.
+ */
 export const getAvailableCrops = cache(async () => {
     const supabase = await createClient();
     const warehouseId = await getUserWarehouse();
@@ -94,6 +106,12 @@ export const getAvailableCrops = cache(async () => {
     return data || [];
 });
 
+/**
+ * Fetches all active storage lots (locations) for the current user's warehouse.
+ * Includes capacity and current stock for each lot.
+ * 
+ * @returns {Promise<any[]>} Array of warehouse lot records. Empty array if no warehouse is assigned.
+ */
 export const getAvailableLots = cache(async () => {
     const supabase = await createClient();
     const warehouseId = await getUserWarehouse();
@@ -103,6 +121,13 @@ export const getAvailableLots = cache(async () => {
     return data || [];
 });
 
+/**
+ * Aggregates high-level metrics for the dashboard view.
+ * Calculates total warehouse capacity, current total stock, occupancy rate, 
+ * and the count of currently active (non-completed) storage records.
+ * 
+ * @returns {Promise<{totalCapacity: number, totalStock: number, occupancyRate: number, activeRecordsCount: number} | null>} Dashboard metrics object or null if no warehouse assigned.
+ */
 export const getDashboardMetrics = cache(async () => {
     const supabase = await createClient();
     const warehouseId = await getUserWarehouse();
@@ -135,7 +160,12 @@ export const getDashboardMetrics = cache(async () => {
     };
 });
 
-// Customer Functions
+/**
+ * Retrieves a list of all customers associated with the current user's warehouse.
+ * Results are mapped from the database snake_case structure to the application's camelCase Customer type.
+ * 
+ * @returns {Promise<Customer[]>} Array of Customer objects.
+ */
 export const customers = cache(async (): Promise<Customer[]> => {
   const supabase = await createClient();
   const warehouseId = await getUserWarehouse();
@@ -167,6 +197,12 @@ export const customers = cache(async (): Promise<Customer[]> => {
   }));
 });
 
+/**
+ * Fetches a single customer's details by their ID.
+ * 
+ * @param {string} id - The UUID of the customer to retrieve.
+ * @returns {Promise<Customer | null>} The mapped Customer object, or null if not found or an error occurs.
+ */
 export const getCustomer = async (id: string): Promise<Customer | null> => {
   const supabase = await createClient();
   const { data, error } = await supabase
@@ -189,6 +225,14 @@ export const getCustomer = async (id: string): Promise<Customer | null> => {
   };
 };
 
+/**
+ * Saves a new customer record to the database or updates an existing one if the ID exists.
+ * Associates the customer with the current user's warehouse.
+ * 
+ * @param {Customer} customer - The customer object containing details to save.
+ * @throws {Error} Throws if the user has no assigned warehouse or if the database insertion fails.
+ * @returns {Promise<void>}
+ */
 export const saveCustomer = async (customer: Customer): Promise<void> => {
   'use server';
   const supabase = await createClient();
@@ -217,7 +261,12 @@ export const saveCustomer = async (customer: Customer): Promise<void> => {
 
 
 
-// Storage Record Functions
+/**
+ * Retrieves all storage records associated with the current user's warehouse.
+ * Includes nested payment history for each record. Maps DB columns to the app's camelCase type.
+ * 
+ * @returns {Promise<StorageRecord[]>} Array of StorageRecord objects with embedded payments.
+ */
 export const storageRecords = cache(async (): Promise<StorageRecord[]> => {
   const supabase = await createClient();
   const warehouseId = await getUserWarehouse();
@@ -271,6 +320,12 @@ export const storageRecords = cache(async (): Promise<StorageRecord[]> => {
   }));
 });
 
+/**
+ * Retrieves a single storage record by its UUID, including its full payment history.
+ * 
+ * @param {string} id - The UUID of the storage record.
+ * @returns {Promise<StorageRecord | null>} The mapped StorageRecord object, or null if not found.
+ */
 export const getStorageRecord = async (id: string): Promise<StorageRecord | null> => {
   const supabase = await createClient();
   const { data: r, error } = await supabase
@@ -316,6 +371,13 @@ export const getStorageRecord = async (id: string): Promise<StorageRecord | null
   };
 };
 
+/**
+ * Saves a new initial storage record (inflow).
+ * 
+ * @param {StorageRecord} record - The initial storage record details.
+ * @throws {Error} Throws if the warehouse is missing or the insert operation fails.
+ * @returns {Promise<{ id: string }>} An object containing the new UUID of the saved record.
+ */
 export const saveStorageRecord = async (record: StorageRecord): Promise<{ id: string }> => {
   'use server';
   const supabase = await createClient();
@@ -393,6 +455,15 @@ export const saveStorageRecord = async (record: StorageRecord): Promise<{ id: st
   return { id: insertedRecord.id };
 };
 
+/**
+ * Updates specific fields of an existing storage record.
+ * Converts camelCase application fields into snake_case database columns dynamically.
+ * 
+ * @param {string} id - The UUID of the record to update.
+ * @param {Partial<StorageRecord>} data - The fields to update.
+ * @throws {Error} Throws if the update fails.
+ * @returns {Promise<void>}
+ */
 export const updateStorageRecord = async (id: string, data: Partial<StorageRecord>): Promise<void> => {
     'use server';
     const supabase = await createClient();
@@ -427,6 +498,14 @@ export const updateStorageRecord = async (id: string, data: Partial<StorageRecor
 
 
 
+/**
+ * Inserts a new payment entry linked to a specific storage record.
+ * 
+ * @param {string} recordId - The UUID of the storage record.
+ * @param {Payment} payment - Payment details (amount, date, type, notes).
+ * @throws {Error} Throws if the payment insert fails.
+ * @returns {Promise<void>}
+ */
 export const addPaymentToRecord = async (recordId: string, payment: Payment) => {
     'use server';
     const supabase = await createClient();
@@ -442,7 +521,11 @@ export const addPaymentToRecord = async (recordId: string, payment: Payment) => 
 
 
 
-// Expense Functions
+/**
+ * Fetches all expenses associated with the current user's warehouse.
+ * 
+ * @returns {Promise<Expense[]>} Array of Expense objects mapped from the DB.
+ */
 export const expenses = cache(async (): Promise<Expense[]> => {
   const supabase = await createClient();
   const warehouseId = await getUserWarehouse();
@@ -469,6 +552,13 @@ export const expenses = cache(async (): Promise<Expense[]> => {
   }));
 });
 
+/**
+ * Creates a new expense entry in the database.
+ * 
+ * @param {Expense} expense - The expense details to save.
+ * @throws {Error} Throws if warehouse context is missing or if saving fails.
+ * @returns {Promise<void>}
+ */
 export async function saveExpense(expense: Expense): Promise<void> {
   'use server';
   const supabase = await createClient();
@@ -487,6 +577,14 @@ export async function saveExpense(expense: Expense): Promise<void> {
   if (error) throw error;
 }
 
+/**
+ * Updates an existing expense entry.
+ * 
+ * @param {string} id - The UUID of the expense.
+ * @param {Partial<Expense>} data - The fields to update.
+ * @throws {Error} Throws if the update fails.
+ * @returns {Promise<void>}
+ */
 export const updateExpense = async (id: string, data: Partial<Expense>): Promise<void> => {
     'use server';
     const supabase = await createClient();
@@ -506,6 +604,13 @@ export const updateExpense = async (id: string, data: Partial<Expense>): Promise
     if (error) throw error;
 };
 
+/**
+ * Soft-deletes an expense by setting the `deleted_at` timestamp.
+ * 
+ * @param {string} id - The UUID of the expense to soft delete.
+ * @throws {Error} Throws if the operation fails.
+ * @returns {Promise<void>}
+ */
 export const deleteExpense = async (id: string): Promise<void> => {
     'use server';
     const supabase = await createClient();
@@ -516,6 +621,16 @@ export const deleteExpense = async (id: string): Promise<void> => {
     if (error) throw error;
 };
 
+/**
+ * Soft-deletes a storage record. Highly restricted action.
+ * Verifies that the user has either 'owner', 'admin', or 'super_admin' roles
+ * in the designated warehouse before allowing deletion.
+ * Sets `deleted_at` on both the record and its related `withdrawal_transactions`.
+ * 
+ * @param {string} id - The UUID of the storage record to soft delete.
+ * @throws {Error} Throws if the user lacks permissions or if the DB operation fails.
+ * @returns {Promise<void>}
+ */
 export const deleteStorageRecord = async (id: string): Promise<void> => {
     'use server';
     const supabase = await createClient();
@@ -601,8 +716,16 @@ export const deleteStorageRecord = async (id: string): Promise<void> => {
     }
 };
 
+/**
+ * Restores a soft-deleted storage record to an active state.
+ * Requires admin and ownership permissions.
+ * Also restores related payments and withdrawal transactions.
+ * 
+ * @param {string} id - The UUID of the storage record to restore.
+ * @throws {Error} Throws if unauthorized or operation fails.
+ * @returns {Promise<void>}
+ */
 export const restoreStorageRecord = async (id: string): Promise<void> => {
-    'use server';
     const supabase = await createClient();
     
     // Fetch record even if deleted (need to bypass filter if RLS hides it, but normal select finds it if no RLS blocks)
@@ -650,6 +773,17 @@ export const restoreStorageRecord = async (id: string): Promise<void> => {
     if (error) throw error;
 };
 
+/**
+ * Logs a withdrawal transaction and updates stock dynamically via DB triggers.
+ * 
+ * @param {string} recordId - The UUID of the storage record being withdrawn from.
+ * @param {number} bagsWithdrawn - The number of bags taken out.
+ * @param {Date | string} date - The date of the withdrawal.
+ * @param {number} [rentCollected=0] - The total rent amount collected for this withdrawal.
+ * @param {number} [discount=0] - The total discount applied to this rent.
+ * @throws {Error} Throws if warehouse ID is missing or DB insert fails.
+ * @returns {Promise<string | null>} The UUID of the inserted transaction, or null.
+ */
 export const saveWithdrawalTransaction = async (
     recordId: string, 
     bagsWithdrawn: number, 

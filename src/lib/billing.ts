@@ -197,7 +197,14 @@ export function calculateFinalRent(
 
 export class BillingService {
   /**
-   * Calculate exact rent for a withdrawal
+   * Calculate exact rent for a withdrawal.
+   * Wrapper around `calculateFinalRent` for use within the BillingService context.
+   * 
+   * @param {StorageRecord} record - The storage record being withdrawn from.
+   * @param {Date} withdrawalDate - The date of withdrawal.
+   * @param {number} bagsToWithdraw - Number of bags being withdrawn.
+   * @param {{ price6m: number, price1y: number }} [pricing] - Optional dynamic pricing config.
+   * @returns {{ rent: number, monthsStored: number, rentPerBag: number, rentAlreadyPaidPerBag: number }}
    */
   static calculateRent(
     record: StorageRecord, 
@@ -209,7 +216,14 @@ export class BillingService {
   }
 
   /**
-   * Determine the impact of a new outflow on the storage record
+   * Determine the impact of a new outflow on the storage record.
+   * Calculates new bag counts, total rent, and determines if the record should be closed.
+   * 
+   * @param {StorageRecord} record - The existing storage record.
+   * @param {number} bagsWithdrawn - The amount of bags taken in this outflow.
+   * @param {number} rentAmount - The rent computed (or discounted) for this outflow.
+   * @param {Date} withdrawalDate - The date of the outflow to potentially set as end date.
+   * @returns {{ updates: Partial<StorageRecord>, isClosed: boolean }} The fields to update on the record, and whether it's fully closed.
    */
   static calculateOutflowImpact(
     record: StorageRecord, 
@@ -243,7 +257,14 @@ export class BillingService {
   }
 
   /**
-   * Determine impact of Reverting (Deleting) an outflow
+   * Determine impact of Reverting (Deleting) an outflow transaction.
+   * Restores bags to the storage record and deducts the generated rent.
+   * Reopens the record if it was previously closed.
+   * 
+   * @param {StorageRecord} record - The current storage record state.
+   * @param {number} transactionBags - The bags from the transaction being reverted.
+   * @param {number} transactionRent - The rent from the transaction being reverted.
+   * @returns {{ updates: Partial<StorageRecord>, shouldReopen: boolean }} Updates to apply and a flag indicating if it was reopened.
    */
   static calculateReversalImpact(
     record: StorageRecord,
@@ -279,7 +300,14 @@ export class BillingService {
   }
 
   /**
-   * Determine impact of Updating an existing outflow
+   * Determine impact of Updating an existing outflow transaction.
+   * Validates if there's enough stock for increased withdrawals.
+   * 
+   * @param {StorageRecord} record - The current storage record.
+   * @param {{ bags: number, rent: number }} oldTransaction - The previous transaction state.
+   * @param {{ bags: number, rent: number, date: Date }} newTransaction - The proposed new transaction state.
+   * @throws {Error} Throws if trying to increase withdrawn bags beyond currently available stock.
+   * @returns {{ updates: Partial<StorageRecord> }} The fields to update on the record.
    */
   static calculateUpdateImpact(
     record: StorageRecord,
@@ -321,7 +349,12 @@ export class BillingService {
   }
 
   /**
-   * FIFO Allocation: Allocate payment to oldest records first
+   * FIFO Allocation: Allocate a bulk payment to oldest/selected records first.
+   * Iterates through a given list of records sequentially and deducts from the totalAmount.
+   * 
+   * @param {{ id: string; recordNumber: string; totalDue: number }[]} records - An ordered list of records with their current total dues.
+   * @param {number} totalAmount - The total payment amount (or discount amount) to distribute.
+   * @returns {{ allocations: { recordId: string; recordNumber: string; amount: number; remainingDue: number }[], unallocated: number }} Array of how much was assigned to each, plus any leftover unallocated amount.
    */
   static allocatePaymentFIFO(records: { id: string; recordNumber: string; totalDue: number }[], totalAmount: number) {
       const allocations: { recordId: string; recordNumber: string; amount: number; remainingDue: number }[] = [];

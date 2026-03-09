@@ -39,6 +39,18 @@ export type BulkOutflowResult = {
     transactionIds?: string[];
 };
 
+/**
+ * Processes a bulk outflow operation for a specific customer and commodity.
+ * This complex action involves:
+ * 1. Fetching active storage records matching the criteria.
+ * 2. Deducting the requested `totalBagsToWithdraw` across multiple records using a FIFO (First-In-First-Out) strategy based on `storage_start_date`.
+ * 3. Proportionally calculating and applying rent, discounts, and payments across the affected records.
+ * 4. Saving individual withdrawal transactions and payments for each affected record.
+ * 
+ * @param {any} _prevState - Form state.
+ * @param {FormData} formData - Form data containing customerId, commodity, totalBagsToWithdraw, and financial details.
+ * @returns {Promise<BulkOutflowResult>} Detailed result containing success status, processed count, and generated transaction IDs.
+ */
 export async function processBulkOutflow(_prevState: any, formData: FormData): Promise<BulkOutflowResult> {
     return Sentry.startSpan(
         {
