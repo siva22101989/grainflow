@@ -37,19 +37,22 @@ export type BulkOutflowResult = {
     message: string;
     processedCount?: number;
     transactionIds?: string[];
+    batchId?: string;
 };
 
 /**
  * Processes a bulk outflow operation for a specific customer and commodity.
- * This complex action involves:
- * 1. Fetching active storage records matching the criteria.
- * 2. Deducting the requested `totalBagsToWithdraw` across multiple records using a FIFO (First-In-First-Out) strategy based on `storage_start_date`.
- * 3. Proportionally calculating and applying rent, discounts, and payments across the affected records.
- * 4. Saving individual withdrawal transactions and payments for each affected record.
+ * Uses row-level locking via Postgres RPC to prevent race conditions.
+ * Generates a batch_id to group all transactions together.
+ * Auto-settles hamali when records are fully closed.
  * 
- * @param {any} _prevState - Form state.
- * @param {FormData} formData - Form data containing customerId, commodity, totalBagsToWithdraw, and financial details.
- * @returns {Promise<BulkOutflowResult>} Detailed result containing success status, processed count, and generated transaction IDs.
+ * Strategy:
+ * 1. Lock rows atomically via RPC (prevents double-withdraw)
+ * 2. Generate a single batch_id for traceability
+ * 3. FIFO allocation of bags across records
+ * 4. Proportional rent/discount/payment distribution
+ * 5. Auto-settle hamali on fully closed records
+ * 6. Save transactions with batch_id linkage
  */
 export async function processBulkOutflow(_prevState: any, formData: FormData): Promise<BulkOutflowResult> {
     return Sentry.startSpan(
@@ -71,7 +74,7 @@ export async function processBulkOutflow(_prevState: any, formData: FormData): P
             };
 
             const customerId = rawData.customerId as string;
-            await checkRateLimit(customerId || 'anon', 'bulkOutflow', { limit: 5 }); // Stricter limit for bulk ops
+            await checkRateLimit(customerId || 'anon', 'bulkOutflow', { limit: 5 });
 
             const validatedFields = BulkOutflowSchema.safeParse(rawData);
 
@@ -94,93 +97,83 @@ export async function processBulkOutflow(_prevState: any, formData: FormData): P
 
             const supabase = await createClient();
 
-            // 1. Fetch active records
-            let query = supabase
-                .from('storage_records')
-                .select('*')
-                .eq('customer_id', validCustomerId)
-                .eq('commodity_description', commodity)
-                .is('storage_end_date', null)
-                .gt('bags_stored', 0);
-
-            // Apply manual selection filter if provided
+            // --- STEP 1: Atomic stock reservation via RPC (row-level locking) ---
+            let specificIds: string[] | null = null;
             if (specificRecordIds) {
-                const ids = specificRecordIds.split(',').filter(Boolean);
-                if (ids.length > 0) {
-                    query = query.in('id', ids);
-                }
+                specificIds = specificRecordIds.split(',').filter(Boolean);
+                if (specificIds.length === 0) specificIds = null;
             }
 
-            // Always sort FIFO (Oldest first) within the selected set
-            const { data: records, error } = await query.order('storage_start_date', { ascending: true });
-
-            if (error || !records || records.length === 0) {
-                return { success: false, message: 'No active records found for this commodity (or selection).' };
-            }
-
-            // Map to our app type and filter out any where actual stock is 0
-            // (The DB query above might select them if the bags_stored DB column is corrupt)
-            const resolvedRecords = await Promise.all(records.map(async (r) => {
-                 return await getStorageRecord(r.id) as StorageRecord;
-            }));
-            const activeRecords = resolvedRecords.filter(r => r && r.bagsStored > 0);
-
-            // 2. Validate total available
-            const totalAvailable = activeRecords.reduce((sum, r) => sum + r.bagsStored, 0);
-            if (activeRecords.length === 0) {
-                 return { success: false, message: 'No records with available stock found for this commodity (or selection).' };
-            }
-            if (totalBagsToWithdraw > totalAvailable) {
-                 return { success: false, message: `Requested ${totalBagsToWithdraw} bags, but only ${totalAvailable} are available.` };
-            }
-
-            // 3. FIFO Allocation Plan
-            let bagsRemainingToWithdraw = totalBagsToWithdraw;
-            const operations = [];
-
-            for (const record of activeRecords) {
-                if (bagsRemainingToWithdraw <= 0) break;
-
-                const bagsFromThisRecord = Math.min(record.bagsStored, bagsRemainingToWithdraw);
-                
-                // Calculate rent proportion for this specific record
-                // We assume the frontend passed a "Total Rent" that might be a sum of estimates, 
-                // OR we calculate exact rent per record here. 
-                // BETTER: Calculate exact rent per record here based on actual bags withdrawn.
-                const { rent: recordRent } = BillingService.calculateRent(
-                    record, 
-                    new Date(withdrawalDate), 
-                    bagsFromThisRecord
+            try {
+                // The RPC function locks rows with SELECT ... FOR UPDATE
+                // to prevent concurrent bulk outflows from double-withdrawing
+                const { data: lockedRecords, error: lockError } = await supabase.rpc(
+                    'reserve_stock_for_bulk_outflow',
+                    {
+                        p_customer_id: validCustomerId,
+                        p_commodity: commodity,
+                        p_bags_needed: totalBagsToWithdraw,
+                        p_specific_ids: specificIds
+                    }
                 );
 
-                operations.push({
-                    record,
-                    bags: bagsFromThisRecord,
-                    rent: recordRent
-                });
+                if (lockError) {
+                    // RPC raises exception if insufficient stock
+                    if (lockError.message.includes('Insufficient stock')) {
+                        return { success: false, message: lockError.message };
+                    }
+                    throw lockError;
+                }
 
-                bagsRemainingToWithdraw -= bagsFromThisRecord;
-            }
+                if (!lockedRecords || lockedRecords.length === 0) {
+                    return { success: false, message: 'No active records found for this commodity (or selection).' };
+                }
 
-            // 4. Execute Operations
-            let processedCount = 0;
-            const transactionIds: string[] = [];
-            const withdrawalDateObj = new Date(withdrawalDate);
-            
-            // Generate ONE invoice number for the whole batch if possible, or one per record?
-            // Existing schema stores 'outflow_invoice_no' on storage_record. 
-            // So if we fully close a record, it gets an invoice number.
-            // If we partially close, it might get one too? 
-            // Usually invoice number is per "Bill". 
-            // Let's generate a unique group ID or just use individual updates for now to be safe.
-            // We will generate a new Invoice Number for EACH record update to keep them distinct/trackable, 
-            // OR we can try to share it if business logic permits. 
-            // For now, let's keep it simple: One Invoice Number per updated record (standard flow).
-            
-            try {
-                // Distribute payment proportionally? Or just apply to the first/last?
-                // Applying proportionally is fairest.
-                // Total Rent for the batch:
+                // --- STEP 2: Load full records for billing calculations ---
+                const activeRecords: StorageRecord[] = [];
+                for (const lr of lockedRecords) {
+                    const record = await getStorageRecord(lr.record_id);
+                    if (record && record.bagsStored > 0) {
+                        activeRecords.push(record);
+                    }
+                }
+
+                if (activeRecords.length === 0) {
+                    return { success: false, message: 'No records with available stock found.' };
+                }
+
+                // --- STEP 3: FIFO Allocation Plan ---
+                let bagsRemainingToWithdraw = totalBagsToWithdraw;
+                const operations = [];
+
+                for (const record of activeRecords) {
+                    if (bagsRemainingToWithdraw <= 0) break;
+
+                    const bagsFromThisRecord = Math.min(record.bagsStored, bagsRemainingToWithdraw);
+                    
+                    const { rent: recordRent } = BillingService.calculateRent(
+                        record, 
+                        new Date(withdrawalDate), 
+                        bagsFromThisRecord
+                    );
+
+                    operations.push({
+                        record,
+                        bags: bagsFromThisRecord,
+                        rent: recordRent
+                    });
+
+                    bagsRemainingToWithdraw -= bagsFromThisRecord;
+                }
+
+                // --- STEP 4: Execute Operations ---
+                let processedCount = 0;
+                const transactionIds: string[] = [];
+                const withdrawalDateObj = new Date(withdrawalDate);
+                
+                // Generate ONE batch_id for the entire bulk operation
+                const batchId = crypto.randomUUID();
+                
                 const totalBatchRent = operations.reduce((sum, op) => sum + op.rent, 0);
                 let paymentRemaining = amountPaidNow || 0;
                 let discountRemaining = discount || 0;
@@ -188,12 +181,11 @@ export async function processBulkOutflow(_prevState: any, formData: FormData): P
                 for (const op of operations) {
                     const { record, bags, rent } = op;
                     
-                    // 1. Allocate Discount
+                    // 1. Allocate Discount proportionally
                     let allocatedDiscount = 0;
                     if (totalBatchRent > 0 && discountRemaining > 0) {
                          allocatedDiscount = (rent / totalBatchRent) * (discount || 0);
                          allocatedDiscount = Math.round(allocatedDiscount * 100) / 100;
-                         // Prevent floating point overshoot and apply remainder to the final op
                          if (allocatedDiscount > discountRemaining || op === operations[operations.length - 1]) {
                              allocatedDiscount = discountRemaining;
                          }
@@ -205,46 +197,66 @@ export async function processBulkOutflow(_prevState: any, formData: FormData): P
 
                     const rentAfterDiscount = Math.max(0, rent - allocatedDiscount);
 
-                    // 2. Allocate Payment
-                    // Simple proportion for payment allocation: (This Record Rent / Total Batch Rent) * Total Payment
-                    // Safeguard against division by zero
+                    // 2. Allocate Payment proportionally
                     let allocatedPayment = 0;
                     if (totalBatchRent > 0 && paymentRemaining > 0) {
                          allocatedPayment = (rent / totalBatchRent) * (amountPaidNow || 0);
-                         // Round to 2 decimals
                          allocatedPayment = Math.round(allocatedPayment * 100) / 100;
-                         // Prevent floating point overshoot
                          if (allocatedPayment > paymentRemaining || op === operations[operations.length - 1]) {
                              allocatedPayment = paymentRemaining;
                          }
                          paymentRemaining -= allocatedPayment;
                     } else if (paymentRemaining > 0 && totalBatchRent === 0) {
-                        // If no rent due (e.g. grace period), just dump payment into the first record?
-                        // Or spread evenly by bags?
-                        allocatedPayment = paymentRemaining; // Just put it all on the first one that fits
-                        paymentRemaining = 0; // consumed
+                        allocatedPayment = paymentRemaining;
+                        paymentRemaining = 0;
                     }
 
                     // Calculate impact
-                    const { updates: recordUpdate } = BillingService.calculateOutflowImpact(
+                    const { updates: recordUpdate, isClosed } = BillingService.calculateOutflowImpact(
                         record,
                         bags,
-                        rentAfterDiscount, // Use calculated rent (after discount) for this slice
+                        rentAfterDiscount,
                         withdrawalDateObj
                     );
 
-                    // Apply Payment
+                    // Apply Rent Payment
                     if (allocatedPayment > 0) {
                         await addPaymentToRecord(record.id, {
                             amount: allocatedPayment,
                             date: withdrawalDateObj,
                             type: 'rent',
-                            notes: 'Bulk Outflow Payment'
+                            notes: `Bulk Outflow Payment (Batch: ${batchId.slice(0, 8)})`
                         });
-                        logger.info("Payment added during bulk outflow", { recordId: record.id, amount: allocatedPayment });
+                        logger.info("Payment added during bulk outflow", { recordId: record.id, amount: allocatedPayment, batchId });
                     }
 
-                    // Invoice Number
+                    // --- STEP 5: Auto-settle hamali on fully closed records ---
+                    let hamaliCharged = 0;
+                    if (isClosed && record.hamaliPayable && record.hamaliPayable > 0) {
+                        // Calculate outstanding hamali
+                        const hamaliPaid = (record.payments || [])
+                            .filter(p => p.type === 'hamali')
+                            .reduce((sum, p) => sum + p.amount, 0);
+                        const hamaliDue = Math.max(0, record.hamaliPayable - hamaliPaid);
+                        
+                        if (hamaliDue > 0) {
+                            // Generate separate hamali payment entry (Option B)
+                            await addPaymentToRecord(record.id, {
+                                amount: hamaliDue,
+                                date: withdrawalDateObj,
+                                type: 'hamali',
+                                notes: `Hamali auto-settled on record closure (Batch: ${batchId.slice(0, 8)})`
+                            });
+                            hamaliCharged = hamaliDue;
+                            logger.info("Hamali auto-settled during bulk outflow", { 
+                                recordId: record.id, 
+                                hamaliDue, 
+                                batchId 
+                            });
+                        }
+                    }
+
+                    // Invoice Number - individual per record (Option B)
                     if (!record.outflowInvoiceNo) {
                         // @ts-ignore
                         recordUpdate.outflow_invoice_no = await getNextInvoiceNumber('outflow');
@@ -253,15 +265,22 @@ export async function processBulkOutflow(_prevState: any, formData: FormData): P
                     // Update Record
                     await updateStorageRecord(record.id, recordUpdate);
 
-                    // Save Transaction
-                    const txId = await saveWithdrawalTransaction(record.id, bags, withdrawalDateObj, rentAfterDiscount, allocatedDiscount);
+                    // Save Transaction with batch_id and hamali tracking
+                    const txId = await saveWithdrawalTransaction(
+                        record.id, 
+                        bags, 
+                        withdrawalDateObj, 
+                        rentAfterDiscount, 
+                        allocatedDiscount,
+                        { batchId, hamaliCharged }
+                    );
                     if (txId) transactionIds.push(txId);
 
                     processedCount++;
                 }
 
+                // --- STEP 6: SMS Notification ---
                 if (sendSms && transactionIds.length > 0) {
-                     // Need customer phone
                      const customer = await getCustomer(validCustomerId);
 
                      if (customer && customer.phone) {
@@ -278,7 +297,7 @@ Thank you.`;
                              to: customer.phone,
                              message
                          });
-                         logger.info("Bulk outflow SMS sent", { customerId, phone: customer.phone });
+                         logger.info("Bulk outflow SMS sent", { customerId, phone: customer.phone, batchId });
                      } else {
                          logger.warn("Skipping SMS: Customer phone not found", { customerId });
                      }
@@ -292,17 +311,17 @@ Thank you.`;
                     success: true, 
                     message: `Successfully processed outflow for ${processedCount} records (${totalBagsToWithdraw} bags).`,
                     processedCount,
-                    transactionIds
+                    transactionIds,
+                    batchId
                 };
 
             } catch (err: any) {
                 logError(err, {
                     operation: 'processBulkOutflow',
-                    userId: 'unknown', // Server Action context usually has access to auth.uid() upstream, but here we can rely on error-logger to extract from Sentry context or pass explicit if available.
+                    userId: 'unknown',
                     metadata: {
                          customerId,
                          totalBagsToWithdraw,
-                         processedCount
                     }
                 });
                 return { success: false, message: `Bulk processing failed: ${err.message}` };

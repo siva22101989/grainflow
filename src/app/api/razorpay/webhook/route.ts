@@ -49,9 +49,21 @@ export async function POST(request: NextRequest) {
         break;
 
       case 'payment.authorized':
-        // Payment authorized but not yet captured
-        // Usually auto-captured by Razorpay, but can log for tracking
         console.log('Payment authorized:', payload.payment.entity.id);
+        break;
+
+      case 'payment_link.paid':
+        // Payment link paid - the payment.captured event handles the actual processing,
+        // but we update the payment link status here for completeness
+        await handlePaymentLinkStatusChange(payload.payment_link.entity, 'paid');
+        break;
+
+      case 'payment_link.cancelled':
+        await handlePaymentLinkStatusChange(payload.payment_link.entity, 'cancelled');
+        break;
+
+      case 'payment_link.expired':
+        await handlePaymentLinkStatusChange(payload.payment_link.entity, 'expired');
         break;
 
       default:
@@ -71,12 +83,19 @@ export async function POST(request: NextRequest) {
 async function handlePaymentCaptured(payment: any) {
   try {
     // First check if this is a subscription payment
+    // Razorpay Payment Link payments include payment_link_id in the entity
     const supabase = await createClient();
-    const { data: linkData } = await supabase
-      .from('payment_links')
-      .select('*, metadata')
-      .eq('razorpay_link_id', payment.order_id)
-      .single();
+    const paymentLinkId = payment.payment_link_id || payment.notes?.payment_link_id;
+
+    let linkData = null;
+    if (paymentLinkId) {
+      const { data } = await supabase
+        .from('payment_links')
+        .select('*, metadata')
+        .eq('razorpay_link_id', paymentLinkId)
+        .single();
+      linkData = data;
+    }
 
     // Handle subscription payments
     if (linkData?.metadata?.subscription_payment === true) {
@@ -177,9 +196,35 @@ async function handleSubscriptionPayment(payment: any, linkData: any) {
       });
     }
   } catch (error) {
-    logError(error as Error, { 
-      operation: 'handleSubscriptionPayment', 
-      metadata: { payment, linkData } 
+    logError(error as Error, {
+      operation: 'handleSubscriptionPayment',
+      metadata: { payment, linkData }
     });
+  }
+}
+
+/**
+ * Handle payment link status changes (paid, cancelled, expired)
+ */
+async function handlePaymentLinkStatusChange(paymentLinkEntity: any, status: string) {
+  try {
+    const supabase = await createClient();
+    const razorpayLinkId = paymentLinkEntity.id;
+
+    const { error } = await supabase
+      .from('payment_links')
+      .update({ status })
+      .eq('razorpay_link_id', razorpayLinkId);
+
+    if (error) {
+      logError(error, {
+        operation: 'handlePaymentLinkStatusChange',
+        metadata: { razorpayLinkId, status },
+      });
+    }
+
+    console.log(`Payment link ${razorpayLinkId} status changed to: ${status}`);
+  } catch (error) {
+    logError(error as Error, { operation: 'handlePaymentLinkStatusChange' });
   }
 }

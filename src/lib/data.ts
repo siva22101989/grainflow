@@ -82,13 +82,29 @@ export const getUserWarehouse = cache(async () => {
   const user = await getAuthUser();
   if (!user) return null;
 
+  // 1. Try user_metadata (fastest, set during login)
+  const metaWarehouseId = user.user_metadata?.warehouse_id;
+  if (metaWarehouseId) return metaWarehouseId;
+
+  // 2. Try profiles.warehouse_id (primary assignment)
   const { data: profile } = await supabase
     .from('profiles')
     .select('warehouse_id')
     .eq('id', user.id)
     .single();
 
-  return profile?.warehouse_id;
+  if (profile?.warehouse_id) return profile.warehouse_id;
+
+  // 3. Fallback: Check warehouse_assignments (secondary assignments)
+  const { data: assignment } = await supabase
+    .from('warehouse_assignments')
+    .select('warehouse_id')
+    .eq('user_id', user.id)
+    .is('deleted_at', null)
+    .limit(1)
+    .single();
+
+  return assignment?.warehouse_id || null;
 });
 
 /**
@@ -789,7 +805,8 @@ export const saveWithdrawalTransaction = async (
     bagsWithdrawn: number, 
     date: Date | string, 
     rentCollected: number = 0,
-    discount: number = 0
+    discount: number = 0,
+    options?: { batchId?: string; hamaliCharged?: number }
 ): Promise<string | null> => {
     'use server';
     const supabase = await createClient();
@@ -797,14 +814,23 @@ export const saveWithdrawalTransaction = async (
     
     if (!warehouseId) throw new Error("No warehouse assigned");
 
-    const { data, error } = await supabase.from('withdrawal_transactions').insert({
+    const insertData: Record<string, any> = {
         storage_record_id: recordId,
         warehouse_id: warehouseId,
         bags_withdrawn: bagsWithdrawn,
         withdrawal_date: date,
         rent_collected: rentCollected,
         discount: discount
-    }).select('id').single();
+    };
+
+    if (options?.batchId) {
+        insertData.batch_id = options.batchId;
+    }
+    if (options?.hamaliCharged !== undefined) {
+        insertData.hamali_charged = options.hamaliCharged;
+    }
+
+    const { data, error } = await supabase.from('withdrawal_transactions').insert(insertData).select('id').single();
 
     if (error) {
         logError(error, { operation: 'save_withdrawal_transaction', warehouseId, metadata: { recordId } });
@@ -819,7 +845,7 @@ export const saveWithdrawalTransaction = async (
             entity: AuditEntity.OUTFLOW,
             entityId: data.id,
             warehouseId,
-            details: { bagsWithdrawn, rentCollected, recordId }
+            details: { bagsWithdrawn, rentCollected, recordId, batchId: options?.batchId }
         });
     } catch (e) {
          // ignore

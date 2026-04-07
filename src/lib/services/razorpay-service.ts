@@ -147,12 +147,10 @@ export function verifyWebhookSignature(
   try {
     const webhookSecret = process.env.RAZORPAY_WEBHOOK_SECRET;
     if (!webhookSecret || webhookSecret === 'your_webhook_secret_here') {
-      logWarning('Webhook secret not configured - skipping verification in development', {
+      logWarning('Webhook secret not configured - rejecting webhook for security', {
         operation: 'verifyWebhookSignature',
       });
-      // In development, allow webhooks without signature verification
-      // TODO: Make this strict in production
-      return true;
+      return false;
     }
 
     const generatedSignature = crypto
@@ -190,22 +188,32 @@ export async function processPaymentCapture(razorpayPayment: any) {
 
     // Extract payment details
     const paymentId = razorpayPayment.id;
-    const orderId = razorpayPayment.order_id;
     const amount = razorpayPayment.amount / 100; // Convert from paise to rupees
     const method = razorpayPayment.method;
     const status = razorpayPayment.status;
 
     // Find the payment link associated with this payment
+    // Payment Link payments include payment_link_id in the entity
+    const paymentLinkRzpId = razorpayPayment.payment_link_id || razorpayPayment.notes?.payment_link_id;
+
+    if (!paymentLinkRzpId) {
+      logWarning('No payment_link_id found in Razorpay payment', {
+        operation: 'processPaymentCapture',
+        metadata: { paymentId },
+      });
+      return { success: false, error: 'Payment link ID not found in payment' };
+    }
+
     const { data: paymentLink } = await supabase
       .from('payment_links')
       .select('*')
-      .eq('razorpay_link_id', orderId)
+      .eq('razorpay_link_id', paymentLinkRzpId)
       .single();
 
     if (!paymentLink) {
       logWarning('Payment link not found for Razorpay payment', {
         operation: 'processPaymentCapture',
-        metadata: { paymentId, orderId },
+        metadata: { paymentId, paymentLinkRzpId },
       });
       return { success: false, error: 'Payment link not found' };
     }
@@ -237,7 +245,7 @@ export async function processPaymentCapture(razorpayPayment: any) {
         type: 'other', // Online payment - can be allocated later
         notes: `Online payment - ${paymentLink.description}`,
         razorpay_payment_id: paymentId,
-        razorpay_order_id: orderId,
+        razorpay_order_id: razorpayPayment.order_id || null,
         payment_method: method,
         payment_status: status,
       })

@@ -479,10 +479,10 @@ export async function createSubscriptionPaymentLink(
       return { success: false, error: 'Invalid plan selected' };
     }
 
-    // 2. Get warehouse owner details
+    // 2. Get warehouse details
     const { data: warehouse, error: whError } = await supabase
       .from('warehouses')
-      .select('owner_id, name')
+      .select('name')
       .eq('id', warehouseId)
       .single();
 
@@ -490,21 +490,27 @@ export async function createSubscriptionPaymentLink(
       return { success: false, error: 'Warehouse not found' };
     }
 
-    // 3. Get owner profile
-    const { data: profile, error: profileError } = await supabase
-      .from('profiles')
-      .select('full_name, phone')
-      .eq('id', warehouse.owner_id)
+    // 3. Get warehouse owner via user_warehouses join
+    const { data: ownerLink, error: ownerError } = await supabase
+      .from('user_warehouses')
+      .select('user_id, profiles!inner(full_name, phone)')
+      .eq('warehouse_id', warehouseId)
+      .eq('role', 'owner')
       .single();
 
-    if (profileError || !profile || !profile.phone) {
+    if (ownerError || !ownerLink) {
+      return { success: false, error: 'Warehouse owner not found' };
+    }
+
+    const profile = (ownerLink as any).profiles;
+    if (!profile?.phone) {
       return { success: false, error: 'Owner phone number not available' };
     }
 
     // 4. Create payment link via Razorpay service
     const linkResult = await createPaymentLink({
       warehouseId,
-      customerId: warehouse.owner_id, // Using owner as customer
+      customerId: ownerLink.user_id,
       customerName: profile.full_name || 'Warehouse Owner',
       customerPhone: profile.phone,
       amount: plan.price,
@@ -520,11 +526,19 @@ export async function createSubscriptionPaymentLink(
     }
 
     // 5. Update payment link metadata to mark it as a subscription payment
+    // IMPORTANT: Merge with existing metadata to preserve customer_name, customer_phone, etc.
     if (linkResult.linkId) {
+      const { data: existingLink } = await supabase
+        .from('payment_links')
+        .select('metadata')
+        .eq('id', linkResult.linkId)
+        .single();
+
       await supabase
         .from('payment_links')
         .update({
           metadata: {
+            ...(existingLink?.metadata || {}),
             subscription_payment: true,
             plan_tier: planTier,
             plan_id: plan.id,
@@ -606,6 +620,22 @@ export async function activateSubscriptionPayment(
       throw new Error('Plan not found');
     }
 
+    // Validate payment amount matches plan price (±₹1 tolerance for rounding)
+    const expectedAmount = plan.price;
+    const tolerance = 1;
+    if (Math.abs(paymentDetails.amount - expectedAmount) > tolerance) {
+      logError(new Error('Payment amount mismatch'), {
+        operation: 'activateSubscriptionPayment',
+        metadata: { 
+          expected: expectedAmount, 
+          received: paymentDetails.amount,
+          warehouseId,
+          planId 
+        }
+      });
+      return { success: false, error: `Payment amount ₹${paymentDetails.amount} does not match plan price ₹${expectedAmount}` };
+    }
+
     // 2. Calculate billing period
     const now = new Date();
     const periodEnd = addDays(now, plan.duration_days || 30);
@@ -656,18 +686,15 @@ export async function activateSubscriptionPayment(
 
     // 5. Send confirmation SMS
     try {
-      const { data: warehouse } = await supabase
-        .from('warehouses')
-        .select('owner_id')
-        .eq('id', warehouseId)
+      const { data: ownerLink } = await supabase
+        .from('user_warehouses')
+        .select('user_id, profiles!inner(full_name, phone)')
+        .eq('warehouse_id', warehouseId)
+        .eq('role', 'owner')
         .single();
 
-      if (warehouse?.owner_id) {
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('full_name, phone')
-          .eq('id', warehouse.owner_id)
-          .single();
+      if (ownerLink) {
+        const profile = (ownerLink as any).profiles;
 
         if (profile?.phone) {
           const businessName = process.env.RAZORPAY_BUSINESS_NAME || 'GrainFlow';
