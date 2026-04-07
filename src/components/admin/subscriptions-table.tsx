@@ -262,6 +262,8 @@ export function SubscriptionsTable({ initialData, plans }: SubscriptionsTablePro
                                     <SelectContent>
                                         <SelectItem value="active">Active</SelectItem>
                                         <SelectItem value="incomplete">Incomplete</SelectItem>
+                                        <SelectItem value="grace_period">Grace Period</SelectItem>
+                                        <SelectItem value="expired">Expired</SelectItem>
                                         <SelectItem value="past_due">Past Due</SelectItem>
                                         <SelectItem value="canceled">Canceled</SelectItem>
                                         <SelectItem value="unpaid">Unpaid</SelectItem>

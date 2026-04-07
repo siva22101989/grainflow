@@ -59,3 +59,4 @@ firestore-debug.log
 
 # Supabase
 supabase/migrations/
+.gstack/

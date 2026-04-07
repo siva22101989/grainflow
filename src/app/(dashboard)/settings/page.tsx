@@ -19,6 +19,7 @@ import { Button } from "@/components/ui/button";
 import { DataManagementTab } from "@/components/settings/data-management-tab";
 import { SMSSettingsCard } from "@/components/settings/sms-settings-card";
 import { NotificationSettings } from "@/components/settings/notification-settings";
+import { SubscriptionSettingsTab } from "@/components/settings/subscription-settings-tab";
 
 import { User, Warehouse, Wheat, Users, Database, MessageSquare, CreditCard, Bell } from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
@@ -156,6 +157,10 @@ export default async function SettingsPage() {
 
             <TabsContent value="sms" className="mt-6 space-y-4 animate-in fade-in-50 duration-300 slide-in-from-left-2">
                 <SMSSettingsCard />
+            </TabsContent>
+
+            <TabsContent value="billing" className="mt-6 space-y-4 animate-in fade-in-50 duration-300 slide-in-from-left-2">
+                <SubscriptionSettingsTab />
             </TabsContent>
           </div>
         </Tabs>
