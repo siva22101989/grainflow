@@ -43,6 +43,7 @@ export default async function InflowPage() {
             .select('id, name, capacity, current_stock')
             .eq('warehouse_id', warehouseId)
             .eq('status', 'active')
+            .order('name', { ascending: true })
             .then(res => res.data || [])
     ]);
     
