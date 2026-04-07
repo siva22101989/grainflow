@@ -91,7 +91,10 @@ export function StaticDataProvider({ children }: { children: React.ReactNode }) 
            // If we have any cached data, show it immediately
            if (hasCachedData) {
                if (cropsData) setCrops(cropsData);
-               if (lotsData) setLots(lotsData);
+               if (lotsData) {
+                   const sorted = [...lotsData].sort((a: any, b: any) => (a.name || '').localeCompare(b.name || ''));
+                   setLots(sorted);
+               }
                if (customersData) setCustomers(customersData);
                setLoading(false); // Show UI immediately with cached data
            }
@@ -218,7 +221,8 @@ export function StaticDataProvider({ children }: { children: React.ReactNode }) 
             } else if (payload.eventType === 'INSERT') {
                 setLots((prev) => {
                     if (prev.find(l => l.id === (payload.new as any).id)) return prev;
-                    return [...prev, payload.new as any];
+                    const updated = [...prev, payload.new as any];
+                    return updated.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
                 });
             } else if (payload.eventType === 'DELETE') {
                  if (payload.old && (payload.old as any).id) {
