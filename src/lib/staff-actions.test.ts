@@ -14,6 +14,21 @@ vi.mock('@/utils/supabase/server', () => ({
     createClient: () => Promise.resolve(mockSupabase),
 }));
 
+// Mock audit-service to avoid headers() call outside request scope
+vi.mock('@/lib/audit-service', () => ({
+    logActivity: vi.fn().mockResolvedValue(undefined),
+}));
+
+// Mock next/cache
+vi.mock('next/cache', () => ({
+    revalidatePath: vi.fn(),
+}));
+
+// Mock subscription-service
+vi.mock('@/services/subscription-service', () => ({
+    checkSubscriptionLimits: vi.fn().mockResolvedValue({ allowed: true }),
+}));
+
 describe('toggleWarehouseAccess', () => {
     const mockUserId = 'user_123';
     const mockWarehouseId = 'wh_123';
