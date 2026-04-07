@@ -18,7 +18,8 @@
     "backup": "node scripts/backup-database.js",
     "backup:list": "node scripts/backup-database.js --list",
     "backup:restore": "node scripts/backup-database.js --restore",
-    "health": "curl http://localhost:9002/api/health"
+    "health": "curl http://localhost:9002/api/health",
+    "docs:pdf": "tsx scripts/generate-manual-pdf.ts"
   },
   "dependencies": {
     "@ducanh2912/next-pwa": "^10.2.9",

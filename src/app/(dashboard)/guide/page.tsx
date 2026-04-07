@@ -328,9 +328,62 @@ export default function GuidePage() {
             </TabsContent>
         </Tabs>
 
+        {/* FAQ Section */}
+        <Card>
+            <CardHeader>
+                <CardTitle>Frequently Asked Questions</CardTitle>
+            </CardHeader>
+            <CardContent>
+                <Accordion type="single" collapsible className="w-full">
+                    <AccordionItem value="faq-1">
+                        <AccordionTrigger>How is rent calculated?</AccordionTrigger>
+                        <AccordionContent>
+                            Rent is calculated per bag based on storage duration. <strong>0-6 months: Rs. 36/bag</strong>, <strong>7-12 months: Rs. 55/bag</strong>. Even 1 day into a new month counts as a full month. For storage beyond 12 months, each additional year follows the same tiered structure.
+                        </AccordionContent>
+                    </AccordionItem>
+                    <AccordionItem value="faq-2">
+                        <AccordionTrigger>What is Bulk Outflow and how does FIFO work?</AccordionTrigger>
+                        <AccordionContent>
+                            Bulk Outflow lets you withdraw bags across multiple storage records in one operation. The system uses <strong>FIFO (First-In, First-Out)</strong>: it withdraws from the oldest records first. This ensures customers are charged fairly based on actual storage duration. You can preview the allocation before confirming.
+                        </AccordionContent>
+                    </AccordionItem>
+                    <AccordionItem value="faq-3">
+                        <AccordionTrigger>What is Hamali?</AccordionTrigger>
+                        <AccordionContent>
+                            Hamali refers to labor charges for loading and unloading bags at the warehouse. You can set the hamali rate per bag during inflow, and it is tracked separately from storage rent. Hamali can be collected at inflow or during outflow.
+                        </AccordionContent>
+                    </AccordionItem>
+                    <AccordionItem value="faq-4">
+                        <AccordionTrigger>Can my customers see their own records?</AccordionTrigger>
+                        <AccordionContent>
+                            Yes! Customers can access the <strong>Customer Portal</strong> using their phone number. They get a read-only view of their active stock, withdrawal history, payments, and outstanding balance. They cannot modify any records.
+                        </AccordionContent>
+                    </AccordionItem>
+                    <AccordionItem value="faq-5">
+                        <AccordionTrigger>What happens if I accidentally delete a record?</AccordionTrigger>
+                        <AccordionContent>
+                            GrainFlow uses <strong>soft deletes</strong>. Deleted records are marked as removed but not physically erased. Contact your admin or super admin to restore accidentally deleted records.
+                        </AccordionContent>
+                    </AccordionItem>
+                    <AccordionItem value="faq-6">
+                        <AccordionTrigger>Why can&apos;t I see any records after logging in?</AccordionTrigger>
+                        <AccordionContent>
+                            You need to be assigned to a warehouse. Ask your admin to add you via <strong>Settings &gt; Team</strong>. If you are assigned but still see nothing, check that you are viewing the correct warehouse using the warehouse switcher in the sidebar.
+                        </AccordionContent>
+                    </AccordionItem>
+                    <AccordionItem value="faq-7">
+                        <AccordionTrigger>How do I export data to Excel?</AccordionTrigger>
+                        <AccordionContent>
+                            Most data tables have an <strong>Export</strong> button in the top-right corner. Click it to download the current view as an Excel (.xlsx) file. You can also generate PDF reports from the Reports section.
+                        </AccordionContent>
+                    </AccordionItem>
+                </Accordion>
+            </CardContent>
+        </Card>
+
         <div className="flex justify-center pt-8">
             <p className="text-muted-foreground text-sm">
-                Need more help? Contact support or check the <a href="#" className="underline">video tutorials</a>.
+                Need more help? Contact support or check the full documentation in the docs/manual/ directory.
             </p>
         </div>
       </div>
