@@ -7,35 +7,44 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [Unreleased]
+## [Unreleased] - 2026-04-07
 
 ### Added
 
-- Comprehensive validation test suite (54 tests covering all validation utilities)
-- JSDoc documentation for billing logic and export utilities
-- Enhanced path aliases in tsconfig.json for better imports
-- Detailed TESTING.md documentation guide
-- Updated SECURITY.md with current vulnerability status
-- GitHub-ready README with enhanced tech stack and metrics
-
-### Changed
-
-- Migrated from `xlsx` to `exceljs` for Excel exports (security improvement)
-- Updated vitest.config.ts to include all test files
-- Enhanced README with current test coverage (97.5%) and security status
+- **19-chapter user manual and admin guide** in `docs/manual/` with PDF generation (`npm run docs:pdf`)
+- **116 new action tests** covering bulk outflow, customers, payments, storage, and subscriptions
+- **Test data factories** (`src/test/factories/index.ts`) for consistent test data generation
+- **FAQ section** added to in-app guide page (rent calculation, FIFO, hamali, customer portal, soft deletes)
+- **Subscription settings tab** added to warehouse settings page
+- **Webhook event handlers** for `payment_link.paid`, `payment_link.cancelled`, `payment_link.expired`
+- **Payment amount validation** on subscription activation (prevents paying wrong amount)
 
 ### Fixed
 
-- 89% reduction in security vulnerabilities (9 → 1)
-- All TypeScript strict mode errors resolved
-- Test suite stability improved (156/160 tests passing)
+- **RBAC: Non-super_admin users blocked from inflow/outflow** - `storage_records` RLS policy now uses `belongs_to_warehouse()` instead of the old `user_warehouses` table. Admin, owner, staff, and manager roles can now perform storage operations.
+- **Webhook signature verification silently accepting** - Now rejects requests when `RAZORPAY_WEBHOOK_SECRET` is missing or placeholder, instead of returning true.
+- **Webhook payment link lookup failing** - Changed from `payment.order_id` (wrong) to `payment.payment_link_id` (correct) for Razorpay Payment Links API.
+- **Subscription owner lookup crashing** - `subscription-actions.ts` referenced non-existent `warehouses.owner_id` column. Now queries `user_warehouses` with `role = 'owner'`.
+- **Subscription metadata overwritten** - `createSubscriptionPaymentLink()` now merges metadata instead of replacing, preserving `customer_name` and `customer_phone`.
+- **`process_subscription_renewals` RPC crashing** - Fixed SQL join to use `user_warehouses` instead of `warehouses.owner_id`.
+- **Lot dropdown showing random order** - Added `.order('name')` to inflow page server query and defensive sort at all data entry points (cache load, fresh fetch, manual refresh, realtime inserts).
+- **`bags_stored` data integrity** - Corrected 19 records where `bags_stored` did not match `bags_in - bags_out`. The `sync_lot_stock` trigger then auto-corrected all 27 lot `current_stock` values.
+- **Yearly plan limits showing free tier values** - `starter_yearly` and `professional_yearly` plans now have correct limits matching their monthly counterparts.
+- **Bulk payment RPC parameter mismatch** - Removed extra params (`p_payment_method`, `p_type`, `p_notes`) not accepted by the function. Updated RPC to include `warehouse_id`, `type`, and `notes` on inserted payments.
+- **Bulk payment excluding Razorpay payments from due calculation** - `getPendingRecords()` now sums ALL payment types instead of only `rent` + `hamali`.
+- **Pre-existing test failures** - Fixed DashboardStats test (mock fetch), staff-actions test (mock audit-service), React `cache()` mock in test setup. Test suite now 291 tests, 0 failures.
+- **`getUserWarehouse` failing for non-super_admin** - Added fallback to `warehouse_assignments` table when `profiles.warehouse_id` is null.
+
+### Changed
+
+- `vitest.config.ts` include pattern narrowed to `**/*.test.{ts,tsx}` only (excludes utility files with no tests)
+- `getAvailableLots()` now filters `deleted_at IS NULL` and sorts client-side as defensive measure
 
 ### Security
 
-- **CRITICAL:** Fixed 3 critical vulnerabilities (jspdf, axios, ejs)
-- **HIGH:** Fixed 2 high severity vulnerabilities (xlsx replaced with exceljs)
-- **MODERATE:** Fixed 3 moderate vulnerabilities (lodash, qs)
-- Upgraded supabase from 0.5.0 to 2.72.8
+- Webhook signature verification is now mandatory (rejects on missing/placeholder secret)
+- Subscription payment amounts validated against plan price before activation
+- Dropped stale overloaded RPC function that caused ambiguous resolution
 
 ---
 

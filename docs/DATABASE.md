@@ -190,7 +190,7 @@ CREATE INDEX idx_storage_dates ON storage_records(warehouse_id, storage_start_da
 
 **RLS Policies:**
 
-- ✅ Users see records from their warehouses
+- ✅ Users see records from their warehouses (uses `belongs_to_warehouse()` function instead of direct `user_warehouses` join)
 - ✅ Customers see only their own records
 
 ---
@@ -289,11 +289,15 @@ CREATE TYPE expense_category AS ENUM ('staff', 'utilities', 'maintenance', 'othe
 **Trigger:**
 
 ```sql
--- Auto-update current_stock when storage_records change
+-- Auto-update current_stock when storage_records change (sync_lot_stock)
+-- Fires on every INSERT, UPDATE, or DELETE on storage_records
+-- Recalculates current_stock as SUM(bags_stored) for active records in the lot
 CREATE TRIGGER trg_sync_warehouse_stock
-  AFTER INSERT OR UPDATE ON storage_records
+  AFTER INSERT OR UPDATE OR DELETE ON storage_records
   FOR EACH ROW EXECUTE FUNCTION sync_warehouse_stock();
 ```
+
+> **Note:** The `sync_lot_stock` trigger ensures `current_stock` is always consistent with the actual `SUM(bags_stored)` from `storage_records` where `storage_end_date IS NULL`. This fires on INSERT, UPDATE, and DELETE to maintain data integrity even when records are removed or modified.
 
 ---
 
@@ -340,6 +344,8 @@ UNIQUE(warehouse_id, sequence_type)
 - ✅ Users can view subscriptions for their warehouses
 - ✅ Only `super_admin` can manage subscriptions
 
+> **Note:** The `process_subscription_renewals` RPC was fixed to join via `user_warehouses` instead of the non-existent `warehouses.owner_id` column.
+
 ---
 
 ### `plans`
@@ -362,6 +368,8 @@ UNIQUE(warehouse_id, sequence_type)
 ```sql
 CREATE TYPE plan_tier AS ENUM ('free', 'starter', 'professional', 'enterprise');
 ```
+
+> **Note:** Yearly plan limits were corrected -- `starter_yearly` and `professional_yearly` previously had free tier limits and have been updated to match their respective paid tier limits.
 
 ---
 
@@ -388,6 +396,12 @@ BEGIN
 END;
 $$;
 ```
+
+### `process_bulk_payment_atomic()`
+
+**Purpose:** Atomically process bulk payments for multiple storage records in a single transaction
+
+> **Note:** The RPC parameter signature now includes `warehouse_id`, `type`, and `notes` fields to ensure correct warehouse scoping and payment metadata.
 
 ### `set_updated_at()`
 

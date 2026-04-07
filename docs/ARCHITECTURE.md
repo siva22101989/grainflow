@@ -159,6 +159,14 @@ Form Submit → Server Action → Validation → RLS Check → DB Insert → Rev
 Login Request → Supabase Auth → Set Cookie → Middleware Check → Allow/Deny Route Access
 ```
 
+### 4. Bulk Payment Flow
+
+Bulk payments use the `process_bulk_payment_atomic` RPC which processes multiple storage record payments in a single database transaction. The RPC accepts `warehouse_id`, `type`, and `notes` parameters to ensure correct warehouse scoping and payment metadata.
+
+```
+Select Records → Submit Bulk Payment → process_bulk_payment_atomic RPC → Atomic Insert of All Payments → Revalidate Cache
+```
+
 ---
 
 ## Key Architectural Patterns
@@ -302,7 +310,20 @@ Layer 5: Database Constraints (Foreign keys, check constraints)
 
 - `profiles.role` column
 - RLS policies checking `auth.uid()` role
+- `belongs_to_warehouse()` -- centralized SQL function used by RLS policies to determine warehouse membership, replacing direct `user_warehouses` joins in individual policies
 - Conditional UI rendering
+
+---
+
+## Webhook Event Handlers
+
+The system handles the following Razorpay webhook events for payment link lifecycle:
+
+| Event                    | Handler Behavior                                      |
+| ------------------------ | ----------------------------------------------------- |
+| `payment_link.paid`      | Marks subscription as active, records payment         |
+| `payment_link.cancelled` | Handles cancellation, updates subscription status     |
+| `payment_link.expired`   | Handles expiry, updates subscription status           |
 
 ---
 

@@ -135,6 +135,10 @@ USING (warehouse_id IN (
 ));
 ```
 
+**RBAC Updates:**
+
+- `storage_records` RLS policy updated to use `belongs_to_warehouse()` function, fixing access for admin/owner/staff/manager roles
+
 ### 3. Database Security ✅
 
 - ✅ Row Level Security (RLS) enabled on all tables
@@ -150,6 +154,8 @@ USING (warehouse_id IN (
 - Authentication required
 - Authorization checks
 - Error handling without data leakage
+- Subscription payment amount validation added to prevent activating subscriptions with incorrect payment amounts
+- Bulk payment RPC updated to include `warehouse_id` on payment records for proper data isolation
 
 ```typescript
 "use server";
@@ -215,7 +221,15 @@ const securityHeaders = [
 ];
 ```
 
-### 7. Secrets Management ✅
+### 7. Webhook Security ✅
+
+**Signature Verification:**
+
+- Webhook signature verification now rejects requests when `RAZORPAY_WEBHOOK_SECRET` is missing or placeholder (previously returned true silently)
+- All incoming webhook payloads are verified against HMAC signatures before processing
+- Invalid or tampered payloads are rejected with appropriate error responses
+
+### 8. Secrets Management ✅
 
 **Environment Variables:**
 
@@ -231,7 +245,7 @@ DATABASE_URL=postgresql://...
 SENTRY_AUTH_TOKEN=xxx
 ```
 
-### 8. Dependency Management
+### 9. Dependency Management
 
 **Monthly Audits:**
 
@@ -367,6 +381,6 @@ npm run lint
 ---
 
 _Document Created: January 21, 2026_  
-_Last Updated: January 24, 2026_  
-_Next Review: February 24, 2026_  
+_Last Updated: April 7, 2026_
+_Next Review: May 7, 2026_  
 _Status: ✅ Production-Ready_

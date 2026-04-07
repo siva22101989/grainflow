@@ -3,7 +3,7 @@
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0-blue?logo=typescript)](https://www.typescriptlang.org/)
 [![Next.js](https://img.shields.io/badge/Next.js-16-black?logo=next.js)](https://nextjs.org/)
 [![Supabase](https://img.shields.io/badge/Supabase-2.72-green?logo=supabase)](https://supabase.com/)
-[![Tests](https://img.shields.io/badge/Tests-156%2F160%20passing-brightgreen)](#-testing--security)
+[![Tests](https://img.shields.io/badge/Tests-291%2F291%20passing-brightgreen)](#-testing--security)
 [![Security](https://img.shields.io/badge/Vulnerabilities-1%20Low-yellow)](#-testing--security)
 [![License](https://img.shields.io/badge/License-Private-red)](LICENSE)
 
@@ -143,11 +143,13 @@ npm audit
 
 ### Test Coverage
 
-**Current Status:** 97.5% test pass rate (156/160 tests)
+**Current Status:** 100% test pass rate (291/291 tests)
 
 - ✅ **54 Validation Tests** - String, email, phone, UUID, date, schema validation
+- ✅ **116 Action Tests** - Bulk outflow, customers, payments, storage, subscriptions
 - ✅ **Billing Logic** - Rent calculations, multi-year storage, edge cases
-- ✅ **Payment Services** - Payment allocation, recording, history
+- ✅ **Payment Services** - Payment allocation, recording, history, bulk RPC
+- ✅ **Webhook Tests** - Signature verification, payment link lookup
 - ✅ **Integration Tests** - Payment flow, outflow processes
 - ✅ **E2E Tests** - Complete user journeys (Playwright)
 

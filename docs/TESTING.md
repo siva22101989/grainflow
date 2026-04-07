@@ -4,7 +4,7 @@
 
 GrainFlow uses a comprehensive testing strategy with **Vitest** for unit/integration tests and **Playwright** for end-to-end testing.
 
-**Current Status:** 97.5% test pass rate (156/160 tests passing)
+**Current Status:** 100% test pass rate (291/291 tests passing)
 
 ---
 
@@ -108,6 +108,31 @@ npx playwright test --project=chromium
 - Stock in/out workflows
 - Payment recording
 - Report generation
+
+### Action Tests (116 tests)
+
+**Files:** `src/test/actions/*.test.ts`
+
+- Server action validation and authorization
+- CRUD operations for all major entities (customers, storage records, payments, lots, warehouses)
+- Subscription and payment flow actions
+- Webhook handling and signature verification
+- Role-based access control enforcement
+- Uses test factories from `src/test/factories/index.ts` for consistent test data generation
+
+### Webhook Signature Verification Tests
+
+- Razorpay webhook signature validation
+- Rejection of requests with missing or placeholder secrets
+- Tampered payload detection
+
+---
+
+## Test Factories
+
+**File:** `src/test/factories/index.ts`
+
+Reusable factory functions for generating test data. Used across action tests and integration tests to create consistent, valid test objects (customers, warehouses, storage records, payments, subscriptions, etc.).
 
 ---
 
@@ -213,8 +238,11 @@ project-root/
 │   ├── test/
 │   │   ├── setup.ts                # Vitest configuration
 │   │   ├── utils.tsx               # Test utilities
+│   │   ├── factories/
+│   │   │   └── index.ts            # Test data factories
 │   │   ├── mocks/                  # Mock implementations
 │   │   ├── unit/                   # Unit tests
+│   │   ├── actions/                # Server action tests (116 tests)
 │   │   └── integration/            # Integration tests
 │   └── components/
 │       └── *.test.tsx              # Component tests
@@ -290,5 +318,5 @@ npm install -D @vitest/coverage-v8
 
 ---
 
-_Last Updated: Jan 24, 2026_  
-_Next Review: Feb 24, 2026_
+_Last Updated: Apr 7, 2026_
+_Next Review: May 7, 2026_

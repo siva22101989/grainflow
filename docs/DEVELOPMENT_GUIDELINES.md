@@ -101,3 +101,10 @@ We use **Soft Deletes** (`deleted_at` column) for text-heavy records (Customers,
 1.  **Billing Cycle Default**: Default is `'6m'`, NOT `'6-Month Initial'`.
 2.  **Date Objects**: `date-fns` expects JS Date objects. Ensure strings from Forms/JSON are converted via `new Date()`.
 3.  **Server Actions**: Arguments must be serializable. Do not pass complex class instances; pass plain objects or IDs.
+4.  **RLS Authorization**: Use `belongs_to_warehouse(warehouse_id)` for all RLS policies. Never query `user_warehouses` directly in policies. The function checks super_admin bypass, `profiles.warehouse_id`, and `warehouse_assignments`.
+5.  **Warehouse Owner Lookup**: The `warehouses` table has NO `owner_id` column. Look up owners via `user_warehouses` with `role = 'owner'`.
+6.  **Webhook Signature**: `verifyWebhookSignature()` rejects when secret is missing. Never bypass in production.
+7.  **Payment Link Lookup**: Use `payment.payment_link_id` (not `payment.order_id`) to match Razorpay Payment Link payments.
+8.  **Bulk Payment RPC**: `process_bulk_payment_atomic` accepts only `(p_customer_id, p_payment_date, p_warehouse_id, p_allocations)`. Do not pass extra parameters.
+9.  **Lot Sort Order**: Always include `.order('name', { ascending: true })` when querying `warehouse_lots`. The `useStaticData` hook also sorts defensively on cache load and realtime inserts.
+10. **Payment Due Calculation**: `getPendingRecords()` sums ALL payment types (rent + hamali + other). Do not filter by type when calculating total paid.
