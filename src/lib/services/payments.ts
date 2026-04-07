@@ -105,16 +105,11 @@ export class PaymentService {
       return (records as any[]).map((r) => {
            const validPayments = (r.payments || []).filter((p: any) => !p.deleted_at);
 
-           const rentPayments = validPayments
-            .filter((p: any) => p.type === 'rent')
-            .reduce((sum: number, p: any) => sum + p.amount, 0);
-        
-           const hamaliPayments = validPayments
-            .filter((p: any) => p.type === 'hamali')
+           // Sum ALL payment types (rent, hamali, other/online) to get total paid
+           const totalPaid = validPayments
             .reduce((sum: number, p: any) => sum + p.amount, 0);
 
            const totalBilled = (r.total_rent_billed || 0) + (r.hamali_payable || 0);
-           const totalPaid = rentPayments + hamaliPayments;
            const totalDue = Math.max(0, totalBilled - totalPaid);
 
            return {
@@ -170,17 +165,15 @@ export class PaymentService {
       }
 
       // 2. Execute Atomic RPC
+      // RPC signature: (p_customer_id, p_payment_date, p_warehouse_id, p_allocations)
       const supabase = await createClient();
-      const warehouseId = await getUserWarehouse(); // Note: Service assumes Request Context for User
+      const warehouseId = await getUserWarehouse();
 
       const { data: rpcData, error: rpcError } = await supabase.rpc('process_bulk_payment_atomic', {
           p_customer_id: customerId,
           p_payment_date: paymentDate,
           p_warehouse_id: warehouseId,
           p_allocations: allocations,
-          p_payment_method: 'cash', 
-          p_type: 'rent',
-          p_notes: `Bulk payment - ₹${totalAmount} allocated via ${strategy.toUpperCase()}`
       });
 
       if (rpcError) throw rpcError;
