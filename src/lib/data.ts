@@ -133,8 +133,10 @@ export const getAvailableLots = cache(async () => {
     const warehouseId = await getUserWarehouse();
     if (!warehouseId) return [];
 
-    const { data } = await supabase.from('warehouse_lots').select('*').eq('warehouse_id', warehouseId).order('name');
-    return data || [];
+    const { data } = await supabase.from('warehouse_lots').select('*').eq('warehouse_id', warehouseId).is('deleted_at', null).order('name', { ascending: true });
+    // Defensive client-side sort in case Supabase order is not applied
+    const sorted = (data || []).sort((a: any, b: any) => (a.name || '').localeCompare(b.name || ''));
+    return sorted;
 });
 
 /**

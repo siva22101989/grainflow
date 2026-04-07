@@ -114,8 +114,9 @@ export function StaticDataProvider({ children }: { children: React.ReactNode }) 
                }
                
                if (!lotsData) {
-                   setLots(freshLots);
-                   setLotsCache({ data: freshLots, timestamp: Date.now() });
+                   const sortedLots = [...freshLots].sort((a: any, b: any) => (a.name || '').localeCompare(b.name || ''));
+                   setLots(sortedLots);
+                   setLotsCache({ data: sortedLots, timestamp: Date.now() });
                }
                
                if (!customersData) {
@@ -143,12 +144,13 @@ export function StaticDataProvider({ children }: { children: React.ReactNode }) 
             fetchCustomers()
         ]);
         
+        const sortedLots = [...newLots].sort((a: any, b: any) => (a.name || '').localeCompare(b.name || ''));
         setCropsCache({ data: newCrops, timestamp: Date.now() });
-        setLotsCache({ data: newLots, timestamp: Date.now() });
+        setLotsCache({ data: sortedLots, timestamp: Date.now() });
         setCustomersCache({ data: newCustomers, timestamp: Date.now() });
-        
+
         setCrops(newCrops);
-        setLots(newLots);
+        setLots(sortedLots);
         setCustomers(newCustomers);
         if (showToast) {
             toast({ title: "Data Refreshed", description: "All data updated successfully." });
