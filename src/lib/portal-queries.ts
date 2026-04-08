@@ -2,7 +2,7 @@
 import { createClient } from '@/utils/supabase/server';
 import { cache } from 'react';
 
-export type PortfolioItem = {
+type PortfolioItem = {
     warehouseName: string;
     warehouseLocation: string;
     warehouseGst?: string;

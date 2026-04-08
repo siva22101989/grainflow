@@ -123,10 +123,3 @@ export function useUrlFilters<T extends FilterState>(
   return [filters, setFilters] as const;
 }
 
-/**
- * Hook to get current filter state from URL without state management
- */
-export function useUrlFiltersReadOnly<T extends FilterState>(defaults: T): T {
-  const searchParams = useSearchParams();
-  return searchParamsToFilters(searchParams, defaults);
-}

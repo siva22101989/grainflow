@@ -8,24 +8,6 @@ export interface FilterState {
 }
 
 /**
- * Storage page specific filter state
- */
-export interface StorageFilterState {
-  q: string;
-  status: 'active' | 'released' | 'all';
-  selectedCommodities: string[];
-  selectedLocations: string[];
-  dateFrom: Date | null;
-  dateTo: Date | null;
-  minBags: number | null;
-  maxBags: number | null;
-  minRent: number | null;
-  maxRent: number | null;
-  sortBy: string;
-  page: number;
-}
-
-/**
  * Serialize filter state to URL search parameters
  */
 /**
@@ -216,29 +198,3 @@ export function getAppliedFiltersSummary(filters: FilterState): { label: string;
   return summary;
 }
 
-/**
- * Count active filters (non-default values)
- */
-export function countActiveFilters(filters: FilterState, defaults: FilterState): number {
-  let count = 0;
-
-  Object.entries(filters).forEach(([key, value]) => {
-    const defaultValue = defaults[key];
-
-    // Skip if equal to default
-    if (value === defaultValue) return;
-    
-    // Skip null/undefined/empty
-    if (value === null || value === undefined || value === '') return;
-    
-    // Skip empty arrays
-    if (Array.isArray(value) && value.length === 0) return;
-    
-    // Skip page and sortBy (not considered "filters")
-    if (key === 'page' || key === 'sortBy') return;
-
-    count++;
-  });
-
-  return count;
-}

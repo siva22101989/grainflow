@@ -112,32 +112,6 @@ export async function createPaymentLink(
 }
 
 /**
- * Verify Razorpay payment signature
- */
-export function verifyPaymentSignature(
-  orderId: string,
-  paymentId: string,
-  signature: string
-): boolean {
-  try {
-    const keySecret = process.env.RAZORPAY_KEY_SECRET;
-    if (!keySecret) {
-      throw new Error('Razorpay key secret not configured');
-    }
-
-    const generatedSignature = crypto
-      .createHmac('sha256', keySecret)
-      .update(`${orderId}|${paymentId}`)
-      .digest('hex');
-
-    return generatedSignature === signature;
-  } catch (error) {
-    logError(error as Error, { operation: 'verifyPaymentSignature' });
-    return false;
-  }
-}
-
-/**
  * Verify Razorpay webhook signature
  */
 export function verifyWebhookSignature(
@@ -162,20 +136,6 @@ export function verifyWebhookSignature(
   } catch (error) {
     logError(error as Error, { operation: 'verifyWebhookSignature' });
     return false;
-  }
-}
-
-/**
- * Get payment details from Razorpay
- */
-export async function getPaymentDetails(paymentId: string) {
-  try {
-    const razorpay = getRazorpayInstance();
-    const payment = await razorpay.payments.fetch(paymentId);
-    return { success: true, payment };
-  } catch (error: any) {
-    logError(error, { operation: 'getPaymentDetails', metadata: { paymentId } });
-    return { success: false, error: error.message };
   }
 }
 
@@ -279,49 +239,3 @@ export async function processPaymentCapture(razorpayPayment: any) {
   }
 }
 
-/**
- * Cancel/expire a payment link
- */
-export async function cancelPaymentLink(linkId: string) {
-  try {
-    const supabase = await createClient();
-    const razorpay = getRazorpayInstance();
-
-    // Get payment link
-    const { data: paymentLink, error: fetchError } = await supabase
-      .from('payment_links')
-      .select('*')
-      .eq('id', linkId)
-      .single();
-
-    if (fetchError || !paymentLink) {
-      return { success: false, error: 'Payment link not found' };
-    }
-
-    // Cancel on Razorpay if still active
-    if (paymentLink.status === 'active' && paymentLink.razorpay_link_id) {
-      try {
-        await razorpay.paymentLink.cancel(paymentLink.razorpay_link_id);
-      } catch (error) {
-        logWarning('Failed to cancel payment link on Razorpay', {
-          operation: 'cancelPaymentLink',
-        });
-      }
-    }
-
-    // Update status in database
-    const { error: updateError } = await supabase
-      .from('payment_links')
-      .update({ status: 'cancelled' })
-      .eq('id', linkId);
-
-    if (updateError) {
-      return { success: false, error: 'Failed to cancel payment link' };
-    }
-
-    return { success: true };
-  } catch (error: any) {
-    logError(error, { operation: 'cancelPaymentLink', metadata: { linkId } });
-    return { success: false, error: error.message };
-  }
-}

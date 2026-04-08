@@ -1,4 +1,3 @@
-import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 
 /**
@@ -13,24 +12,6 @@ export class ValidationError extends Error {
   ) {
     super(message);
     this.name = 'ValidationError';
-  }
-}
-
-/**
- * Validate request body against a Zod schema
- */
-export async function validateRequestBody<T>(
-  request: NextRequest,
-  schema: z.ZodSchema<T>
-): Promise<T> {
-  try {
-    const body = await request.json();
-    return schema.parse(body);
-  } catch (error) {
-    if (error instanceof z.ZodError) {
-      throw new ValidationError('Validation failed', error);
-    }
-    throw error;
   }
 }
 
@@ -157,58 +138,3 @@ export const CommonSchemas = {
     .refine(date => date <= new Date(), 'Date cannot be in the future'),
 };
 
-/**
- * Create a validated API response
- */
-export function createValidatedResponse<T>(
-  data: T,
-  status: number = 200
-): NextResponse {
-  return NextResponse.json(data, { status });
-}
-
-/**
- * Create an error response
- */
-export function createErrorResponse(
-  message: string,
-  status: number = 400,
-  errors?: any
-): NextResponse {
-  return NextResponse.json(
-    {
-      success: false,
-      message,
-      errors,
-    },
-    { status }
-  );
-}
-
-/**
- * Middleware wrapper for API routes with validation
- */
-export function withValidation<T>(
-  schema: z.ZodSchema<T>,
-  handler: (data: T, request: NextRequest) => Promise<NextResponse>
-) {
-  return async (request: NextRequest): Promise<NextResponse> => {
-    try {
-      const data = await validateRequestBody(request, schema);
-      return await handler(data, request);
-    } catch (error) {
-      if (error instanceof ValidationError) {
-        return createErrorResponse(
-          error.message,
-          400,
-          error.errors.errors
-        );
-      }
-      
-      return createErrorResponse(
-        'Internal server error',
-        500
-      );
-    }
-  };
-}

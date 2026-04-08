@@ -16,7 +16,7 @@ export interface QueryLog {
 /**
  * Query logger configuration
  */
-export interface QueryLoggerConfig {
+interface QueryLoggerConfig {
   enabled: boolean;
   logSlowQueries: boolean;
   slowQueryThreshold: number; // milliseconds
@@ -40,16 +40,9 @@ const DEFAULT_CONFIG: QueryLoggerConfig = {
 let config = { ...DEFAULT_CONFIG };
 
 /**
- * Configure query logger
- */
-export function configureQueryLogger(options: Partial<QueryLoggerConfig>) {
-  config = { ...config, ...options };
-}
-
-/**
  * Log a query
  */
-export function logQuery(log: QueryLog) {
+function logQuery(log: QueryLog) {
   if (!config.enabled) return;
 
   // Only log slow queries if configured
@@ -120,15 +113,3 @@ export async function measureQuery<T>(
   }
 }
 
-/**
- * Create a query logger for a specific module
- */
-export function createQueryLogger(moduleName: string) {
-  return {
-    log: (operation: string, params?: Record<string, any>) => {
-      return async <T>(queryFn: () => Promise<T>): Promise<T> => {
-        return measureQuery(moduleName, operation, queryFn, params);
-      };
-    },
-  };
-}

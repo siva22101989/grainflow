@@ -11,11 +11,6 @@ export function getTrialDaysRemaining(trialEndDate: string | Date | null): numbe
   return Math.ceil(diff / (1000 * 60 * 60 * 24));
 }
 
-export function isTrialExpired(trialEndDate: string | Date | null): boolean {
-  if (!trialEndDate) return false;
-  return new Date(trialEndDate) < new Date();
-}
-
 export function isTrialExpiringSoon(trialEndDate: string | Date | null, thresholdDays = 3): boolean {
   if (!trialEndDate) return false;
   const daysRemaining = getTrialDaysRemaining(trialEndDate);

@@ -81,54 +81,6 @@ export async function updateExpenseAction(expenseId: string, _prevState: FormSta
 }
 
 /**
- * Simple Expense Update (for UI)
- */
-export async function updateExpenseSimple(expenseId: string, formData: FormData) {
-  const supabase = await createClient();
-  const warehouseId = await getUserWarehouse();
-
-  if (!warehouseId) {
-    return { message: 'No warehouse found for user', success: false };
-  }
-
-  const validatedFields = ExpenseSchema.safeParse({
-    description: formData.get('description'),
-    amount: formData.get('amount'),
-    date: formData.get('date'),
-    category: formData.get('category'),
-  });
-
-  if (!validatedFields.success) {
-    const error = validatedFields.error.flatten().fieldErrors;
-    const message = Object.values(error).flat().join(', ');
-    return { message: `Invalid data: ${message}`, success: false };
-  }
-
-  // Transform to database column names
-  const updateData = {
-    description: validatedFields.data.description,
-    amount: validatedFields.data.amount,
-    category: validatedFields.data.category,
-    expense_date: new Date(validatedFields.data.date)
-  };
-
-  const { error } = await supabase
-    .from('expenses')
-    .update(updateData)
-    .eq('id', expenseId)
-    .eq('warehouse_id', warehouseId);
-
-  if (error) {
-    logError(error, { operation: 'update_expense', warehouseId, metadata: { expenseId } });
-    return { message: `Failed to update expense: ${error.message}`, success: false };
-  }
-
-  revalidatePath('/expenses');
-  revalidatePath('/reports');
-  return { message: 'Expense updated successfully!', success: true };
-}
-
-/**
  * Delete Expense
  */
 export async function deleteExpenseSimple(expenseId: string) {

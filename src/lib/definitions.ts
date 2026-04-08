@@ -27,8 +27,6 @@ export type Commodity = {
 export type PaymentType = 'rent' | 'hamali' | 'advance' | 'security_deposit' | 'other';
 export type BillingCycle = '6m' | '1y';
 export type InflowType = 'purchase' | 'transfer_in' | 'return' | 'other';
-export type LotStatus = 'active' | 'inactive' | 'maintenance' | 'full';
-
 export type Payment = {
   amount: number;
   date: Date | string;
@@ -192,37 +190,6 @@ export interface PlatformAnalytics {
     growthData: AnalyticsGrowthData[];
     commodityDistribution: CommodityDistribution[];
 }
-
-export type UnloadingRecord = {
-    id: string;
-    warehouse_id: string;
-    customer_id: string;
-    crop_id?: string;
-    commodity_description: string;
-    bags_unloaded: number;
-    bags_remaining: number;
-    lorry_tractor_no?: string;
-    hamali_amount?: number;
-    destination?: 'storage' | 'plot';
-    plot_location?: string;
-    bags_remaining_in_plot?: number;
-    notes?: string;
-    unload_date: Date | string;
-    created_at: Date | string;
-};
-
-export type WithdrawalTransaction = {
-    id: string;
-    warehouse_id: string;
-    storage_record_id: string;
-    bags_withdrawn: number;
-    withdrawal_date: Date | string;
-    rent_collected?: number;
-    created_at: Date | string;
-    updated_at?: Date | string;
-    deleted_at?: Date | string | null;
-    deleted_by?: string;
-};
 
 export type OutflowRecord = {
     id: string;

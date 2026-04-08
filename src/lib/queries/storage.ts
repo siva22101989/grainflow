@@ -210,24 +210,6 @@ export const getStorageRecords = cache(async (limit = 20, offset = 0): Promise<S
  * @param {number} [offset=0] - Number of records to skip.
  * @returns {Promise<StorageRecord[]>} Array of active storage records.
  */
-export const getActiveStorageRecords = cache(async (limit = 20, offset = 0): Promise<StorageRecord[]> => {
-  const supabase = await createClient();
-  const warehouseId = await getUserWarehouse();
-  
-  if (!warehouseId) return [];
-
-  const { data: records, error } = await buildStorageRecordsQuery(supabase, warehouseId, { activeOnly: true })
-    .order('storage_start_date', { ascending: false })
-    .range(offset, offset + limit - 1);
-
-  if (error) {
-    logError(error, { operation: 'fetch_active_storage_records', warehouseId });
-    return [];
-  }
-
-  return mapRecords(records);
-});
-
 /**
  * Calculates total historical inflow, outflow, and current balance stock across the warehouse.
  * 

@@ -12,13 +12,6 @@ export interface GenerateCodeParams {
     count?: number; // Optional bulk generation
 }
 
-export type CodeResult = {
-    code: string;
-    planName: string;
-    status: string;
-    duration: number;
-};
-
 /**
  * Generate a random alphanumeric code
  * Format: XXXX-XXXX-XXXX

@@ -1,32 +1,12 @@
 import { createClient } from '@/utils/supabase/server';
 import { cache } from 'react';
-import { getUserWarehouse } from './warehouses';
-import type { 
-    NotificationEntry, 
-    AdminDashboardStats, 
-    WarehouseAdminDetails, 
-    ActivityLogEntry, 
+import type {
+    AdminDashboardStats,
+    WarehouseAdminDetails,
+    ActivityLogEntry,
     PlatformAnalytics,
     CommodityDistribution
 } from '@/lib/definitions';
-
-export const getNotifications = cache(async (limit = 5): Promise<NotificationEntry[]> => {
-    const supabase = await createClient();
-    const warehouseId = await getUserWarehouse();
-    const { data: { user } } = await supabase.auth.getUser();
-
-    if (!warehouseId || !user) return [];
-
-    const { data } = await supabase
-        .from('notifications')
-        .select('*')
-        .or(`user_id.eq.${user.id},user_id.is.null`)
-        .eq('warehouse_id', warehouseId)
-        .order('created_at', { ascending: false })
-        .limit(limit);
-
-    return data || [];
-});
 
 export const getAdminDashboardStats = cache(async (): Promise<AdminDashboardStats | null> => {
     const supabase = await createClient();

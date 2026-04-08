@@ -170,20 +170,6 @@ export async function deletePayment(paymentId: string, customerId: string) {
     }
 }
 
-// Re-export RecordWithDues if needed by UI?
-// PaymentService has it? No, PaymentService has internal usage or returns generic types.
-// We can define it here if needed.
-export type RecordWithDues = {
-    id: string;
-    recordNumber: string;
-    totalDue: number;
-    storageStartDate: Date;
-};
-
-export async function getCustomerPendingRecords(customerId: string): Promise<RecordWithDues[]> {
-    return await PaymentService.getPendingRecords(customerId);
-}
-
 export type BulkPaymentFormState = ApiResponse<{
         allocations?: any[];
         recordsUpdated?: number;

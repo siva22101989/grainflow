@@ -32,7 +32,7 @@ export interface CommodityPrice {
   price_date: string; // YYYY-MM-DD format
 }
 
-export interface AgmarknetAPIResponse {
+interface AgmarknetAPIResponse {
   index_name: string;
   title: string;
   desc: string;
@@ -59,7 +59,7 @@ export interface AgmarknetAPIResponse {
   offset: string;
 }
 
-export interface AgmarknetRecord {
+interface AgmarknetRecord {
   state: string;
   district: string;
   market: string;

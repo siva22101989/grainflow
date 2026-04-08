@@ -1,7 +1,7 @@
 import { createClient } from '@/utils/supabase/server';
 import { logError } from '@/lib/error-logger';
 
-export type NotificationType = 
+type NotificationType =
   | 'aging_alert'
   | 'low_space'
   | 'critical_space'
@@ -10,7 +10,7 @@ export type NotificationType =
   | 'abnormal_activity'
   | 'general';
 
-export type NotificationSeverity = 'info' | 'warning' | 'critical';
+type NotificationSeverity = 'info' | 'warning' | 'critical';
 
 interface CreateNotificationParams {
   warehouseId: string;
@@ -72,76 +72,3 @@ export async function createSmartNotification(params: CreateNotificationParams) 
   }
 }
 
-/**
- * Get user's notification preferences
- */
-export async function getNotificationPreferences(warehouseId: string) {
-  const supabase = await createClient();
-  
-  const { data, error } = await supabase
-    .from('notification_preferences')
-    .select('*')
-    .eq('warehouse_id', warehouseId);
-  
-  if (error) {
-    logError(error, { operation: 'getNotificationPreferences' });
-    return [];
-  }
-  
-  return data || [];
-}
-
-/**
- * Update notification preference
- */
-export async function updateNotificationPreference(
-  warehouseId: string,
-  type: NotificationType,
-  enabled: boolean
-) {
-  const supabase = await createClient();
-  const { data: userData } = await supabase.auth.getUser();
-  
-  if (!userData.user) {
-    throw new Error('User not authenticated');
-  }
-  
-  // Upsert preference
-  const { data, error } = await supabase
-    .from('notification_preferences')
-    .upsert({
-      user_id: userData.user.id,
-      warehouse_id: warehouseId,
-      notification_type: type,
-      enabled,
-      updated_at: new Date().toISOString()
-    }, {
-      onConflict: 'user_id,warehouse_id,notification_type'
-    })
-    .select()
-    .single();
-  
-  if (error) {
-    logError(error, { operation: 'updateNotificationPreference' });
-    throw error;
-  }
-  
-  return data;
-}
-
-/**
- * Dismiss a notification
- */
-export async function dismissNotification(notificationId: string) {
-  const supabase = await createClient();
-  
-  const { error } = await supabase
-    .from('notifications')
-    .update({ dismissed_at: new Date().toISOString() })
-    .eq('id', notificationId);
-  
-  if (error) {
-    logError(error, { operation: 'dismissNotification' });
-    throw error;
-  }
-}

@@ -393,32 +393,6 @@ export async function sendExpiryWarnings(): Promise<{
   }
 }
 
-/**
- * Manual trigger for admins to process expiries (for testing/emergency)
- */
-export async function manualProcessExpiries(): Promise<SubscriptionState> {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  
-  // Auth check
-  const { data: profile } = await supabase.from('profiles').select('role').eq('id', user?.id).single();
-  if (!profile || profile.role !== UserRole.SUPER_ADMIN) {
-    return { success: false, message: 'Unauthorized: Only super admins can manually process expiries' };
-  }
-  
-  const result = await processExpiredSubscriptions();
-  
-  if (!result.success) {
-    return { success: false, message: result.errors.join(', ') };
-  }
-  
-  return { 
-    success: true, 
-    message: `Processed ${result.processed} subscriptions: ${result.gracePeriod} moved to grace period, ${result.expired} expired, ${result.downgraded} downgraded to Free.`,
-    data: result
-  };
-}
-
 // ============================================================================
 // Subscription Payment Functions (Razorpay Integration)
 // ============================================================================
