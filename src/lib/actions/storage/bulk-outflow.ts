@@ -30,6 +30,7 @@ const BulkOutflowSchema = z.object({
     amountPaidNow: z.coerce.number().nonnegative().optional(),
     sendSms: z.boolean().optional(),
     specificRecordIds: z.string().optional(), // Comma-separated IDs
+    recordAllocations: z.string().optional(), // JSON: [{recordId, bags}] for manual per-record allocation
 });
 
 export type BulkOutflowResult = {
@@ -71,6 +72,7 @@ export async function processBulkOutflow(_prevState: any, formData: FormData): P
                 amountPaidNow: formData.get('amountPaidNow'),
                 sendSms: formData.get('sendSms') === 'true',
                 specificRecordIds: formData.get('specificRecordIds'),
+                recordAllocations: formData.get('recordAllocations') as string || undefined,
             };
 
             const customerId = rawData.customerId as string;
@@ -84,16 +86,27 @@ export async function processBulkOutflow(_prevState: any, formData: FormData): P
                 return { success: false, message: `Invalid data: ${message}` };
             }
 
-            const { 
-                customerId: validCustomerId, 
-                commodity, 
-                totalBagsToWithdraw, 
-                withdrawalDate, 
+            const {
+                customerId: validCustomerId,
+                commodity,
+                totalBagsToWithdraw,
+                withdrawalDate,
                 amountPaidNow,
                 discount,
                 sendSms,
-                specificRecordIds 
+                specificRecordIds,
+                recordAllocations: recordAllocationsJson
             } = validatedFields.data;
+
+            // Parse manual per-record allocations if provided
+            let manualAllocations: { recordId: string; bags: number }[] | null = null;
+            if (recordAllocationsJson) {
+                try {
+                    manualAllocations = JSON.parse(recordAllocationsJson);
+                } catch {
+                    return { success: false, message: 'Invalid record allocations format.' };
+                }
+            }
 
             const supabase = await createClient();
 
@@ -142,28 +155,41 @@ export async function processBulkOutflow(_prevState: any, formData: FormData): P
                     return { success: false, message: 'No records with available stock found.' };
                 }
 
-                // --- STEP 3: FIFO Allocation Plan ---
-                let bagsRemainingToWithdraw = totalBagsToWithdraw;
+                // --- STEP 3: Allocation Plan (Manual or FIFO) ---
                 const operations = [];
 
-                for (const record of activeRecords) {
-                    if (bagsRemainingToWithdraw <= 0) break;
-
-                    const bagsFromThisRecord = Math.min(record.bagsStored, bagsRemainingToWithdraw);
-                    
-                    const { rent: recordRent } = BillingService.calculateRent(
-                        record, 
-                        new Date(withdrawalDate), 
-                        bagsFromThisRecord
-                    );
-
-                    operations.push({
-                        record,
-                        bags: bagsFromThisRecord,
-                        rent: recordRent
-                    });
-
-                    bagsRemainingToWithdraw -= bagsFromThisRecord;
+                if (manualAllocations && manualAllocations.length > 0) {
+                    // Manual per-record allocation
+                    for (const alloc of manualAllocations) {
+                        if (alloc.bags <= 0) continue;
+                        const record = activeRecords.find(r => r.id === alloc.recordId);
+                        if (!record) {
+                            return { success: false, message: `Record ${alloc.recordId} not found or not available.` };
+                        }
+                        if (alloc.bags > record.bagsStored) {
+                            return { success: false, message: `Cannot withdraw ${alloc.bags} bags from record #${record.recordNumber} (only ${record.bagsStored} available).` };
+                        }
+                        const { rent: recordRent } = BillingService.calculateRent(
+                            record,
+                            new Date(withdrawalDate),
+                            alloc.bags
+                        );
+                        operations.push({ record, bags: alloc.bags, rent: recordRent });
+                    }
+                } else {
+                    // Default FIFO allocation
+                    let bagsRemainingToWithdraw = totalBagsToWithdraw;
+                    for (const record of activeRecords) {
+                        if (bagsRemainingToWithdraw <= 0) break;
+                        const bagsFromThisRecord = Math.min(record.bagsStored, bagsRemainingToWithdraw);
+                        const { rent: recordRent } = BillingService.calculateRent(
+                            record,
+                            new Date(withdrawalDate),
+                            bagsFromThisRecord
+                        );
+                        operations.push({ record, bags: bagsFromThisRecord, rent: recordRent });
+                        bagsRemainingToWithdraw -= bagsFromThisRecord;
+                    }
                 }
 
                 // --- STEP 4: Execute Operations ---

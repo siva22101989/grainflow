@@ -60,9 +60,11 @@ export function BulkOutflowDialog({ customer, records, onOpenChange: _onOpenChan
     const [sendSms, setSendSms] = useState(true);
 
     const [excludedRecordIds, setExcludedRecordIds] = useState<Set<string>>(new Set());
+    const [manualOverrides, setManualOverrides] = useState<Record<string, number>>({});
 
     useMemo(() => {
         setExcludedRecordIds(new Set());
+        setManualOverrides({});
     }, [commodity]);
 
     // Derived: Available Commodities
@@ -95,20 +97,34 @@ export function BulkOutflowDialog({ customer, records, onOpenChange: _onOpenChan
             )
             .sort((a, b) => new Date(a.storageStartDate).getTime() - new Date(b.storageStartDate).getTime());
 
+        const hasOverrides = Object.keys(manualOverrides).length > 0;
         let remaining = targetBags;
         const plan = [];
         let totalHamaliPending = 0;
         let totalAdvanceAmount = 0;
 
         for (const r of activeRecords) {
-            if (remaining <= 0) break;
-            
-            const take = Math.min(r.bagsStored, remaining);
+            let take: number;
+            if (hasOverrides && manualOverrides[r.id] !== undefined) {
+                take = Math.min(manualOverrides[r.id]!, r.bagsStored);
+            } else if (hasOverrides) {
+                // Record not in overrides, skip (user hasn't allocated to it)
+                take = 0;
+            } else {
+                // Default FIFO
+                if (remaining <= 0) { take = 0; } else {
+                    take = Math.min(r.bagsStored, remaining);
+                    remaining -= take;
+                }
+            }
+
+            if (take <= 0) continue;
+
             const { rent } = calculateFinalRent(r, new Date(withdrawalDate), take);
-            
+
             const amountPaid = (r.payments || []).reduce((acc, p) => acc + p.amount, 0);
             const pending = r.hamaliPayable - amountPaid;
-            
+
             if (pending > 0) {
                 totalHamaliPending += pending;
             } else {
@@ -121,18 +137,20 @@ export function BulkOutflowDialog({ customer, records, onOpenChange: _onOpenChan
                 rent,
                 isClosing: take === r.bagsStored
             });
-            remaining -= take;
         }
+
+        const totalAllocated = plan.reduce((sum, p) => sum + p.take, 0);
 
         return {
             operations: plan,
             totalRent: plan.reduce((sum, p) => sum + p.rent, 0),
             totalHamaliPending,
             totalAdvanceAmount,
-            impossible: remaining > 0,
-            activeRecordCount: activeRecords.length
+            impossible: hasOverrides ? false : remaining > 0,
+            activeRecordCount: activeRecords.length,
+            totalAllocated
         };
-    }, [records, commodity, bagsToWithdraw, withdrawalDate, excludedRecordIds]);
+    }, [records, commodity, bagsToWithdraw, withdrawalDate, excludedRecordIds, manualOverrides]);
 
     const toggleRecordSelection = (recordId: string, checked: boolean) => {
         const newSet = new Set(excludedRecordIds);
@@ -148,6 +166,26 @@ export function BulkOutflowDialog({ customer, records, onOpenChange: _onOpenChan
         if (!previewPlan) return '';
         return previewPlan.operations.map(op => op.record.id).join(',');
     }, [previewPlan]);
+
+    const recordAllocationsValue = useMemo(() => {
+        if (!previewPlan || Object.keys(manualOverrides).length === 0) return '';
+        return JSON.stringify(previewPlan.operations.map(op => ({
+            recordId: op.record.id,
+            bags: op.take
+        })));
+    }, [previewPlan, manualOverrides]);
+
+    const handleBagOverride = (recordId: string, value: string, maxBags: number) => {
+        const num = parseInt(value);
+        if (isNaN(num) || num < 0) {
+            const newOverrides = { ...manualOverrides };
+            delete newOverrides[recordId];
+            setManualOverrides(newOverrides);
+            return;
+        }
+        const clamped = Math.min(num, maxBags);
+        setManualOverrides(prev => ({ ...prev, [recordId]: clamped }));
+    };
 
 
     useEffect(() => {
@@ -168,6 +206,7 @@ export function BulkOutflowDialog({ customer, records, onOpenChange: _onOpenChan
         setDiscount('');
         setCommodity('');
         setExcludedRecordIds(new Set());
+        setManualOverrides({});
     };
 
     return (
@@ -198,13 +237,14 @@ export function BulkOutflowDialog({ customer, records, onOpenChange: _onOpenChan
                         {/* Hidden Inputs */}
                         <input type="hidden" name="customerId" value={customer.id} />
                         <input type="hidden" name="commodity" value={commodity} />
-                        <input type="hidden" name="totalBagsToWithdraw" value={bagsToWithdraw} />
                         <input type="hidden" name="withdrawalDate" value={withdrawalDate} />
                         <input type="hidden" name="finalRent" value={previewPlan?.totalRent || 0} />
                         <input type="hidden" name="discount" value={discount} />
                         <input type="hidden" name="amountPaidNow" value={rentPaidNow} />
                         <input type="hidden" name="sendSms" value={String(sendSms)} />
                         <input type="hidden" name="specificRecordIds" value={specificRecordIdsValue} />
+                        <input type="hidden" name="recordAllocations" value={recordAllocationsValue} />
+                        <input type="hidden" name="totalBagsToWithdraw" value={previewPlan?.totalAllocated || bagsToWithdraw} />
 
                         <div className={`grid gap-4 py-4 transition-opacity duration-200 ${isPending ? 'opacity-50 pointer-events-none' : ''}`}>
                             {/* Inputs Section */}
@@ -279,7 +319,7 @@ export function BulkOutflowDialog({ customer, records, onOpenChange: _onOpenChan
                                         <AlertTitle>Summary</AlertTitle>
                                          <AlertDescription className="flex flex-col gap-1 mt-1">
                                             <div className="flex justify-between font-medium">
-                                                <span>Total Bags: {bagsToWithdraw}</span>
+                                                <span>Total Bags: {previewPlan.totalAllocated ?? bagsToWithdraw}</span>
                                                 <span className="text-muted-foreground">Standard Rent: {formatCurrency(previewPlan.totalRent || 0)}</span>
                                             </div>
                                             {(previewPlan.totalHamaliPending > 0) && (
@@ -349,15 +389,25 @@ export function BulkOutflowDialog({ customer, records, onOpenChange: _onOpenChan
                                                                             </Badge>
                                                                         </div>
 
-                                                                        {inPlan && (
+                                                                        {!isExcluded && (
                                                                             <div className="flex items-center justify-between text-sm bg-background/50 p-2 rounded border border-border/50">
-                                                                                <div className="font-semibold text-destructive flex items-center gap-1">
+                                                                                <div className="font-semibold text-destructive flex items-center gap-2">
                                                                                     <PackageMinus className="h-3 w-3" />
-                                                                                    -{inPlan.take}
-                                                                                    {inPlan.isClosing && <Badge variant="destructive" className="h-4 px-1 text-[10px] ml-1">CLOSE</Badge>}
+                                                                                    <Input
+                                                                                        type="number"
+                                                                                        min={0}
+                                                                                        max={r.bagsStored}
+                                                                                        value={manualOverrides[r.id] !== undefined ? manualOverrides[r.id] : (inPlan?.take ?? 0)}
+                                                                                        onChange={(e) => handleBagOverride(r.id, e.target.value, r.bagsStored)}
+                                                                                        className="w-16 h-7 text-xs text-right font-bold text-destructive p-1 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                                                                        disabled={isPending}
+                                                                                    />
+                                                                                    {(manualOverrides[r.id] !== undefined ? manualOverrides[r.id] : (inPlan?.take ?? 0)) === r.bagsStored && (
+                                                                                        <Badge variant="destructive" className="h-4 px-1 text-[10px]">CLOSE</Badge>
+                                                                                    )}
                                                                                 </div>
                                                                                 <div className="font-medium text-muted-foreground">
-                                                                                    Rent: {formatCurrency(inPlan.rent)}
+                                                                                    Rent: {inPlan ? formatCurrency(inPlan.rent) : '-'}
                                                                                 </div>
                                                                             </div>
                                                                         )}
@@ -404,9 +454,24 @@ export function BulkOutflowDialog({ customer, records, onOpenChange: _onOpenChan
                                                                 <TableCell className="font-mono text-xs">#{r.recordNumber}</TableCell>
                                                                 <TableCell className="text-xs">{new Date(r.storageStartDate).toLocaleDateString()}</TableCell>
                                                                 <TableCell className="text-right text-xs text-muted-foreground">{r.bagsStored}</TableCell>
-                                                                <TableCell className="text-right font-bold text-destructive">
-                                                                    {inPlan ? `-${inPlan.take}` : '-'}
-                                                                    {inPlan?.isClosing && <span className="ml-1 text-[10px] uppercase bg-destructive text-white px-1 rounded">Close</span>}
+                                                                <TableCell className="text-right">
+                                                                    {!isExcluded ? (
+                                                                        <div className="flex items-center justify-end gap-1">
+                                                                            <span className="text-destructive font-bold">-</span>
+                                                                            <Input
+                                                                                type="number"
+                                                                                min={0}
+                                                                                max={r.bagsStored}
+                                                                                value={manualOverrides[r.id] !== undefined ? manualOverrides[r.id] : (inPlan?.take ?? 0)}
+                                                                                onChange={(e) => handleBagOverride(r.id, e.target.value, r.bagsStored)}
+                                                                                className="w-16 h-7 text-xs text-right font-bold text-destructive p-1 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                                                                disabled={isPending}
+                                                                            />
+                                                                            {(manualOverrides[r.id] !== undefined ? manualOverrides[r.id] : (inPlan?.take ?? 0)) === r.bagsStored && (
+                                                                                <span className="text-[10px] uppercase bg-destructive text-white px-1 rounded">Close</span>
+                                                                            )}
+                                                                        </div>
+                                                                    ) : '-'}
                                                                 </TableCell>
                                                                 <TableCell className="text-right text-xs">
                                                                     {inPlan ? formatCurrency(inPlan.rent) : '-'}
