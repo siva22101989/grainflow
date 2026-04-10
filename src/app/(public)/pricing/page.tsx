@@ -86,11 +86,12 @@ export default function PricingPage() {
     ];
 
     const getPriceDisplay = (plan: typeof plans[0]) => {
-        if (!plan.monthlyPrice && !plan.yearlyPrice) return 'Custom';
-        
+        if (plan.tier === 'enterprise') return 'Custom';
+        if (plan.monthlyPrice === 0) return 'Free';
+
         const price = billingPeriod === 'monthly' ? plan.monthlyPrice : plan.yearlyPrice;
         const period = billingPeriod === 'monthly' ? '/month' : '/year';
-        
+
         return `₹${price?.toLocaleString()}${period}`;
     };
 

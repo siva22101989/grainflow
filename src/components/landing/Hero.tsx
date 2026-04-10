@@ -13,7 +13,7 @@ export function Hero() {
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
               <span className="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
             </span>
-            Next-Gen Warehouse Management
+            Warehouse Management Built for Agriculture
           </div>
           
           <h1 className="text-5xl lg:text-7xl font-extrabold tracking-tight leading-[1.1]">
@@ -22,7 +22,7 @@ export function Hero() {
           </h1>
           
           <p className="text-xl text-muted-foreground max-w-xl mx-auto lg:mx-0 leading-relaxed">
-            Grain Flow is the professional-grade WMS that replaces manual ledgers with real-time digital tracking, automated billing, and customer portals.
+            GrainFlow replaces manual ledgers with real-time digital tracking, automated billing, and customer portals for agricultural warehouses.
           </p>
 
           <div className="flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-4">
@@ -56,7 +56,7 @@ export function Hero() {
                 </div>
               ))}
             </div>
-            <p>Trusted by <span className="font-bold text-foreground">50+ local warehouses</span></p>
+            <p>Trusted by <span className="font-bold text-foreground">warehouse owners across India</span></p>
           </div>
         </div>
 
@@ -65,7 +65,7 @@ export function Hero() {
           <div className="rounded-2xl border bg-card shadow-2xl overflow-hidden transform lg:rotate-2 hover:rotate-0 transition-transform duration-500">
              <Image 
                 src="/screenshots/dashboard.png" 
-                alt="Grain Flow Dashboard" 
+                alt="GrainFlow Dashboard" 
                 width={1200}
                 height={800}
                 className="w-full h-auto"
@@ -81,7 +81,7 @@ export function Hero() {
              </div>
              <div>
                 <p className="text-xs text-muted-foreground font-medium">Auto-Billing Success</p>
-                <p className="font-bold">₹42,500 Collected</p>
+                <p className="font-bold">₹42,500 Collected This Month</p>
              </div>
           </div>
         </div>

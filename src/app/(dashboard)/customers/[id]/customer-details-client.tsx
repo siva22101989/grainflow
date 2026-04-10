@@ -127,11 +127,8 @@ export function CustomerDetailsClient({ customer, initialRecords }: CustomerDeta
     // Let's assume KPIs should reflect the filtered view for "Financials" but "Active Stock" is tricky.
     // Let's stick to consistent filtering: The KPIs summarize the *displayed* records.
     
-    // Calculate total active bags as remaining stock (original - withdrawn)
-    const totalActiveBags = activeRecords.reduce((sum, r) => {
-        const remainingBags = r.bagsStored - r.bagsOut;
-        return sum + remainingBags;
-    }, 0);
+    // Calculate total active bags (bagsStored already reflects current stock after withdrawals)
+    const totalActiveBags = activeRecords.reduce((sum, r) => sum + r.bagsStored, 0);
 
     // Filter Payments strictly for the Payments Tab/Financials
     // A record might be included because it started in range, but we only want to sum payments IN range.
@@ -291,7 +288,7 @@ export function CustomerDetailsClient({ customer, initialRecords }: CustomerDeta
                                             </Badge>
                                         </div>
                                     </div>
-                                    <Badge variant="outline" className="font-mono text-lg">{r.bagsStored - r.bagsOut} Bags</Badge>
+                                    <Badge variant="outline" className="font-mono text-lg">{r.bagsStored} Bags</Badge>
                                 </div>
                                 <div className="flex justify-end gap-2 mt-2">
                                      <Button asChild variant="ghost" size="sm" className="h-8">

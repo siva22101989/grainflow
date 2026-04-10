@@ -30,12 +30,12 @@ export function Logo({ href = '/' }: LogoProps) {
       href={href} 
       onClick={handleClick}
       className="flex items-center gap-3 hover:opacity-80 transition-opacity cursor-pointer" 
-      aria-label="Grain Flow"
+      aria-label="GrainFlow"
     >
       <div className="bg-white p-1 rounded-full border border-border shadow-sm">
         <GrainFlowLogo className="h-8 w-8" />
       </div>
-      <span className="font-headline font-bold text-xl text-primary hidden sm:inline tracking-tight">Grain Flow</span>
+      <span className="font-headline font-bold text-xl text-primary hidden sm:inline tracking-tight">GrainFlow</span>
     </Link>
   )
 }

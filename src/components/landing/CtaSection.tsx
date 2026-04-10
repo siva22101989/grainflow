@@ -15,7 +15,7 @@ export function CtaSection() {
           </h2>
           
           <p className="text-xl text-primary-foreground/90 max-w-2xl mx-auto">
-            Join 50+ warehouse owners who have simplified their operations and increased their annual revenue by 15% with Grain Flow.
+            Join warehouse owners who have simplified their operations and reduced manual work with GrainFlow.
           </p>
           
           <div className="flex flex-col sm:flex-row items-center justify-center gap-6">
@@ -40,7 +40,7 @@ export function CtaSection() {
                 <p className="text-sm text-primary-foreground/70">Records Managed</p>
              </div>
              <div>
-                <p className="text-3xl font-bold">0%</p>
+                <p className="text-3xl font-bold">Near-Zero</p>
                 <p className="text-sm text-primary-foreground/70">Calculation Errors</p>
              </div>
           </div>

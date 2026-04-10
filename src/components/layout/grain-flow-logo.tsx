@@ -7,7 +7,7 @@ export function GrainFlowLogo({ className, ...props }: ComponentProps<"div">) {
     <div className={cn("relative aspect-square", className)} {...props}>
       <Image 
         src="/logo-v4.png" 
-        alt="Grain Flow Logo" 
+        alt="GrainFlow Logo" 
         fill
         className="object-contain"
         priority

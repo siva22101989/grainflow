@@ -27,7 +27,7 @@ export function LandingHeader() {
         <div className="relative h-10 w-10">
           <GrainFlowLogo className="h-full w-full" />
         </div>
-        <span className="font-headline font-bold text-xl text-primary tracking-tight">Grain Flow</span>
+        <span className="font-headline font-bold text-xl text-primary tracking-tight">GrainFlow</span>
       </Link>
 
       <nav className="hidden md:flex items-center gap-8 text-sm font-medium">

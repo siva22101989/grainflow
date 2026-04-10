@@ -24,7 +24,7 @@ export function About() {
             <div className="space-y-4">
               <h2 className="text-3xl sm:text-4xl font-bold tracking-tight">Built for Resilience</h2>
               <p className="text-xl text-muted-foreground leading-relaxed">
-                Grain Flow was born out of the need for better transparency in agricultural storage. We understand that in the warehouse business, trust is your most valuable asset.
+                GrainFlow was born out of the need for better transparency in agricultural storage. We understand that in the warehouse business, trust is your most valuable asset.
               </p>
             </div>
 

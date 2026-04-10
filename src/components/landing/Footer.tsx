@@ -10,7 +10,7 @@ export function Footer() {
             <div className="bg-primary/10 p-1 rounded-full text-primary">
               <GrainFlowLogo className="h-8 w-8" />
             </div>
-            <span className="font-headline font-bold text-2xl text-foreground tracking-tight">Grain Flow</span>
+            <span className="font-headline font-bold text-2xl text-foreground tracking-tight">GrainFlow</span>
           </Link>
           <p className="max-w-sm text-muted-foreground text-lg leading-relaxed">
             The intelligent warehouse management system designed for the agricultural supply chain in India.
@@ -39,7 +39,7 @@ export function Footer() {
       </div>
 
       <div className="max-w-7xl mx-auto pt-8 flex flex-col md:flex-row justify-between items-center gap-4 text-sm text-muted-foreground">
-        <p>© {new Date().getFullYear()} Grain Flow. All rights reserved.</p>
+        <p>© {new Date().getFullYear()} GrainFlow. All rights reserved.</p>
         <p>Built with ❤️ for Indian Farmers and Warehouse Owners.</p>
       </div>
     </footer>

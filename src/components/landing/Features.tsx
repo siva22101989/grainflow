@@ -4,30 +4,33 @@ import Image from 'next/image'
 const features = [
   {
     title: "Smart Inventory & Logistics",
-    description: "Track inflow and outflow with zero friction. From paddy to wheat, manage everything in real-time with automated balance checks.",
+    description: "Track inflow and outflow for every commodity. From paddy to wheat, manage lot-level stock in real-time with automated balance checks.",
     image: "/screenshots/storage.png",
     icon: Zap,
     color: "text-blue-600 dark:text-blue-400",
     bgColor: "bg-blue-100 dark:bg-blue-900/20",
-    reverse: false
+    reverse: false,
+    bullets: ["Lot-level bag tracking", "QR code labels for every record", "Automated stock reconciliation"]
   },
   {
     title: "Transparent Payments",
-    description: "No more calculation errors. Automated billing cycles (6 months vs 1 year) handles rent, hamali, and expenses automatically.",
+    description: "Automated billing handles rent, hamali, and expenses with zero calculation errors. Supports 6-month and yearly billing cycles.",
     image: "/screenshots/payments.png",
     icon: BarChart3,
     color: "text-green-600 dark:text-green-400",
     bgColor: "bg-green-100 dark:bg-green-900/20",
-    reverse: true
+    reverse: true,
+    bullets: ["Auto rent calculation per bag", "Bulk payment allocation (FIFO)", "Razorpay payment links via SMS"]
   },
   {
     title: "Customer CRM",
-    description: "Empower your clients with transparency. Track full transaction histories for every customer profile in one central location.",
+    description: "Give your clients full transparency. Track transaction histories, pending dues, and storage status for every customer in one place.",
     image: "/screenshots/customers.png",
     icon: Users,
     color: "text-purple-600 dark:text-purple-400",
     bgColor: "bg-purple-100 dark:bg-purple-900/20",
-    reverse: false
+    reverse: false,
+    bullets: ["Customer self-service portal", "Full payment and storage history", "Exportable statements (PDF/Excel)"]
   }
 ]
 
@@ -38,7 +41,7 @@ export function Features() {
         <div className="text-center max-w-3xl mx-auto space-y-4">
           <h2 className="text-3xl sm:text-4xl font-bold tracking-tight">Everything you need to run at scale</h2>
           <p className="text-lg text-muted-foreground">
-            Built by agriculture experts for warehouse owners. Ditch the paperwork and step into the digital age.
+            Built by agriculture experts for warehouse owners. Replace paperwork with real-time digital tracking.
           </p>
         </div>
 
@@ -53,7 +56,7 @@ export function Features() {
                 {feature.description}
               </p>
               <ul className="space-y-3">
-                {["Real-time status updates", "Export as PDF/Excel", "SMS Notifications ready"].map((item) => (
+                {feature.bullets.map((item) => (
                   <li key={item} className="flex items-center gap-3 font-medium">
                     <div className="h-5 w-5 rounded-full bg-primary/10 text-primary flex items-center justify-center">
                       <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">

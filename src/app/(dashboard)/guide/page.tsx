@@ -11,7 +11,7 @@ export default function GuidePage() {
     <>
       <PageHeader
         title="User Guide"
-        description="Learn how to manage your warehouse effectively with Grain Flow."
+        description="Learn how to manage your warehouse effectively with GrainFlow."
         breadcrumbs={[
             { label: 'Dashboard', href: '/' },
             { label: 'Guide' }
@@ -28,7 +28,7 @@ export default function GuidePage() {
                     Getting Started
                 </CardTitle>
                 <CardDescription>
-                    Welcome to **Grain Flow**! This guide covers the core workflows to help you track stock and manage billing effortlessly.
+                    Welcome to **GrainFlow**! This guide covers the core workflows to help you track stock and manage billing effortlessly.
                 </CardDescription>
             </CardHeader>
         </Card>

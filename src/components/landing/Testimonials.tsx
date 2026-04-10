@@ -4,19 +4,19 @@ import { Quote } from 'lucide-react'
 
 const testimonials = [
   {
-    quote: "Grain Flow reduced our billing errors by 95%. We've saved 20+ hours every month on manual calculations!",
+    quote: "GrainFlow practically eliminated our billing errors. We used to spend hours on manual calculations every week.",
     author: "Rajesh Kumar",
     role: "Owner, Punjab Grain Store",
     initials: "RK"
   },
   {
-    quote: "The customer portal is a game-changer. Our farmers can now check their balance anytime without calling us.",
+    quote: "The customer portal changed everything. Our farmers can check their balance anytime without calling us.",
     author: "Priya Sharma",
     role: "Manager, Maharashtra Cooperative",
     initials: "PS"
   },
   {
-    quote: "SMS notifications keep our customers informed automatically. Payment collection improved by 40%!",
+    quote: "SMS notifications keep our customers informed automatically. Payment collection has never been smoother.",
     author: "Amit Patel",
     role: "Director, Gujarat APMC",
     initials: "AP"

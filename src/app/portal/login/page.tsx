@@ -105,7 +105,7 @@ export default function PortalLoginPage() {
                 <CardFooter className="justify-center border-t bg-muted/10 py-4">
                     <p className="text-xs text-muted-foreground text-center">
                         Secure passwordless access. <br/>
-                        Protected by Grain Flow Security.
+                        Protected by GrainFlow Security.
                     </p>
                 </CardFooter>
             </Card>

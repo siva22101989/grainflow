@@ -15,8 +15,8 @@ import { KeyboardShortcuts } from "@/components/layout/keyboard-shortcuts";
 
 export const metadata: Metadata = {
   title: {
-    template: '%s | Grain Flow',
-    default: 'Grain Flow - Smart Warehouse Management'
+    template: '%s | GrainFlow',
+    default: 'GrainFlow - Smart Warehouse Management'
   },
   description: 'Professional agricultural warehouse management system for inventory, billing, and rent tracking.',
   keywords: ['warehouse', 'agriculture', 'inventory', 'billing', 'rent', 'management', 'saas'],

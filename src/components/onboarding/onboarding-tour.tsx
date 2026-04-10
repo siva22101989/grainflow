@@ -25,7 +25,7 @@ export function OnboardingTour({ tourCompleted }: OnboardingTourProps) {
             steps: [
                 {
                     popover: {
-                        title: 'Welcome to Grain Flow! 🌾',
+                        title: 'Welcome to GrainFlow! 🌾',
                         description: 'Let us take you on a quick tour of your new warehouse management system.',
                         side: 'left',
                         align: 'start'
