@@ -153,6 +153,24 @@ export async function processBulkOutflow(_prevState: any, formData: FormData): P
                     return { success: false, message: 'No records with available stock found.' };
                 }
 
+                // --- STEP 2.5: Load crop pricing for per-commodity rates ---
+                const cropIds = [...new Set(activeRecords.map(r => r.cropId).filter(Boolean))];
+                const cropPricingMap: Record<string, { price6m: number; price1y: number }> = {};
+                if (cropIds.length > 0) {
+                    const { data: crops } = await supabase
+                        .from('crops')
+                        .select('id, rent_price_6m, rent_price_1y')
+                        .in('id', cropIds);
+                    if (crops) {
+                        for (const crop of crops) {
+                            cropPricingMap[crop.id] = {
+                                price6m: crop.rent_price_6m,
+                                price1y: crop.rent_price_1y
+                            };
+                        }
+                    }
+                }
+
                 // --- STEP 3: Allocation Plan (Manual or FIFO) ---
                 const operations = [];
 
@@ -167,10 +185,12 @@ export async function processBulkOutflow(_prevState: any, formData: FormData): P
                         if (alloc.bags > record.bagsStored) {
                             return { success: false, message: `Cannot withdraw ${alloc.bags} bags from record #${record.recordNumber} (only ${record.bagsStored} available).` };
                         }
+                        const cropPricing = record.cropId ? cropPricingMap[record.cropId] : undefined;
                         const { rent: recordRent } = BillingService.calculateRent(
                             record,
                             new Date(withdrawalDate),
-                            alloc.bags
+                            alloc.bags,
+                            cropPricing
                         );
                         operations.push({ record, bags: alloc.bags, rent: recordRent });
                     }
@@ -180,10 +200,12 @@ export async function processBulkOutflow(_prevState: any, formData: FormData): P
                     for (const record of activeRecords) {
                         if (bagsRemainingToWithdraw <= 0) break;
                         const bagsFromThisRecord = Math.min(record.bagsStored, bagsRemainingToWithdraw);
+                        const cropPricing = record.cropId ? cropPricingMap[record.cropId] : undefined;
                         const { rent: recordRent } = BillingService.calculateRent(
                             record,
                             new Date(withdrawalDate),
-                            bagsFromThisRecord
+                            bagsFromThisRecord,
+                            cropPricing
                         );
                         operations.push({ record, bags: bagsFromThisRecord, rent: recordRent });
                         bagsRemainingToWithdraw -= bagsFromThisRecord;

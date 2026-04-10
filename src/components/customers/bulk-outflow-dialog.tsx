@@ -32,6 +32,7 @@ import { Badge } from "@/components/ui/badge";
 interface BulkOutflowDialogProps {
     customer: Customer;
     records: StorageRecord[];
+    crops?: any[];
     onOpenChange?: (open: boolean) => void;
 }
 
@@ -40,7 +41,7 @@ const initialState: BulkOutflowResult = {
     success: false
 };
 
-export function BulkOutflowDialog({ customer, records, onOpenChange: _onOpenChange }: BulkOutflowDialogProps) {
+export function BulkOutflowDialog({ customer, records, crops, onOpenChange: _onOpenChange }: BulkOutflowDialogProps) {
     const [open, setOpen] = useState(false);
     // Removed step state
     const { success: showSuccess } = useUnifiedToast();
@@ -66,6 +67,17 @@ export function BulkOutflowDialog({ customer, records, onOpenChange: _onOpenChan
         setExcludedRecordIds(new Set());
         setManualOverrides({});
     }, [commodity]);
+
+    // Helper: get crop pricing for a record
+    const getCropPricing = (record: StorageRecord) => {
+        if (record.cropId && crops) {
+            const crop = crops.find((c: any) => c.id === record.cropId);
+            if (crop) {
+                return { price6m: crop.rent_price_6m, price1y: crop.rent_price_1y };
+            }
+        }
+        return undefined;
+    };
 
     // Derived: Available Commodities
     const commodities = useMemo(() => {
@@ -120,7 +132,7 @@ export function BulkOutflowDialog({ customer, records, onOpenChange: _onOpenChan
 
             if (take <= 0) continue;
 
-            const { rent } = calculateFinalRent(r, new Date(withdrawalDate), take);
+            const { rent } = calculateFinalRent(r, new Date(withdrawalDate), take, getCropPricing(r));
 
             const amountPaid = (r.payments || []).reduce((acc, p) => acc + p.amount, 0);
             const pending = r.hamaliPayable - amountPaid;
@@ -150,7 +162,7 @@ export function BulkOutflowDialog({ customer, records, onOpenChange: _onOpenChan
             activeRecordCount: activeRecords.length,
             totalAllocated
         };
-    }, [records, commodity, bagsToWithdraw, withdrawalDate, excludedRecordIds, manualOverrides]);
+    }, [records, commodity, bagsToWithdraw, withdrawalDate, excludedRecordIds, manualOverrides, crops]);
 
     const toggleRecordSelection = (recordId: string, checked: boolean) => {
         const newSet = new Set(excludedRecordIds);

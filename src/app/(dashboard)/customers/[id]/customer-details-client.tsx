@@ -38,9 +38,10 @@ import { PaymentLinkDialog } from './payment-link-dialog';
 interface CustomerDetailsClientProps {
     customer: Customer;
     initialRecords: StorageRecord[];
+    crops?: any[];
 }
 
-export function CustomerDetailsClient({ customer, initialRecords }: CustomerDetailsClientProps) {
+export function CustomerDetailsClient({ customer, initialRecords, crops }: CustomerDetailsClientProps) {
     const [dateRange, setDateRange] = useState<DateRange | undefined>();
     
     // Pagination for each tab
@@ -211,7 +212,7 @@ export function CustomerDetailsClient({ customer, initialRecords }: CustomerDeta
                             <PlusCircle className="mr-2 h-4 w-4" /> New Inflow
                         </Link>
                     </Button>
-                    <BulkOutflowDialog customer={customer} records={activeRecords} />
+                    <BulkOutflowDialog customer={customer} records={activeRecords} crops={crops} />
                     {activeRecords.length > 0 && totalDue > 0 && (
                         <AddPaymentDialog 
                             record={{
