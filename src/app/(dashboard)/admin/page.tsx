@@ -27,6 +27,7 @@ import { CreateWarehouseDialog } from '@/components/admin/create-warehouse-dialo
 import { SubscriptionsTable } from '@/components/admin/subscriptions-table';
 import { CodesTable } from '@/components/admin/codes-table';
 import { CreditCard, Key } from 'lucide-react';
+import { UserRole } from '@/types/db';
 export default async function SuperAdminDashboard({
   searchParams,
 }: {
@@ -51,7 +52,7 @@ export default async function SuperAdminDashboard({
     .eq('id', user.id)
     .single();
 
-  if (profile?.role !== 'super_admin' && profile?.role !== 'owner') {
+  if (profile?.role !== UserRole.SUPER_ADMIN && profile?.role !== UserRole.OWNER) {
       return (
         <div className="flex h-screen w-full flex-col items-center justify-center gap-4 bg-slate-50">
             <h1 className="text-4xl font-bold text-slate-800">403 Forbidden</h1>

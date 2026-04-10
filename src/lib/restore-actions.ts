@@ -4,6 +4,7 @@ import { createClient } from '@/utils/supabase/server';
 import { revalidatePath } from 'next/cache';
 import { getUserWarehouse } from '@/lib/queries';
 import { logError } from './error-logger';
+import { UserRole } from '@/types/db';
 
 export async function restoreFromBackup(backupData: any) {
   const supabase = await createClient();
@@ -17,7 +18,7 @@ export async function restoreFromBackup(backupData: any) {
 
   // Role Check
   const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single();
-  if (profile?.role !== 'owner' && profile?.role !== 'super_admin') {
+  if (profile?.role !== UserRole.OWNER && profile?.role !== UserRole.SUPER_ADMIN) {
       return { success: false, message: 'Permission Denied: Only Owners and Super Admins can restore data.' };
   }
   const targetWarehouseId = await getUserWarehouse();

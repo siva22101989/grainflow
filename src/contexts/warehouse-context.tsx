@@ -85,9 +85,10 @@ export function WarehouseProvider({ children }: { children: React.ReactNode }) {
             }
             setIsLoading(false);
             
-            // Revalidate if stale
+            // If cache is more than half expired, refresh in foreground
+            // so the user gets fresh data before interacting
             if (age > CACHE_DURATION * 0.5) {
-              refreshWarehouses().catch(() => {});
+              await refreshWarehouses();
             }
             return;
           }

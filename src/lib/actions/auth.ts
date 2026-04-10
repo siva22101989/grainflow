@@ -11,6 +11,7 @@ import { logError } from '@/lib/error-logger';
 import { FormState } from './common';
 import { roleHierarchy } from '@/lib/definitions';
 import { getTeamMembers } from '@/lib/queries';
+import { UserRole } from '@/types/db';
 
 
 export async function signOutAction() {
@@ -214,7 +215,7 @@ export async function updateTeamMember(userId: string, formData: FormData) {
 
     // 3. Check Permissions
     // Must be in same warehouse (unless Super Admin)
-    if (currentProfile.role !== 'super_admin' && currentProfile.warehouse_id !== targetProfile.warehouse_id) {
+    if (currentProfile.role !== UserRole.SUPER_ADMIN && currentProfile.warehouse_id !== targetProfile.warehouse_id) {
         return { message: "Unauthorized: Different warehouse", success: false };
     }
 
@@ -266,7 +267,7 @@ export async function deactivateTeamMember(userId: string) {
     const targetRank = roleHierarchy[targetProfile.role] || 0;
 
     // 3. Permission Check
-    if (currentProfile.role !== 'super_admin' && currentProfile.warehouse_id !== targetProfile.warehouse_id) {
+    if (currentProfile.role !== UserRole.SUPER_ADMIN && currentProfile.warehouse_id !== targetProfile.warehouse_id) {
          return { message: "Unauthorized: Different warehouse", success: false };
     }
 

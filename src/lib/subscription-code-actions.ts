@@ -4,6 +4,7 @@ import { createClient } from '@/utils/supabase/server';
 import { revalidatePath } from 'next/cache';
 import { addDays } from 'date-fns';
 import { logError } from './error-logger';
+import { UserRole } from '@/types/db';
 
 export interface GenerateCodeParams {
     planId: string;
@@ -42,7 +43,7 @@ export async function generateCodeAction({ planId, durationDays, notes, count = 
         .eq('id', user.id)
         .single();
 
-    if (profile?.role !== 'super_admin') {
+    if (profile?.role !== UserRole.SUPER_ADMIN) {
         throw new Error('Only admins can generate codes');
     }
 

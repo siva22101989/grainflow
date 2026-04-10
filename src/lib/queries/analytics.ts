@@ -1,5 +1,6 @@
 import { createClient } from '@/utils/supabase/server';
 import { cache } from 'react';
+import { UserRole } from '@/types/db';
 import type {
     AdminDashboardStats,
     WarehouseAdminDetails,
@@ -16,8 +17,8 @@ export const getAdminDashboardStats = cache(async (): Promise<AdminDashboardStat
     const { data: profile } = await supabase.from('profiles').select('role, warehouse_id').eq('id', user.id).single();
     if (!profile) return null;
     
-    const isSuper = profile.role === 'super_admin';
-    const isOwner = profile.role === 'owner';
+    const isSuper = profile.role === UserRole.SUPER_ADMIN;
+    const isOwner = profile.role === UserRole.OWNER;
     if (!isSuper && !isOwner) return null; 
 
     let warehouseIds: string[] = [];
@@ -79,7 +80,7 @@ export const getAllWarehousesAdmin = cache(async (limit = 500, offset = 0): Prom
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
     const { data: profile } = await supabase.from('profiles').select('role, warehouse_id').eq('id', user?.id).single();
-    const isOwner = profile?.role === 'owner';
+    const isOwner = profile?.role === UserRole.OWNER;
     let warehouseIds: string[] = [];
     
     if (isOwner) {
@@ -126,7 +127,7 @@ export const getAllUsersAdmin = cache(async (limit = 500, offset = 0) => {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
     const { data: profile } = await supabase.from('profiles').select('role, warehouse_id').eq('id', user?.id).single();
-    const isOwner = profile?.role === 'owner';
+    const isOwner = profile?.role === UserRole.OWNER;
     let warehouseIds: string[] = [];
     
     if (isOwner) {
@@ -159,7 +160,7 @@ export const getGlobalActivityLogs = cache(async (limit = 20, offset = 0, search
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
     const { data: profile } = await supabase.from('profiles').select('role, warehouse_id').eq('id', user?.id).single();
-    const isOwner = profile?.role === 'owner';
+    const isOwner = profile?.role === UserRole.OWNER;
     let warehouseIds: string[] = [];
     
     if (isOwner) {

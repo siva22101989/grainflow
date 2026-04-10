@@ -77,39 +77,20 @@ export async function searchGlobal(query: string): Promise<SearchResult[]> {
     }
 
     // 3. Search Payments (Payment Number, Notes)
+    // Payments table has no warehouse_id column. Join through storage_records for isolation.
     let paymentQuery = supabase
         .from('payments')
-        .select('id, payment_number, amount, type, notes, payment_date')
-        .eq('warehouse_id', warehouseId) // Need to ensure payments has warehouse_id or join via storage_record
+        .select('id, payment_number, amount, type, notes, payment_date, storage_records!inner(warehouse_id)')
+        .eq('storage_records.warehouse_id', warehouseId)
         .is('deleted_at', null)
         .limit(5);
 
-    // Wait, 'payments' might not have 'warehouse_id' directly in some legacy schemas, 
-    // but the unified schema has 'expenses' with warehouse_id. 
-    // Payments are linked to storage_records. 
-    // Let's check schema. In `single_truth.sql`: 
-    // CREATE TABLE IF NOT EXISTS public.payments ( ... storage_record_id uuid ... )
-    // It does NOT have warehouse_id directly! 
-    // We must join or ensure RLS handles it. 
-    // Actually, RLS on payments usually checks `storage_record_id -> warehouse_id`.
-    // But for a fast search, a direct query is tricky without a join.
-    // Let's try to query joined with storage_records to filter by warehouse.
-    
-    // Actually, simpler: Queries on `payments` will likely span all warehouses if we don't filter.
-    // RLS *should* filter it automatically if policies are set up correctly:
-    // `CREATE POLICY "Users see own warehouse payments" ON payments ... USING (storage_record_id IN ...)`
-    // So we can just query.
-    
     if (isNumber) {
          paymentQuery = paymentQuery.eq('payment_number', parseInt(sanitizedQuery));
     } else {
-         // Search notes or type
          paymentQuery = paymentQuery.ilike('notes', `%${sanitizedQuery}%`);
     }
 
-    // Note: If RLS is weak, this leaks. If RLS is strong, this is safe. 
-    // Assuming RLS is active.
-    
     const { data: payments } = await paymentQuery;
 
     if (payments) {

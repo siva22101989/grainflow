@@ -5,6 +5,7 @@ import { createAdminClient } from '@/utils/supabase/admin';
 import { revalidatePath } from 'next/cache';
 import { getUserWarehouse } from './queries';
 import { logError } from '@/lib/error-logger';
+import { UserRole } from '@/types/db';
 
 
 
@@ -19,7 +20,7 @@ async function checkAdminPermissions() {
         .eq('id', user.id)
         .single();
 
-    const isAuthorized = profile?.role === 'super_admin' || profile?.role === 'owner';
+    const isAuthorized = profile?.role === UserRole.SUPER_ADMIN || profile?.role === UserRole.OWNER;
     return { 
         authorized: isAuthorized, 
         role: profile?.role, 
@@ -37,13 +38,13 @@ export async function updateUserRole(userId: string, newRole: string) {
     const supabase = await createClient();
 
     // If owner, check if the target user is in their warehouse
-    if (role === 'owner') {
+    if (role === UserRole.OWNER) {
         const { data: targetProfile } = await supabase
             .from('profiles')
             .select('warehouse_id')
             .eq('id', userId)
             .single();
-        
+
         if (targetProfile?.warehouse_id !== warehouseId) {
             return { success: false, message: 'Unauthorized: User belongs to another warehouse' };
         }
@@ -72,7 +73,7 @@ export async function bulkUpdateUserRoles(userIds: string[], newRole: string) {
     let query = supabase.from('profiles').update({ role: newRole }).in('id', userIds);
 
     // If owner, restrict to their warehouse
-    if (role === 'owner') {
+    if (role === UserRole.OWNER) {
         query = query.eq('warehouse_id', warehouseId);
     }
 
@@ -96,7 +97,7 @@ export async function bulkDeleteUsers(userIds: string[]) {
     let query = supabase.from('profiles').delete().in('id', userIds);
 
     // If owner, restrict to their warehouse
-    if (role === 'owner') {
+    if (role === UserRole.OWNER) {
         query = query.eq('warehouse_id', warehouseId);
     }
 
@@ -113,7 +114,7 @@ export async function bulkDeleteUsers(userIds: string[]) {
 
 export async function deleteWarehouseAction(warehouseId: string) {
     const { authorized, role } = await checkAdminPermissions();
-    if (!authorized || role !== 'super_admin') {
+    if (!authorized || role !== UserRole.SUPER_ADMIN) {
         return { success: false, message: 'Unauthorized: Only super admins can delete warehouses' };
     }
 
@@ -228,7 +229,7 @@ export async function updateWarehouseDetails(formData: FormData) {
 
 export async function assignWarehousePlan(warehouseId: string, planTier: string) {
     const { authorized, role } = await checkAdminPermissions();
-    if (!authorized || role !== 'super_admin') {
+    if (!authorized || role !== UserRole.SUPER_ADMIN) {
         return { success: false, message: 'Unauthorized: Only super admins can assign plans' };
     }
 
