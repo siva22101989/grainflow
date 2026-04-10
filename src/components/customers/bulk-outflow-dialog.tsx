@@ -146,7 +146,7 @@ export function BulkOutflowDialog({ customer, records, onOpenChange: _onOpenChan
             totalRent: plan.reduce((sum, p) => sum + p.rent, 0),
             totalHamaliPending,
             totalAdvanceAmount,
-            impossible: hasOverrides ? false : remaining > 0,
+            impossible: hasOverrides ? totalAllocated > targetBags : remaining > 0,
             activeRecordCount: activeRecords.length,
             totalAllocated
         };
@@ -183,7 +183,19 @@ export function BulkOutflowDialog({ customer, records, onOpenChange: _onOpenChan
             setManualOverrides(newOverrides);
             return;
         }
-        const clamped = Math.min(num, maxBags);
+        // Clamp to record's available bags
+        let clamped = Math.min(num, maxBags);
+
+        // Clamp to total bag limit: sum of all OTHER overrides + this one must not exceed target
+        const targetBags = parseInt(bagsToWithdraw) || 0;
+        if (targetBags > 0) {
+            const othersTotal = Object.entries(manualOverrides)
+                .filter(([id]) => id !== recordId)
+                .reduce((sum, [, bags]) => sum + bags, 0);
+            const maxForThisRecord = Math.max(0, targetBags - othersTotal);
+            clamped = Math.min(clamped, maxForThisRecord);
+        }
+
         setManualOverrides(prev => ({ ...prev, [recordId]: clamped }));
     };
 
@@ -346,7 +358,10 @@ export function BulkOutflowDialog({ customer, records, onOpenChange: _onOpenChan
                                             </div>
                                             {previewPlan.impossible && (
                                                 <span className="font-bold text-destructive mt-1">
-                                                    Warning: You requested {bagsToWithdraw} bags but only {maxBags - Array.from(excludedRecordIds).reduce((sum, id) => sum + (records.find(r => r.id === id)?.bagsStored || 0), 0)} are selected!
+                                                    {Object.keys(manualOverrides).length > 0
+                                                        ? `Warning: Manual allocation total (${previewPlan.totalAllocated}) exceeds requested bags (${bagsToWithdraw}).`
+                                                        : `Warning: You requested ${bagsToWithdraw} bags but only ${maxBags - Array.from(excludedRecordIds).reduce((sum, id) => sum + (records.find(r => r.id === id)?.bagsStored || 0), 0)} are selected!`
+                                                    }
                                                 </span>
                                             )}
                                         </AlertDescription>
