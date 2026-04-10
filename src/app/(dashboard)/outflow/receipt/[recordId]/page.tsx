@@ -4,7 +4,7 @@ import Link from "next/link";
 import { X } from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
 import { OutflowReceipt } from "@/components/outflow/outflow-receipt";
-import { getStorageRecord, getCustomer, getWarehouseDetails } from "@/lib/queries";
+import { getStorageRecord, getCustomer, getWarehouseDetails, getAvailableCrops } from "@/lib/queries";
 import { notFound } from "next/navigation";
 
 export const dynamic = 'force-dynamic';
@@ -23,11 +23,12 @@ export default async function OutflowReceiptPage({
   const finalRent = Number(resolvedSearchParams?.rent) || 0;
   const paidNow = Number(resolvedSearchParams?.paidNow) || 0;
 
-  const [record, warehouse] = await Promise.all([
+  const [record, warehouse, crops] = await Promise.all([
     getStorageRecord(recordId),
-    getWarehouseDetails()
+    getWarehouseDetails(),
+    getAvailableCrops()
   ]);
-  
+
   const customer = record ? await getCustomer(record.customerId) : null;
 
   if (!record || !customer) {
@@ -48,13 +49,14 @@ export default async function OutflowReceiptPage({
         </Button>
       </PageHeader>
       <div className="flex justify-center">
-        <OutflowReceipt 
-            record={record} 
+        <OutflowReceipt
+            record={record}
             customer={customer}
             withdrawnBags={withdrawnBags}
             finalRent={finalRent}
             paidNow={paidNow}
             warehouse={warehouse}
+            crops={crops}
         />
       </div>
     </>

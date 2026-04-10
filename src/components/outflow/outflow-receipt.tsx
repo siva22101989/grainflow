@@ -16,9 +16,10 @@ type OutflowReceiptProps = {
   finalRent: number;
   paidNow: number;
   warehouse: any;
+  crops?: any[];
 };
 
-export function OutflowReceipt({ record, customer, withdrawnBags, finalRent, paidNow, warehouse }: OutflowReceiptProps) {
+export function OutflowReceipt({ record, customer, withdrawnBags, finalRent, paidNow, warehouse, crops }: OutflowReceiptProps) {
     const [formattedStartDate, setFormattedStartDate] = useState('');
     const [formattedEndDate, setFormattedEndDate] = useState('');
     
@@ -44,7 +45,15 @@ export function OutflowReceipt({ record, customer, withdrawnBags, finalRent, pai
             storageStartDate: startDate,
         }
 
-        const { rentPerBag } = calculateFinalRent(safeRecord, endDate, withdrawnBags);
+        // Look up crop pricing for correct rate display
+        let pricing = undefined;
+        if (record.cropId && crops) {
+            const crop = crops.find((c: any) => c.id === record.cropId);
+            if (crop) {
+                pricing = { price6m: crop.rent_price_6m, price1y: crop.rent_price_1y };
+            }
+        }
+        const { rentPerBag } = calculateFinalRent(safeRecord, endDate, withdrawnBags, pricing);
         setRentBreakdown({ rentPerBag });
 
         const originalHamaliPayable = record.hamaliPayable;
