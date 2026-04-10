@@ -1,204 +1,208 @@
-# Grain Flow - Intelligent Warehouse Management System 🏭
+<p align="center">
+  <img src="/public/logo-v4.png" alt="GrainFlow" width="80" height="80" />
+</p>
 
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.0-blue?logo=typescript)](https://www.typescriptlang.org/)
-[![Next.js](https://img.shields.io/badge/Next.js-16-black?logo=next.js)](https://nextjs.org/)
-[![Supabase](https://img.shields.io/badge/Supabase-2.72-green?logo=supabase)](https://supabase.com/)
-[![Tests](https://img.shields.io/badge/Tests-291%2F291%20passing-brightgreen)](#-testing--security)
-[![Security](https://img.shields.io/badge/Vulnerabilities-1%20Low-yellow)](#-testing--security)
-[![License](https://img.shields.io/badge/License-Private-red)](LICENSE)
+<h1 align="center">GrainFlow</h1>
 
-![Grain Flow Banner](/public/icon.svg)
+<p align="center">
+  <strong>Warehouse management built for Indian agriculture</strong>
+</p>
 
-**Grain Flow** is a professional-grade, multi-tenant Warehouse Management System (WMS) designed for agricultural storage. It replaces manual ledgers with a secure, real-time digital platform tracking stock, financials, and customer relationships.
+<p align="center">
+  <a href="https://grainflow.vercel.app">Live Demo</a> &middot;
+  <a href="docs/manual/00-index.md">User Manual</a> &middot;
+  <a href="docs/ARCHITECTURE.md">Architecture</a>
+</p>
 
-Built with **Next.js 16**, **Supabase**, and **Shadcn UI**, it offers a modern, responsive experience with offline-first capabilities (PWA).
-
----
-
-## 🚀 Key Features
-
-### 🌐 Professional Landing Page
-
-- **Modern Design**: Stunning, premium landing page with adaptive light/dark mode support
-- **Contact Integration**: Interactive dialog for sales contact via phone call or WhatsApp
-- **Responsive Navigation**: Smooth scrolling between sections (Features, About, Pricing)
-- **Professional Branding**: Custom logo design with transparent backgrounds
-- **Multiple Themes**: Seamless theme switching with persistent user preference
-
-### 📦 Smart Inventory & Logistics
-
-- **Inflow/Outflow workflows**: Streamlined forms with validation logic (e.g., preventing withdrawal > stock).
-- **Readable IDs**: Auto-generated transaction IDs (e.g., `REC-1001`, `PAY-505`) for easy reference.
-- **Lot Management**: Track capacity by specific warehouse zones (Row A, Row B).
-- **Visual Metrics**: Real-time charts for occupancy, weekly flow, and revenue.
-- **SMS Notifications**: Automated SMS for inflow, outflow, and payment reminders via TextBee.
-
-### 💰 Financial Automation
-
-- **Auto-Billing**: Calculates rent based on storage duration (6-Month vs 1-Year cycles).
-- **Hamali (Labor) Tracking**: Separate ledgers for labor charges vs rent.
-- **Expense Manager**: Track operational costs (Staff, Utilities) to calculate net profit.
-- **Debt Insights**: High-level dashboards showing "Total Warehouse Due" vs "Collected".
-
-### 👥 Customer Portal & CRM
-
-- **Customer Profiles**: 360-degree view of every client (Active Stock, History, Total Due).
-- **Activity Timeline**: Full history of every inflow, payment, and withdrawal.
-- **Smart Payment Recording**: Expandable record selection with readable IDs - see all customer records, select which one to pay.
-- **One-Click Actions**: Quick buttons for "New Inflow" or "Receive Payment" directly from profile.
-
-### 🔍 Search & Filter
-
-- **Universal Search**: Instant search across all major pages (Customers, Payments, Storage, Outflow, Expenses, Inflow).
-- **Advanced Filters**: Date range filtering, sort options, and multi-criteria search.
-- **Smart Empty States**: Context-aware messages when no results found.
-- **Client-Side Performance**: Instant filtering with no server round-trips for 100+ records.
-
-### ⚙️ Professional Grade
-
-- **Transactions Audit**: Dedicated `withdrawal_transactions` ledger tracks every partial or full withdrawal for 100% accountability.
-- **Security**: Row Level Security (RLS) ensures data isolation between different warehouses.
-- **Mobile First**: Optimized "App-like" feel with compact headers, touch-friendly forms, and responsive data cards.
-- **Adaptive Theming**: Built-in high-contrast dark theme with semantic color variables for low-light environments.
-- **Contact Management**: Integrated contact dialog with direct phone and WhatsApp options for sales inquiries.
-- **Pricing Transparency**: Clear pricing page with multiple tiers and 14-day free trial option.
+<p align="center">
+  <img src="https://img.shields.io/badge/Next.js-16-black?logo=next.js" alt="Next.js 16" />
+  <img src="https://img.shields.io/badge/TypeScript-Strict-blue?logo=typescript" alt="TypeScript" />
+  <img src="https://img.shields.io/badge/Supabase-PostgreSQL-3FCF8E?logo=supabase" alt="Supabase" />
+  <img src="https://img.shields.io/badge/Tests-352%20passing-brightgreen" alt="Tests" />
+  <img src="https://img.shields.io/badge/Build-passing-brightgreen" alt="Build" />
+  <img src="https://img.shields.io/badge/License-Private-red" alt="License" />
+</p>
 
 ---
 
-## Documentation
+GrainFlow replaces manual ledgers with real-time digital tracking, automated billing, and customer portals for agricultural warehouses. Multi-tenant, mobile-first, built for warehouse owners managing thousands of bags across multiple lots.
 
-For detailed architecture, database rules, and coding standards, please refer to the [Development Guidelines](docs/DEVELOPMENT_GUIDELINES.md).
+## What It Does
 
----
+**For warehouse owners:**
+- Track inflow and outflow per customer, per commodity, per lot
+- Auto-calculate rent based on storage duration (6-month and yearly cycles)
+- Bulk outflow with FIFO or manual per-record bag allocation
+- Generate PDF receipts and Excel reports
+- Send SMS notifications for transactions and payment reminders
 
-## 🛠️ Technology Stack
+**For customers:**
+- Self-service portal to view storage status and payment history
+- OTP-based passwordless login via mobile number
 
-| Layer          | Technology                                         |
-| :------------- | :------------------------------------------------- |
-| **Framework**  | [Next.js 16 (App Router)](https://nextjs.org/)     |
-| **Language**   | TypeScript (Strict mode)                           |
-| **Database**   | [Supabase (PostgreSQL)](https://supabase.com/)     |
-| **Auth**       | Supabase Auth (SSR)                                |
-| **UI Library** | [Shadcn/UI](https://ui.shadcn.com/) + Tailwind CSS |
-| **Monitoring** | Sentry (Error Tracking & Performance)              |
-| **State**      | React Server Components (RSC) + Server Actions     |
-| **Validation** | Zod                                                |
-| **Testing**    | Vitest (Unit/Integration) + Playwright (E2E)       |
-| **Exports**    | ExcelJS (Spreadsheet generation)                   |
+**For admins:**
+- Multi-warehouse management with role-based access (Super Admin, Owner, Admin, Manager, Staff)
+- Subscription management with activation codes and Razorpay payment links
+- Real-time analytics dashboard with occupancy, revenue, and activity tracking
 
----
+## Tech Stack
 
-## 🏁 Getting Started
+| Layer | Technology |
+|-------|------------|
+| Framework | Next.js 16 (App Router, Turbopack) |
+| Language | TypeScript (strict mode) |
+| Database | Supabase (PostgreSQL + RLS) |
+| Auth | Supabase Auth (SSR cookies + middleware) |
+| UI | shadcn/ui + Tailwind CSS 4 |
+| Payments | Razorpay (payment links + webhooks) |
+| SMS | TextBee API |
+| Monitoring | Sentry (error tracking + performance) |
+| Testing | Vitest (352 tests) + Playwright (10 E2E specs) |
+| Hosting | Vercel (Edge Network) |
 
-### Prerequisites
-
-- Node.js 18+
-- A Supabase Project
-
-### 1. Installation
+## Quick Start
 
 ```bash
 git clone https://github.com/siva22101989/grainflow.git
-cd rent_supabase
+cd grainflow
 npm install
 ```
-
-### 2. Environment Setup
 
 Create `.env.local`:
 
 ```env
-NEXT_PUBLIC_SUPABASE_URL=your_project_url
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your_anon_key
-SENTRY_AUTH_TOKEN=your_sentry_token (Optional)
-```
+NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY=your_anon_key
+SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
 
-### 3. Run Development Server
+# Payments (optional)
+RAZORPAY_KEY_SECRET=your_razorpay_secret
+RAZORPAY_WEBHOOK_SECRET=your_webhook_secret
+NEXT_PUBLIC_RAZORPAY_KEY_ID=your_razorpay_key
+
+# SMS (optional)
+TEXTBEE_API_KEY=your_textbee_key
+TEXTBEE_DEVICE_ID=your_device_id
+
+# Cron security
+CRON_SECRET=your_cron_secret
+```
 
 ```bash
-npm run dev
+npm run dev    # http://localhost:9002
 ```
 
-Visit `http://localhost:3000`.
-
-Visit `http://localhost:3000`.
-
-## 🧪 Testing & Security
-
-### Running Tests
+## Commands
 
 ```bash
-# Run Unit & Integration Tests (Vitest)
-npm run test
-
-# Run End-to-End Tests (Playwright)
-npm run test:e2e
-
-# Generate Coverage Report
-npm run test -- --coverage
-
-# Run Security Audit
-npm audit
+npm run dev          # Development server (port 9002)
+npm test             # Run 352 unit/integration tests (~5s)
+npm run test:e2e     # Run Playwright E2E tests
+npm run test:coverage # Coverage report
+npx tsc --noEmit     # Type check (0 errors)
+npx next build       # Production build
 ```
 
-### Test Coverage
+## Architecture
 
-**Current Status:** 100% test pass rate (291/291 tests)
+```
+src/
+  app/                    # Next.js pages and API routes
+    (dashboard)/          # Authenticated pages (sidebar layout)
+    (public)/             # Public pages (pricing)
+    api/                  # Webhooks, cron jobs, health check
+  components/             # React components (shadcn/ui + custom)
+  lib/
+    actions/              # Server actions (mutations, grouped by domain)
+    queries/              # Read-only data fetching (React cache)
+    services/             # Business logic (Razorpay, payments, billing)
+    billing.ts            # Rent calculation engine
+  hooks/                  # Client-side hooks
+  middleware.ts           # Auth guard for all routes
+  test/                   # 352 tests (unit + integration + security)
+```
 
-- ✅ **54 Validation Tests** - String, email, phone, UUID, date, schema validation
-- ✅ **116 Action Tests** - Bulk outflow, customers, payments, storage, subscriptions
-- ✅ **Billing Logic** - Rent calculations, multi-year storage, edge cases
-- ✅ **Payment Services** - Payment allocation, recording, history, bulk RPC
-- ✅ **Webhook Tests** - Signature verification, payment link lookup
-- ✅ **Integration Tests** - Payment flow, outflow processes
-- ✅ **E2E Tests** - Complete user journeys (Playwright)
+**Key patterns:**
+- Multi-tenancy via Supabase RLS with `belongs_to_warehouse()` function
+- Server actions for all mutations, wrapped in Sentry spans
+- Zod validation on every form input
+- Soft-delete with `deleted_at` timestamps (audit trail preservation)
+- `sync_lot_stock` DB trigger for automatic stock reconciliation
 
-See [docs/TESTING.md](docs/TESTING.md) for detailed testing strategy.
+## Features
 
-### Security
+### Inventory
+- Inflow/outflow tracking with lot-level granularity
+- QR code labels for storage records
+- Bulk outflow with FIFO allocation or manual per-record editing
+- Real-time stock dashboard with occupancy rates
 
-**Security Posture:** Production-ready ✅
+### Billing
+- Automated rent calculation (6-month and yearly billing cycles)
+- Hamali (labor) charge tracking with auto-settlement on record closure
+- Bulk payment allocation across multiple records
+- Razorpay payment links sent via SMS
 
-- ✅ Zero critical vulnerabilities
-- ✅ Zero high severity (production)
-- ✅ 89% vulnerability reduction (9 → 1)
-- ✅ Regular security audits
-- ✅ Strict TypeScript enabled
-- ✅ Row Level Security (RLS) enforced
+### Customers
+- Customer profiles with 360-degree financial view
+- Self-service portal with OTP login
+- Payment history and downloadable statements (PDF/Excel)
+- SMS notifications for inflow, outflow, and payment events
 
-See [docs/SECURITY.md](docs/SECURITY.md) for security best practices.
+### Admin
+- Multi-warehouse support with role-based access control
+- Subscription management (Free, Starter, Professional, Enterprise)
+- Activation code generation for offline sales
+- User directory with role management
+- Audit logs and analytics dashboard
 
-**Quality Assurance:**
+### Reports
+- Financial analytics (revenue, collections, outstanding dues)
+- Operational analytics (capacity, inflow/outflow trends)
+- Custom report builder with date ranges and filters
+- Export to PDF and Excel
 
-- **Type Safety:** Strict TypeScript with zero errors
-- **Code Quality:** Comprehensive JSDoc documentation
-- **Build Integrity:** Verified production builds
-- **Test Automation:** Continuous integration ready
+## Testing
 
----
+352 tests across 30 test files, all passing in ~5 seconds.
 
-## 🔮 Roadmap / "Missing" Pro Features
+| Category | Tests | Coverage |
+|----------|-------|----------|
+| Billing & rent calculations | 21 | BillingService, multi-year, edge cases |
+| Payment allocation (FIFO, bulk) | 14 | Allocation logic, proportional distribution |
+| Server action validation | 116 | All P0 actions (customers, payments, storage, subscriptions, outflow) |
+| API route logic | 37 | Webhook routing, cron auth, health status, dues calculation |
+| Bulk outflow preview | 24 | FIFO, manual overrides, exclusion, commodity filtering, hamali |
+| Razorpay webhook | 4 | Signature verification, payment link lookup |
+| Security guards | 5 | Auth checks, role verification, soft-delete enforcement |
+| Subscription logic | 27 | State transitions, payment validation, grace periods |
+| Integration flows | 2 | Payment flow, outflow process |
+| E2E (Playwright) | 10 specs | Auth, core flow, financials, management, accessibility |
 
-While the application is production-ready, these features are continuously evolving:
+## Security
 
-- [x] **Role Based Access**: Implemented multi-tier roles (Super Admin, Owner, Admin, Manager, Staff, Customer).
-- [x] **Mobile Optimization**: Full responsive overhaul + optimized dialog forms for phone usage.
-- [x] **Audit Logging**: Comprehensive tracking of inflows and withdrawals.
-- [x] **Automated Testing**: Integration tests (Playwright) & Unit tests (Vitest) for critical flows.
-- [x] **PDF Generation**: Native export of Receipts and Reports via `jsPDF`.
-- [x] **Search & Filter**: Universal search across all pages with date range filtering and sort options.
-- [x] **Smart Payment UX**: Expandable record selection with readable IDs and per-record balance display.
-- [x] **Professional Landing Page**: Modern, adaptive landing page with contact integration.
-- [x] **Multi-Channel Contact**: Integrated phone and WhatsApp contact options via dialog interface.
-- [x] **Subscription Expiry**: Automated handling of subscription lifecycle with grace periods and auto-downgrades.
-- [x] **Flexible Plans**: Support for Monthly, Yearly, and No-Expiry plans with unique tiered features.
-- [ ] **WhatsApp Integration**: Automated payment reminders via WhatsApp Business API.
-- [ ] **Digital Payments**: Razorpay integration for UPI/Card payments with auto-reconciliation.
-- [ ] **Customer Self-Service**: OTP login portal for customers to view statements and upload payment proofs.
-- [ ] **Email Notifications**: Automated payment reminders and receipts.
+- **Auth middleware** on all dashboard and API routes
+- **Row Level Security** (RLS) on every Supabase table
+- **Webhook signature verification** (Razorpay HMAC-SHA256)
+- **Rate limiting** on all mutation endpoints (fail-closed on security paths)
+- **Content Security Policy** with no unsafe-eval/unsafe-inline
+- **CODEOWNERS** enforced for security-sensitive files
+- **Cron routes** protected by Bearer token
+- **UserRole enum** for all role checks (no string comparisons)
+- **Soft-delete** with `deleted_at` filter on all queries
 
----
+## Performance
 
-## 📄 License
+Benchmarked on production (Vercel Edge):
 
-Private Property of Grain Flow. Do not distribute.
+| Page | TTFB | FCP | Full Load | JS Bundle |
+|------|------|-----|-----------|-----------|
+| Landing | 38ms | 672ms | 860ms | 352KB |
+| Pricing | 71ms | 804ms | 796ms | — |
+| Login | 33ms | 612ms | 615ms | — |
+
+Grade: **A** (all metrics under budget)
+
+## License
+
+Private. All rights reserved.
