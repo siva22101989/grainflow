@@ -70,6 +70,9 @@ const TeamMemberSchema = z.object({
 });
 
 export async function createTeamMember(_: FormState, formData: FormData): Promise<FormState> {
+  const { data: { user: currentUser } } = await (await createClient()).auth.getUser();
+  await checkRateLimit(currentUser?.id || 'anon', 'createTeamMember', { limit: 5 });
+
   const validatedFields = TeamMemberSchema.safeParse({
     email: formData.get('email'),
     password: formData.get('password'),

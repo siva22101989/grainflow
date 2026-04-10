@@ -33,9 +33,11 @@ describe('Security: Server Actions', () => {
             mockSupabase.from.mockReturnValueOnce({
                 select: () => ({
                     eq: () => ({
-                        single: () => Promise.resolve({ 
-                            data: { id: 'rec_123', warehouse_id: 'wh_A' },
-                            error: null
+                        is: () => ({
+                            single: () => Promise.resolve({
+                                data: { id: 'rec_123', warehouse_id: 'wh_A' },
+                                error: null
+                            })
                         })
                     })
                 })
@@ -55,13 +57,15 @@ describe('Security: Server Actions', () => {
              // 1. Mock logged in user (Staff)
             mockSupabase.auth.getUser.mockResolvedValue({ data: { user: { id: 'staff_1' } } });
             
-            // 2. Mock Fetch Record with warehouse_id
+            // 2. Mock Fetch Record with warehouse_id (includes .is('deleted_at', null))
             mockSupabase.from.mockReturnValueOnce({
                 select: () => ({
                     eq: () => ({
-                        single: () => Promise.resolve({ 
-                            data: { id: 'rec_123', warehouse_id: 'wh_A', lot_id: 'lot_1', bags_stored: 10 },
-                            error: null
+                        is: () => ({
+                            single: () => Promise.resolve({
+                                data: { id: 'rec_123', warehouse_id: 'wh_A', lot_id: 'lot_1', bags_stored: 10 },
+                                error: null
+                            })
                         })
                     })
                 })

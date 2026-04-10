@@ -142,14 +142,12 @@ export async function processBulkOutflow(_prevState: any, formData: FormData): P
                     return { success: false, message: 'No active records found for this commodity (or selection).' };
                 }
 
-                // --- STEP 2: Load full records for billing calculations ---
-                const activeRecords: StorageRecord[] = [];
-                for (const lr of lockedRecords) {
-                    const record = await getStorageRecord(lr.record_id);
-                    if (record && record.bagsStored > 0) {
-                        activeRecords.push(record);
-                    }
-                }
+                // --- STEP 2: Batch-load full records for billing calculations ---
+                const lockedIds = lockedRecords.map((lr: any) => lr.record_id);
+                const batchRecords = await Promise.all(lockedIds.map((id: string) => getStorageRecord(id)));
+                const activeRecords: StorageRecord[] = batchRecords.filter(
+                    (r): r is StorageRecord => r !== null && r.bagsStored > 0
+                );
 
                 if (activeRecords.length === 0) {
                     return { success: false, message: 'No records with available stock found.' };

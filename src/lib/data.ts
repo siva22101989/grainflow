@@ -4,7 +4,7 @@ import { cache } from 'react';
 import { getAuthUser } from '@/lib/queries/auth';
 
 import type { Customer, StorageRecord, Payment, Expense, ExpenseCategory } from '@/lib/definitions';
-import { AuditAction, AuditEntity } from '@/types/db';
+import { AuditAction, AuditEntity, UserRole } from '@/types/db';
 
 // Database Row Interfaces
 interface DbCustomer {
@@ -137,45 +137,6 @@ export const getAvailableLots = cache(async () => {
     // Defensive client-side sort in case Supabase order is not applied
     const sorted = (data || []).sort((a: any, b: any) => (a.name || '').localeCompare(b.name || ''));
     return sorted;
-});
-
-/**
- * Aggregates high-level metrics for the dashboard view.
- * Calculates total warehouse capacity, current total stock, occupancy rate, 
- * and the count of currently active (non-completed) storage records.
- * 
- * @returns {Promise<{totalCapacity: number, totalStock: number, occupancyRate: number, activeRecordsCount: number} | null>} Dashboard metrics object or null if no warehouse assigned.
- */
-export const getDashboardMetrics = cache(async () => {
-    const supabase = await createClient();
-    const warehouseId = await getUserWarehouse();
-    if (!warehouseId) return null;
-
-    // Fetch Lots for Capacity/Stock
-    const { data: lots } = await supabase.from('warehouse_lots').select('capacity, current_stock').eq('warehouse_id', warehouseId);
-    
-    // Fetch Storage Records for Financials (Simplified)
-    // In a real app, we'd have a 'balance' field or aggregation table. 
-    // Here we will sum 'total_rent_billed' - sum 'payments'? Or just show active records count.
-    const { count: activeRecordsCount } = await supabase
-        .from('storage_records')
-        .select('*', { count: 'exact', head: true })
-        .eq('warehouse_id', warehouseId)
-        .is('storage_end_date', null);
-
-    let totalCapacity = 0;
-    let totalStock = 0;
-    if (lots) {
-        totalCapacity = lots.reduce((acc, lot) => acc + (lot.capacity || 1000), 0);
-        totalStock = lots.reduce((acc, lot) => acc + (lot.current_stock || 0), 0);
-    }
-
-    return {
-        totalCapacity,
-        totalStock,
-        occupancyRate: totalCapacity > 0 ? (totalStock / totalCapacity) * 100 : 0,
-        activeRecordsCount: activeRecordsCount || 0
-    };
 });
 
 /**
@@ -653,8 +614,8 @@ export const deleteStorageRecord = async (id: string): Promise<void> => {
     'use server';
     const supabase = await createClient();
     
-    // Fetch record first to release lot
-    const { data: record } = await supabase.from('storage_records').select('lot_id, bags_stored, warehouse_id').eq('id', id).single();
+    // Fetch record first to release lot (only non-deleted records)
+    const { data: record } = await supabase.from('storage_records').select('lot_id, bags_stored, warehouse_id').eq('id', id).is('deleted_at', null).single();
     
     if (!record) return;
 
@@ -676,7 +637,7 @@ export const deleteStorageRecord = async (id: string): Promise<void> => {
         throw new Error("Access Denied: You are not assigned to this warehouse.");
     }
 
-    if (profile?.role !== 'owner' && profile?.role !== 'admin' && profile?.role !== 'super_admin') {
+    if (profile?.role !== UserRole.OWNER && profile?.role !== UserRole.ADMIN && profile?.role !== UserRole.SUPER_ADMIN) {
         throw new Error("Access Denied: You do not have permission to delete records in this warehouse.");
     }
 
@@ -771,7 +732,7 @@ export const restoreStorageRecord = async (id: string): Promise<void> => {
         throw new Error("Access Denied: You are not assigned to this warehouse.");
     }
 
-    if (profile?.role !== 'owner' && profile?.role !== 'admin' && profile?.role !== 'super_admin') {
+    if (profile?.role !== UserRole.OWNER && profile?.role !== UserRole.ADMIN && profile?.role !== UserRole.SUPER_ADMIN) {
         throw new Error("Access Denied: You do not have permission to restore records in this warehouse.");
     }
 

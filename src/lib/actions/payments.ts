@@ -10,6 +10,7 @@ import { checkRateLimit } from '@/lib/rate-limit';
 import { logError, logWarning } from '@/lib/error-logger';
 import { ApiResponse } from '@/lib/api-response';
 import { PaymentService } from '@/lib/services/payments';
+import { getUserWarehouse } from '@/lib/queries';
 
 const { logger } = Sentry;
 
@@ -56,6 +57,12 @@ export async function addPayment(_prevState: PaymentFormState, formData: FormDat
             
             const { recordId, paymentAmount, paymentDate, paymentType } = validatedFields.data;
             span.setAttribute("paymentAmount", paymentAmount);
+
+            // Verify record belongs to user's warehouse (defense-in-depth, not RLS-only)
+            const warehouseId = await getUserWarehouse();
+            if (!warehouseId) {
+                return { message: 'No warehouse found for user', success: false, data: rawData };
+            }
 
             try {
                 let type: any = 'rent';
