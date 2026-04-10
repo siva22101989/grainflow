@@ -31,6 +31,74 @@ npx next build       # Production build
 - **Bag counts**: `bagsStored` from `mapRecords()` already has withdrawals subtracted. Never do `bagsStored - bagsOut` (double-counts).
 - **Tests**: 352 passing (Vitest). Factories at `src/test/factories/index.ts`. Run `npm test`.
 
+## Architecture
+
+```
+src/
+  app/                    # Next.js pages and API routes
+    (dashboard)/          # Authenticated pages (layout with sidebar)
+    (public)/             # Public pages (pricing)
+    api/                  # API routes (webhooks, cron, health)
+    login/, signup/       # Auth pages
+  components/
+    landing/              # Marketing page components (Hero, Features, etc.)
+    customers/            # Customer-specific UI (bulk-outflow-dialog)
+    admin/                # Admin panel components
+    ui/                   # shadcn/ui primitives
+    shared/               # Reusable components (toast, page-header)
+    providers/            # Context providers (subscription)
+  lib/
+    actions/              # Server actions (mutations). Grouped by domain:
+      storage/            #   inflow.ts, outflow.ts, bulk-outflow.ts, records.ts
+      payments.ts, customers.ts, expenses.ts, auth.ts
+    queries/              # Read-only data fetching (cached with React cache)
+      storage.ts, customers.ts, financials.ts, analytics.ts, warehouses.ts
+    services/             # Business logic services (razorpay, payments, notifications)
+    billing.ts            # Rent calculation (BillingService)
+    definitions.ts        # TypeScript types (Customer, StorageRecord, etc.)
+    data.ts               # Legacy read/write functions (prefer queries/ + actions/)
+  hooks/                  # Client-side hooks (SWR wrappers, debounce, toast)
+  contexts/               # React contexts (warehouse)
+  types/                  # DB enums (UserRole, SubscriptionStatus, AuditAction)
+  test/
+    unit/                 # Pure logic tests (16 files)
+    integration/          # Multi-step flow tests
+    factories/            # Test data builders (buildCustomer, buildStorageRecord, etc.)
+    mocks/                # Mock Supabase client
+    setup.ts              # Global test setup (mocks next/navigation, supabase auth)
+```
+
+## Environment Variables
+
+Required in `.env.local`:
+```
+NEXT_PUBLIC_SUPABASE_URL=            # Supabase project URL
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY=  # Supabase anon key
+SUPABASE_SERVICE_ROLE_KEY=           # Admin operations (user listing, subscriptions)
+RAZORPAY_KEY_SECRET=                 # Razorpay API secret
+RAZORPAY_WEBHOOK_SECRET=             # Webhook signature verification
+NEXT_PUBLIC_RAZORPAY_KEY_ID=         # Client-side Razorpay key
+CRON_SECRET=                         # Bearer token for cron API routes
+TEXTBEE_API_KEY=                     # SMS service API key
+TEXTBEE_DEVICE_ID=                   # SMS device ID
+```
+
+## Code Style
+
+- **Validation**: Use Zod schemas with `safeParse()` for all form inputs. Return field errors via `validatedFields.error.flatten().fieldErrors`.
+- **Server actions**: Wrap in `Sentry.startSpan()` for tracing. Call `checkRateLimit()` before mutations.
+- **Error handling**: Use `logError()` / `logWarning()` from `@/lib/error-logger`, never `console.error`.
+- **Revalidation**: Call `revalidatePath()` only for paths that display the changed data.
+- **New data layer code**: Reads go in `src/lib/queries/`. Writes go in `src/lib/actions/`. Avoid adding to `data.ts`.
+
+## Testing
+
+- **Framework**: Vitest + jsdom. Run with `npm test`.
+- **Factories**: `src/test/factories/index.ts` — `buildCustomer()`, `buildStorageRecord()`, `buildPayment()`, `buildWarehouse()`, `buildSubscription()`, `buildPlan()`.
+- **Mock Supabase**: `src/test/mocks/supabase.ts` — chainable query builder with `.eq()`, `.is()`, `.single()`, in-memory data.
+- **Pattern**: Extract pure logic from server actions, test the logic directly. Don't mock Next.js request infrastructure.
+- **Style**: `describe()` → nested `describe()` → `it('should ...')`. Import `{ describe, it, expect }` from `vitest`.
+
 ## Skill routing
 
 When the user's request matches an available skill, ALWAYS invoke it using the Skill
