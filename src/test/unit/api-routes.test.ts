@@ -31,14 +31,6 @@ function isCronAuthorized(
 }
 
 // --- Webhook event routing logic ---
-type WebhookEventType =
-  | 'payment.captured'
-  | 'payment.failed'
-  | 'payment.authorized'
-  | 'payment_link.paid'
-  | 'payment_link.cancelled'
-  | 'payment_link.expired';
-
 function routeWebhookEvent(event: string): 'process' | 'log' | 'status_change' | 'unknown' {
   switch (event) {
     case 'payment.captured':

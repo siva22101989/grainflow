@@ -4,6 +4,7 @@ import { logError } from './error-logger';
 interface RateLimitOptions {
   limit?: number; // Max requests
   windowMs?: number; // Time window in milliseconds
+  failClosed?: boolean; // If true, block requests when rate limiter DB is down
 }
 
 /**
@@ -14,7 +15,7 @@ export async function rateLimit(
   identifier: string,
   options: RateLimitOptions = {}
 ): Promise<{ success: boolean }> {
-  const { limit = 10, windowMs = 60000 } = options;
+  const { limit = 10, windowMs = 60000, failClosed = false } = options;
   const windowSeconds = Math.ceil(windowMs / 1000);
   
   try {
@@ -31,16 +32,15 @@ export async function rateLimit(
 
     if (error) {
         logError(error, { operation: 'checkRateLimit_rpc', metadata: { identifier } });
-        // Fail open in case of DB error to prevent blocking users during outages
-        // But define this policy: strict or lenient? Lenient for now.
-        return { success: true };
+        // Fail open by default, fail closed for security-critical paths (webhooks, auth)
+        return { success: !failClosed };
     }
 
     return { success: !!success };
 
   } catch (error) {
      logError(error, { operation: 'checkRateLimit_fatal', metadata: { identifier } });
-     return { success: true };
+     return { success: !failClosed };
   }
 }
 

@@ -10,7 +10,7 @@ export async function POST(request: NextRequest) {
   try {
     // 0. Rate limit the webhook endpoint (max 100 requests per minute per IP)
     const ip = request.headers.get('x-forwarded-for') || 'unknown';
-    const limitResult = await rateLimit(`razorpay_webhook_${ip}`, { limit: 100, windowMs: 60000 });
+    const limitResult = await rateLimit(`razorpay_webhook_${ip}`, { limit: 100, windowMs: 60000, failClosed: true });
     if (!limitResult.success) {
       return NextResponse.json({ error: 'Too many requests' }, { status: 429 });
     }

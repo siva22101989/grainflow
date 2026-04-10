@@ -1,0 +1,9 @@
+# Security-sensitive paths require review
+src/app/api/                    @Nikhilpnkr
+src/app/api/razorpay/           @Nikhilpnkr
+src/utils/supabase/             @Nikhilpnkr
+src/lib/services/               @Nikhilpnkr
+src/lib/rate-limit.ts           @Nikhilpnkr
+src/middleware.ts                @Nikhilpnkr
+next.config.ts                  @Nikhilpnkr
+.github/workflows/              @Nikhilpnkr

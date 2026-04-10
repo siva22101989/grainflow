@@ -60,3 +60,4 @@ firestore-debug.log
 # Supabase
 supabase/migrations/
 .gstack/
+src/lib/data/customers.json
