@@ -2,7 +2,7 @@
 
 import { createClient } from '@/utils/supabase/server';
 import { revalidatePath } from 'next/cache';
-import { ActionState } from './warehouse-actions';
+import type { ActionState } from '@/lib/safe-action';
 import { UserRole, AuditAction, AuditEntity } from '@/types/db';
 
 import { logError } from '@/lib/error-logger';

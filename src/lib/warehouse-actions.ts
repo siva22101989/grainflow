@@ -7,11 +7,9 @@ import { WarehouseWithRole } from './definitions';
 import { checkRateLimit } from '@/lib/rate-limit';
 import * as Sentry from "@sentry/nextjs";
 import { logError, logWarning } from './error-logger';
-import { authenticatedAction, ActionState } from '@/lib/safe-action';
+import { authenticatedAction, type ActionState } from '@/lib/safe-action';
 import { checkWarehouseCreationLimit, checkSubscriptionLimits } from '@/services/subscription-service';
 import { UserRole, AuditAction, AuditEntity } from '@/types/db';
-
-export type { ActionState };
 
 // --- Warehouse Management ---
 
