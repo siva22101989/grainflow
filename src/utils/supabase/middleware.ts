@@ -47,7 +47,7 @@ export const updateSession = async (request: NextRequest) => {
 
   // Protected Routes Logic
   // List of public routes that don't require authentication
-  const publicRoutes = ['/', '/pricing', '/login', '/signup', '/auth', '/forgot-password', '/reset-password', '/portal/login', '/api/cron'];
+  const publicRoutes = ['/', '/pricing', '/login', '/signup', '/auth', '/forgot-password', '/reset-password', '/portal/login', '/verify-bulk', '/api/cron', '/api/health', '/api/razorpay/webhook'];
   const isPublicRoute = publicRoutes.some(route => request.nextUrl.pathname === route || request.nextUrl.pathname.startsWith(route + '/'));
 
   // If user is NOT signed in and trying to access protected pages, redirect to /login
