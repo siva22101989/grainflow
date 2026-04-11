@@ -91,7 +91,7 @@ describe('Security: Server Actions', () => {
                 })
             });
 
-            await expect(deleteStorageRecord('rec_123')).rejects.toThrow(/Access Denied/i);
+            await expect(deleteStorageRecord('rec_123')).rejects.toThrow(/don't have permission/i);
         });
     });
 });
