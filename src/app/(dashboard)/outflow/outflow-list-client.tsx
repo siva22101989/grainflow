@@ -3,7 +3,10 @@
 import { useState, useMemo, useRef } from 'react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { EmptyState } from "@/components/ui/empty-state";
-import { ArrowUpToLine } from "lucide-react";
+import { ArrowUpToLine, Trash2, MoreHorizontal } from "lucide-react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Button } from "@/components/ui/button";
+import { DeleteOutflowDialog } from "@/components/outflow/delete-outflow-dialog";
 import { MobileCard } from "@/components/ui/mobile-card";
 import { PrintButton } from "@/components/common/print-button";
 import { SearchBar } from "@/components/ui/search-bar";
@@ -236,6 +239,23 @@ export function OutflowListClient({ outflows }: OutflowListClientProps) {
                                 <p className="text-sm font-medium">{formatCurrency(record.totalRent || 0)}</p>
                             </div>
                         </MobileCard.Content>
+                        <MobileCard.Actions>
+                            <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                    <Button variant="ghost" className="h-8 w-8 p-0">
+                                        <MoreHorizontal className="h-4 w-4" />
+                                    </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                    <DeleteOutflowDialog transactionId={record.id} bags={record.bags}>
+                                        <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="text-destructive focus:text-destructive">
+                                            <Trash2 className="mr-2 h-4 w-4" />
+                                            Reverse Outflow
+                                        </DropdownMenuItem>
+                                    </DeleteOutflowDialog>
+                                </DropdownMenuContent>
+                            </DropdownMenu>
+                        </MobileCard.Actions>
                     </MobileCard>
                 ))}
                 {filteredOutflows.length === 0 && (
@@ -272,21 +292,36 @@ export function OutflowListClient({ outflows }: OutflowListClientProps) {
                                     <TableCell className="text-right text-destructive font-medium">-{record.bags}</TableCell>
                                     <TableCell className="text-right">{formatCurrency(record.totalRent || 0)}</TableCell>
                                     <TableCell>
-                                         <PrintButton 
-                                            data={{
-                                                ...record,
-                                                // Warehouse Info
-                                                warehouseName: warehouse?.name,
-                                                warehouseAddress: warehouse?.location,
-                                                gstNo: warehouse?.gst_number,
-                                            }}
-                                            type="outflow"
-                                            buttonText=""
-                                            variant="ghost" 
-                                            size="icon"
-                                            className="h-8 w-8"
-                                            icon={<ArrowUpToLine className="h-4 w-4" />}
-                                        />
+                                        <DropdownMenu>
+                                            <DropdownMenuTrigger asChild>
+                                                <Button variant="ghost" className="h-8 w-8 p-0">
+                                                    <MoreHorizontal className="h-4 w-4" />
+                                                </Button>
+                                            </DropdownMenuTrigger>
+                                            <DropdownMenuContent align="end">
+                                                <DropdownMenuItem asChild>
+                                                    <PrintButton
+                                                        data={{
+                                                            ...record,
+                                                            warehouseName: warehouse?.name,
+                                                            warehouseAddress: warehouse?.location,
+                                                            gstNo: warehouse?.gst_number,
+                                                        }}
+                                                        type="outflow"
+                                                        buttonText="Print Receipt"
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        className="w-full justify-start cursor-pointer"
+                                                    />
+                                                </DropdownMenuItem>
+                                                <DeleteOutflowDialog transactionId={record.id} bags={record.bags}>
+                                                    <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="text-destructive focus:text-destructive">
+                                                        <Trash2 className="mr-2 h-4 w-4" />
+                                                        Reverse Outflow
+                                                    </DropdownMenuItem>
+                                                </DeleteOutflowDialog>
+                                            </DropdownMenuContent>
+                                        </DropdownMenu>
                                     </TableCell>
                                 </TableRow>
                             );
