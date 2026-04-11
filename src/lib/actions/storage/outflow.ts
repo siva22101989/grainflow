@@ -95,11 +95,32 @@ export async function addOutflow(_prevState: OutflowFormState, formData: FormDat
 
             const paymentMade = amountPaidNow || 0;
             const discountAmount = discount || 0;
-            
+
+            // Server-side rent recalculation (don't trust client-calculated rent)
+            // Look up crop pricing for accurate per-commodity rates
+            let serverRent = finalRent;
+            if (originalRecord.cropId) {
+                const supabase = await createClient();
+                const { data: crop } = await supabase
+                    .from('crops')
+                    .select('rent_price_6m, rent_price_1y')
+                    .eq('id', originalRecord.cropId)
+                    .single();
+                if (crop) {
+                    const { rent: recalculated } = BillingService.calculateRent(
+                        originalRecord,
+                        new Date(withdrawalDate),
+                        bagsToWithdraw,
+                        { price6m: crop.rent_price_6m, price1y: crop.rent_price_1y }
+                    );
+                    serverRent = recalculated;
+                }
+            }
+
             const { updates: recordUpdate } = BillingService.calculateOutflowImpact(
-                originalRecord, 
-                bagsToWithdraw, 
-                finalRent, 
+                originalRecord,
+                bagsToWithdraw,
+                serverRent,
                 new Date(withdrawalDate)
             );
 
@@ -128,7 +149,7 @@ export async function addOutflow(_prevState: OutflowFormState, formData: FormDat
                 // Keeping two sources of truth causes sync issues.
 
                 // Save Withdrawal Transaction Audit
-                const transactionId = await saveWithdrawalTransaction(recordId, bagsToWithdraw, new Date(withdrawalDate), finalRent, discountAmount);
+                const transactionId = await saveWithdrawalTransaction(recordId, bagsToWithdraw, new Date(withdrawalDate), serverRent, discountAmount);
 
                 // Send SMS Notification
                 const sendSms = formData.get('sendSms') === 'true';

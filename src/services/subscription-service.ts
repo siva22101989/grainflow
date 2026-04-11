@@ -122,7 +122,8 @@ export async function checkSubscriptionLimits(warehouseId: string, action: 'add_
 
     // Auto-expire check
     if (subscription.current_period_end && new Date(subscription.current_period_end) < new Date()) {
-         return { allowed: false, message: "Subscription period has ended. Please renew to continue." };
+         const expiredDate = new Date(subscription.current_period_end).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+         return { allowed: false, message: `Your subscription expired on ${expiredDate}. Go to Settings > Billing to renew your plan.` };
     }
 
     if (action === 'add_record') {

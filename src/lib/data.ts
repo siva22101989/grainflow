@@ -634,11 +634,11 @@ export const deleteStorageRecord = async (id: string): Promise<void> => {
     const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single();
 
     if (!assignment) {
-        throw new Error("Access Denied: You are not assigned to this warehouse.");
+        throw new Error("You don't have access to this warehouse. Contact your administrator.");
     }
 
     if (profile?.role !== UserRole.OWNER && profile?.role !== UserRole.ADMIN && profile?.role !== UserRole.SUPER_ADMIN) {
-        throw new Error("Access Denied: You do not have permission to delete records in this warehouse.");
+        throw new Error("You don't have permission for this action. Only owners and admins can delete records.");
     }
 
     // Manual stock update REMOVED.
@@ -705,6 +705,7 @@ export const deleteStorageRecord = async (id: string): Promise<void> => {
  * @returns {Promise<void>}
  */
 export const restoreStorageRecord = async (id: string): Promise<void> => {
+    'use server';
     const supabase = await createClient();
     
     // Fetch record even if deleted (need to bypass filter if RLS hides it, but normal select finds it if no RLS blocks)
@@ -729,19 +730,28 @@ export const restoreStorageRecord = async (id: string): Promise<void> => {
     const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single();
 
     if (!assignment) {
-        throw new Error("Access Denied: You are not assigned to this warehouse.");
+        throw new Error("You don't have access to this warehouse. Contact your administrator.");
     }
 
     if (profile?.role !== UserRole.OWNER && profile?.role !== UserRole.ADMIN && profile?.role !== UserRole.SUPER_ADMIN) {
-        throw new Error("Access Denied: You do not have permission to restore records in this warehouse.");
+        throw new Error("You don't have permission for this action. Only owners and admins can restore records.");
     }
 
     // Manual stock restoral REMOVED.
     // Trigger 'sync_lot_stock' automatically recalculates when record is updated (restored).
 
     // 2. Restore linked payments and transactions
-    await supabase.from('payments').update({ deleted_at: null }).eq('storage_record_id', id);
-    await supabase.from('withdrawal_transactions').update({ deleted_at: null }).eq('storage_record_id', id);
+    const { error: paymentRestoreError } = await supabase.from('payments').update({ deleted_at: null }).eq('storage_record_id', id);
+    if (paymentRestoreError) {
+        logError(paymentRestoreError, { operation: 'restoreStorageRecord_payments', metadata: { id } });
+        throw new Error("Failed to restore payment records. Please try again.");
+    }
+
+    const { error: txRestoreError } = await supabase.from('withdrawal_transactions').update({ deleted_at: null }).eq('storage_record_id', id);
+    if (txRestoreError) {
+        logError(txRestoreError, { operation: 'restoreStorageRecord_transactions', metadata: { id } });
+        throw new Error("Failed to restore withdrawal records. Please try again.");
+    }
 
     // 3. Restore Record
     const { error } = await supabase
@@ -749,7 +759,7 @@ export const restoreStorageRecord = async (id: string): Promise<void> => {
         .update({ deleted_at: null })
         .eq('id', id);
 
-    if (error) throw error;
+    if (error) throw new Error("Failed to restore storage record. Please try again.");
 };
 
 /**

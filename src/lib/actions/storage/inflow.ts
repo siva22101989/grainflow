@@ -126,7 +126,7 @@ const InflowSchema = z.object({
   commodityDescription: z.string().min(2, 'Commodity description is required.'),
   location: z.string().optional(),
   storageStartDate: z.string().refine(val => !isNaN(Date.parse(val)), { message: "Invalid date format" }),
-  bagsStored: z.coerce.number().int().nonnegative('Number of bags must be a non-negative number.').optional(),
+  bagsStored: z.coerce.number().int().nonnegative('Number of bags must be a non-negative number.').max(999999, 'Maximum 999,999 bags per record.').optional(),
   hamaliRate: z.coerce.number().nonnegative('Hamali rate must be a non-negative number.').optional(),
   hamaliPaid: z.coerce.number().nonnegative('Hamali paid must be a non-negative number.').optional(),
   lorryTractorNo: z.string().optional(),
