@@ -73,7 +73,8 @@ export function OutflowForm({
     useEffect(() => {
         if (selectedRecord) {
             const amountPaid = (selectedRecord.payments || []).reduce((acc, p) => acc + p.amount, 0);
-            const pending = selectedRecord.hamaliPayable - amountPaid;
+            const totalBilledSoFar = selectedRecord.hamaliPayable + (selectedRecord.totalRentBilled || 0);
+            const pending = totalBilledSoFar - amountPaid;
             
             if (pending > 0) {
                 setHamaliPending(pending);
@@ -267,7 +268,7 @@ export function OutflowForm({
                                     </div>
 
                                      <div className="flex justify-between items-center text-sm">
-                                        <span className="text-muted-foreground">Pending Hamali Charges</span>
+                                        <span className="text-muted-foreground">Previous Balance</span>
                                         <span className="font-mono">₹{hamaliPending.toFixed(2)}</span>
                                     </div>
 
@@ -292,7 +293,6 @@ export function OutflowForm({
                                             placeholder="0.00"
                                             step="0.01"
                                             min="0"
-                                            max={totalPayable.toFixed(2)}
                                             onFocus={(e) => e.target.select()}
                                             onWheel={(e) => e.currentTarget.blur()}
                                         />

@@ -26,6 +26,7 @@ export function OutflowReceipt({ record, customer, withdrawnBags, finalRent, pai
     const [duration, setDuration] = useState({ days: 0, months: 0 });
     const [rentBreakdown, setRentBreakdown] = useState({ rentPerBag: 0 });
     const [hamaliPending, setHamaliPending] = useState(0);
+    const [advanceAmount, setAdvanceAmount] = useState(0);
 
     useEffect(() => {
         if (!record) return;
@@ -56,18 +57,25 @@ export function OutflowReceipt({ record, customer, withdrawnBags, finalRent, pai
         const { rentPerBag } = calculateFinalRent(safeRecord, endDate, withdrawnBags, pricing);
         setRentBreakdown({ rentPerBag });
 
-        const originalHamaliPayable = record.hamaliPayable;
-        const priorPayments = (record.payments || [])
-            .filter(p => toDate(p.date) < endDate)
-            .reduce((acc, p) => acc + p.amount, 0);
+        // record.totalRentBilled already includes finalRent because wait, OutflowReceipt is generated AFTER addOutflow updates the record!
+        const totalBilledSoFar = record.hamaliPayable + Math.max(0, (record.totalRentBilled || 0) - finalRent);
+        const totalPaymentsMade = (record.payments || []).reduce((acc, p) => acc + p.amount, 0);
+        const priorPayments = Math.max(0, totalPaymentsMade - paidNow);
 
-        const pending = originalHamaliPayable - priorPayments;
-        setHamaliPending(pending > 0 ? pending : 0);
+        const pending = totalBilledSoFar - priorPayments;
         
-    }, [record, withdrawnBags, paidNow]);
+        if (pending > 0) {
+            setHamaliPending(pending);
+            setAdvanceAmount(0);
+        } else {
+            setHamaliPending(0);
+            setAdvanceAmount(Math.abs(pending));
+        }
+        
+    }, [record, withdrawnBags, paidNow, crops]);
 
-    const totalPayable = finalRent + hamaliPending;
-    const balanceDue = totalPayable - paidNow;
+    const totalPayable = Math.max(0, finalRent + hamaliPending - advanceAmount);
+    const balanceDue = Math.max(0, totalPayable - paidNow);
 
     const handlePrint = () => {
         const warehouseName = warehouse?.name || 'Srilakshmi Warehouse';
@@ -244,11 +252,19 @@ export function OutflowReceipt({ record, customer, withdrawnBags, finalRent, pai
                             <td style="text-align: right;">${formatCurrency(finalRent)}</td>
                         </tr>
                         <tr>
-                            <td>Pending Hamali Charges</td>
+                            <td>Previous Balance (Hamali & Past Rent)</td>
                             <td>-</td>
                             <td>-</td>
                             <td style="text-align: right;">${formatCurrency(hamaliPending)}</td>
                         </tr>
+                        ${advanceAmount > 0 ? `
+                        <tr>
+                            <td>Prior Credit / Advance</td>
+                            <td>-</td>
+                            <td>-</td>
+                            <td style="text-align: right; color: #059669;">- ${formatCurrency(advanceAmount)}</td>
+                        </tr>
+                        ` : ''}
                     </tbody>
                 </table>
                 
@@ -360,11 +376,21 @@ export function OutflowReceipt({ record, customer, withdrawnBags, finalRent, pai
                             <div className="font-medium">{formatCurrency(finalRent)}</div>
                         </div>
                         <div>
-                            <div className="text-muted-foreground">Pending Hamali</div>
+                            <div className="text-muted-foreground">Previous Balance</div>
                         </div>
                         <div className="text-right">
                             <div className="font-medium">{formatCurrency(hamaliPending)}</div>
                         </div>
+                        {advanceAmount > 0 && (
+                            <>
+                                <div>
+                                    <div className="text-muted-foreground text-emerald-600 dark:text-emerald-500">Prior Credit</div>
+                                </div>
+                                <div className="text-right">
+                                    <div className="font-medium text-emerald-600 dark:text-emerald-500">- {formatCurrency(advanceAmount)}</div>
+                                </div>
+                            </>
+                        )}
                     </div>
                     <div className="border-t mt-4 pt-4">
                         <div className="flex justify-between text-sm mb-2">

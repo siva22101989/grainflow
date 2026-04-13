@@ -135,7 +135,8 @@ export function BulkOutflowDialog({ customer, records, crops, onOpenChange: _onO
             const { rent } = calculateFinalRent(r, new Date(withdrawalDate), take, getCropPricing(r));
 
             const amountPaid = (r.payments || []).reduce((acc, p) => acc + p.amount, 0);
-            const pending = r.hamaliPayable - amountPaid;
+            const totalBilledSoFar = r.hamaliPayable + (r.totalRentBilled || 0);
+            const pending = totalBilledSoFar - amountPaid;
 
             if (pending > 0) {
                 totalHamaliPending += pending;
@@ -348,7 +349,7 @@ export function BulkOutflowDialog({ customer, records, crops, onOpenChange: _onO
                                             </div>
                                             {(previewPlan.totalHamaliPending > 0) && (
                                                 <div className="flex justify-between text-sm">
-                                                    <span>Pending Hamali:</span>
+                                                    <span>Previous Balance:</span>
                                                     <span>{formatCurrency(previewPlan.totalHamaliPending)}</span>
                                                 </div>
                                             )}
