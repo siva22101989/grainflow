@@ -49,7 +49,7 @@ const nextConfig: NextConfig = {
             key: 'Content-Security-Policy',
             value: [
               "default-src 'self'",
-              "script-src 'self' https://*.sentry-cdn.com https://*.vercel-scripts.com",
+              "script-src 'self' 'unsafe-inline' https://*.sentry-cdn.com https://*.vercel-scripts.com",
               "style-src 'self' 'unsafe-inline'",
               "img-src 'self' blob: data: https:",
               "font-src 'self' data:",
