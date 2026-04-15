@@ -885,3 +885,121 @@ import { logError } from './error-logger';
       throw error;
     }
   }
+
+  /**
+   * Lightweight count + total quantity preview for the report generator UI.
+   * Returns { count, totalQuantity, quantityLabel } without fetching full data.
+   */
+  export async function fetchReportCount(
+    reportType: string,
+    filters?: {
+      startDate?: string;
+      endDate?: string;
+    }
+  ): Promise<{ count: number; totalQuantity: number; quantityLabel: string } | null> {
+    try {
+      const supabase = await createClient();
+      const warehouseId = await getUserWarehouse();
+      if (!warehouseId) return null;
+
+      if (reportType === 'inflow-register') {
+        let query = supabase
+          .from('storage_records')
+          .select('bags_stored', { count: 'exact' })
+          .eq('warehouse_id', warehouseId)
+          .is('deleted_at', null);
+
+        if (filters?.startDate) query = query.gte('storage_start_date', filters.startDate);
+        if (filters?.endDate) {
+          const nextDay = new Date(filters.endDate);
+          nextDay.setDate(nextDay.getDate() + 1);
+          query = query.lt('storage_start_date', nextDay.toISOString());
+        }
+
+        const { data, count } = await query;
+        const totalBags = data?.reduce((sum, r: any) => sum + (r.bags_stored || 0), 0) || 0;
+        return { count: count || 0, totalQuantity: totalBags, quantityLabel: 'bags received' };
+      }
+
+      if (reportType === 'outflow-register') {
+        let query = supabase
+          .from('withdrawal_transactions')
+          .select('bags_withdrawn', { count: 'exact' })
+          .eq('warehouse_id', warehouseId)
+          .is('deleted_at', null);
+
+        if (filters?.startDate) query = query.gte('withdrawal_date', filters.startDate);
+        if (filters?.endDate) {
+          const nextDay = new Date(filters.endDate);
+          nextDay.setDate(nextDay.getDate() + 1);
+          query = query.lt('withdrawal_date', nextDay.toISOString());
+        }
+
+        const { data, count } = await query;
+        const totalBags = data?.reduce((sum, r: any) => sum + (r.bags_withdrawn || 0), 0) || 0;
+        return { count: count || 0, totalQuantity: totalBags, quantityLabel: 'bags withdrawn' };
+      }
+
+      if (reportType === 'payment-register') {
+        let query = supabase
+          .from('payments')
+          .select('amount', { count: 'exact' })
+          .eq('warehouse_id', warehouseId)
+          .is('deleted_at', null);
+
+        if (filters?.startDate) query = query.gte('payment_date', filters.startDate);
+        if (filters?.endDate) {
+          const nextDay = new Date(filters.endDate);
+          nextDay.setDate(nextDay.getDate() + 1);
+          query = query.lt('payment_date', nextDay.toISOString());
+        }
+
+        const { data, count } = await query;
+        const totalAmount = data?.reduce((sum, r: any) => sum + (r.amount || 0), 0) || 0;
+        return { count: count || 0, totalQuantity: totalAmount, quantityLabel: 'total amount (₹)' };
+      }
+
+      // Non-date-range reports — count only
+      if (reportType === 'all-customers') {
+        const { count } = await supabase
+          .from('customers')
+          .select('id', { count: 'exact', head: true })
+          .eq('warehouse_id', warehouseId);
+        return { count: count || 0, totalQuantity: 0, quantityLabel: '' };
+      }
+
+      if (reportType === 'active-inventory') {
+        const { data, count } = await supabase
+          .from('storage_records')
+          .select('bags_stored', { count: 'exact' })
+          .eq('warehouse_id', warehouseId)
+          .is('storage_end_date', null)
+          .is('deleted_at', null);
+        const totalBags = data?.reduce((sum, r: any) => sum + (r.bags_stored || 0), 0) || 0;
+        return { count: count || 0, totalQuantity: totalBags, quantityLabel: 'bags in stock' };
+      }
+
+      if (reportType === 'pending-dues') {
+        const { count } = await supabase
+          .from('customers')
+          .select('id', { count: 'exact', head: true })
+          .eq('warehouse_id', warehouseId);
+        return { count: count || 0, totalQuantity: 0, quantityLabel: '' };
+      }
+
+      if (reportType === 'lot-inventory') {
+        const { data, count } = await supabase
+          .from('storage_records')
+          .select('bags_stored', { count: 'exact' })
+          .eq('warehouse_id', warehouseId)
+          .is('storage_end_date', null)
+          .is('deleted_at', null);
+        const totalBags = data?.reduce((sum, r: any) => sum + (r.bags_stored || 0), 0) || 0;
+        return { count: count || 0, totalQuantity: totalBags, quantityLabel: 'bags mapped' };
+      }
+
+      return null;
+    } catch {
+      return null;
+    }
+  }

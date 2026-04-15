@@ -1,19 +1,20 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { FileText, Loader2, FileSpreadsheet, CalendarRange, Download } from 'lucide-react';
-import { fetchReportData } from '@/lib/report-actions';
+import { FileText, Loader2, FileSpreadsheet, CalendarRange, Download, Package } from 'lucide-react';
+import { fetchReportData, fetchReportCount } from '@/lib/report-actions';
 import { generateCustomReportPDF, exportCustomReportToExcel } from '@/lib/export-utils';
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from '@/hooks/use-toast';
 import { useCustomers } from '@/contexts/customer-context';
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Switch } from "@/components/ui/switch";
+import { Badge } from "@/components/ui/badge";
 
 interface CustomReportGeneratorProps {
     warehouseName: string;
@@ -32,6 +33,8 @@ export function CustomReportGenerator({ warehouseName, allowExport }: CustomRepo
     const [includeHistory, setIncludeHistory] = useState<boolean>(false);
     const [duesType, setDuesType] = useState<'all' | 'hamali'>('all');
     const [downloadAll, setDownloadAll] = useState<boolean>(false);
+    const [recordCount, setRecordCount] = useState<{ count: number; totalQuantity: number; quantityLabel: string } | null>(null);
+    const [isCountLoading, setIsCountLoading] = useState(false);
     const { customers } = useCustomers();
 
     const isDateRangeReport = [
@@ -43,6 +46,34 @@ export function CustomReportGenerator({ warehouseName, allowExport }: CustomRepo
     const isDateRangeRequired = isDateRangeReport && !downloadAll;
 
     const isCustomerRequired = reportType === 'customer-dues-details';
+
+    // Fetch record count preview whenever filters change
+    const loadCount = useCallback(async () => {
+        if (!allowExport) return;
+        // For date-range reports with the toggle OFF, require both dates
+        if (isDateRangeReport && !downloadAll && (!startDate || !endDate)) {
+            setRecordCount(null);
+            return;
+        }
+        setIsCountLoading(true);
+        try {
+            const result = await fetchReportCount(reportType, {
+                startDate: (isDateRangeReport && downloadAll) ? undefined : (startDate || undefined),
+                endDate: (isDateRangeReport && downloadAll) ? undefined : (endDate || undefined),
+            });
+            setRecordCount(result);
+        } catch {
+            setRecordCount(null);
+        } finally {
+            setIsCountLoading(false);
+        }
+    }, [reportType, startDate, endDate, downloadAll, isDateRangeReport, allowExport]);
+
+    useEffect(() => {
+        // Debounce the count fetch slightly
+        const timer = setTimeout(loadCount, 300);
+        return () => clearTimeout(timer);
+    }, [loadCount]);
 
     const handleGenerate = async () => {
         if (!allowExport) {
@@ -93,17 +124,20 @@ export function CustomReportGenerator({ warehouseName, allowExport }: CustomRepo
             }
 
             // 2. Generate Export
+            const recordsExported = Array.isArray(data.data) ? data.data.length : 0;
+            const countSuffix = recordsExported > 0 ? ` (${recordsExported.toLocaleString()} records)` : '';
+
             if (format === 'pdf') {
                 generateCustomReportPDF(reportType, data, warehouseName);
                 toast({
                     title: "Success",
-                    description: "PDF Generated successfully",
+                    description: `PDF generated successfully${countSuffix}`,
                 });
             } else {
                 exportCustomReportToExcel(reportType, data);
                 toast({
                     title: "Success",
-                    description: "Excel Generated successfully",
+                    description: `Excel generated successfully${countSuffix}`,
                 });
             }
         } catch (error) {
@@ -255,6 +289,33 @@ export function CustomReportGenerator({ warehouseName, allowExport }: CustomRepo
                                 </>
                             )}
                         </>
+                    )}
+
+                    {/* Record count + quantity preview */}
+                    {recordCount !== null && (
+                        <div className="col-span-2 flex items-center gap-3 p-3 border rounded-md bg-blue-50/60 dark:bg-blue-950/20">
+                            <Package className="h-5 w-5 text-blue-600 shrink-0" />
+                            <div className="flex flex-wrap items-center gap-2">
+                                <Badge variant="secondary" className="text-sm font-semibold">
+                                    {recordCount.count.toLocaleString()} records
+                                </Badge>
+                                {recordCount.totalQuantity > 0 && (
+                                    <span className="text-sm text-muted-foreground">
+                                        &bull; {recordCount.quantityLabel === 'total amount (₹)'
+                                            ? `₹${recordCount.totalQuantity.toLocaleString()}`
+                                            : recordCount.totalQuantity.toLocaleString()}{' '}
+                                        {recordCount.quantityLabel !== 'total amount (₹)' && recordCount.quantityLabel}
+                                    </span>
+                                )}
+                            </div>
+                            {isCountLoading && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground ml-auto" />}
+                        </div>
+                    )}
+                    {isCountLoading && recordCount === null && (
+                        <div className="col-span-2 flex items-center gap-2 p-3 text-sm text-muted-foreground">
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                            Counting records...
+                        </div>
                     )}
 
                     <div className="space-y-2">
