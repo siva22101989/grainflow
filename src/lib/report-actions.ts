@@ -905,7 +905,7 @@ import { logError } from './error-logger';
       if (reportType === 'inflow-register') {
         let query = supabase
           .from('storage_records')
-          .select('bags_stored', { count: 'exact' })
+          .select('bags_in, bags_stored', { count: 'exact' })
           .eq('warehouse_id', warehouseId)
           .is('deleted_at', null);
 
@@ -917,7 +917,7 @@ import { logError } from './error-logger';
         }
 
         const { data, count } = await query;
-        const totalBags = data?.reduce((sum, r: any) => sum + (r.bags_stored || 0), 0) || 0;
+        const totalBags = data?.reduce((sum, r: any) => sum + (r.bags_in || r.bags_stored || 0), 0) || 0;
         return { count: count || 0, totalQuantity: totalBags, quantityLabel: 'bags received' };
       }
 

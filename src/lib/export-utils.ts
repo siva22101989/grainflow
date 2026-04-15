@@ -1017,17 +1017,19 @@ export function generateCustomReportPDF(
     else if (reportType === 'inflow-register') {
         const dateRange = formatDateRange(data.period);
         title = `Inflow Register ${dateRange}`;
-        const rows = data.data.map((r: any) => `
+        const rows = data.data.map((r: any) => {
+            const originalQty = r.bags_in || r.bags_stored;
+            return `
             <tr>
                 <td>${new Date(r.storage_start_date).toLocaleDateString()}</td>
                 <td>${r.record_number || r.id.substring(0, 8)}</td>
                 <td>${r.customers?.name || 'Unknown'}</td>
                 <td>${r.commodity_description || '-'}</td>
-                <td style="text-align: right">${r.bags_stored}</td>
+                <td style="text-align: right">${originalQty}</td>
             </tr>
-        `).join('');
-        
-        const totalBags = data.data.reduce((sum: number, r: any) => sum + r.bags_stored, 0);
+        `}).join('');
+
+        const totalBags = data.data.reduce((sum: number, r: any) => sum + (r.bags_in || r.bags_stored), 0);
 
         content = `
             <table>
@@ -1448,7 +1450,7 @@ export function exportCustomReportToExcel(
             'Receipt #': r.record_number || r.id.substring(0,8),
             'Customer': r.customers?.name || 'Unknown',
             'Commodity': r.commodity_description,
-            'Bags In': r.bags_stored
+            'Bags In': r.bags_in || r.bags_stored
         }));
     } else if (reportType === 'outflow-register') {
         filename = 'outflow-register';
