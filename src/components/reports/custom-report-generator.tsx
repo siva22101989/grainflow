@@ -6,13 +6,14 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { FileText, Loader2, FileSpreadsheet } from 'lucide-react';
+import { FileText, Loader2, FileSpreadsheet, CalendarRange, Download } from 'lucide-react';
 import { fetchReportData } from '@/lib/report-actions';
 import { generateCustomReportPDF, exportCustomReportToExcel } from '@/lib/export-utils';
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from '@/hooks/use-toast';
 import { useCustomers } from '@/contexts/customer-context';
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Switch } from "@/components/ui/switch";
 
 interface CustomReportGeneratorProps {
     warehouseName: string;
@@ -30,13 +31,16 @@ export function CustomReportGenerator({ warehouseName, allowExport }: CustomRepo
     const [selectedCustomerId, setSelectedCustomerId] = useState<string>('');
     const [includeHistory, setIncludeHistory] = useState<boolean>(false);
     const [duesType, setDuesType] = useState<'all' | 'hamali'>('all');
+    const [downloadAll, setDownloadAll] = useState<boolean>(false);
     const { customers } = useCustomers();
 
-    const isDateRangeRequired = [
-        'inflow-register', 
-        'outflow-register', 
+    const isDateRangeReport = [
+        'inflow-register',
+        'outflow-register',
         'payment-register'
     ].includes(reportType);
+
+    const isDateRangeRequired = isDateRangeReport && !downloadAll;
 
     const isCustomerRequired = reportType === 'customer-dues-details';
 
@@ -70,10 +74,10 @@ export function CustomReportGenerator({ warehouseName, allowExport }: CustomRepo
 
         setIsLoading(true);
         try {
-            // 1. Fetch Data
+            // 1. Fetch Data — skip dates when downloading all records
             const data = await fetchReportData(reportType, {
-                startDate: startDate || undefined,
-                endDate: endDate || undefined,
+                startDate: (isDateRangeReport && downloadAll) ? undefined : (startDate || undefined),
+                endDate: (isDateRangeReport && downloadAll) ? undefined : (endDate || undefined),
                 customerId: selectedCustomerId || undefined,
                 includeHistory: includeHistory,
                 duesType: duesType
@@ -131,7 +135,7 @@ export function CustomReportGenerator({ warehouseName, allowExport }: CustomRepo
                 <div className={`grid grid-cols-1 md:grid-cols-2 gap-6 ${!allowExport ? 'opacity-50 pointer-events-none' : ''}`}>
                     <div className="space-y-2 col-span-2 md:col-span-2">
                         <Label>Report Type</Label>
-                        <Select value={reportType} onValueChange={setReportType}>
+                        <Select value={reportType} onValueChange={(val) => { setReportType(val); setDownloadAll(false); }}>
                             <SelectTrigger>
                                 <SelectValue />
                             </SelectTrigger>
@@ -204,24 +208,52 @@ export function CustomReportGenerator({ warehouseName, allowExport }: CustomRepo
                         </div>
                     )}
 
-                    {isDateRangeRequired && (
+                    {isDateRangeReport && (
                         <>
-                            <div className="space-y-2">
-                                <Label>From Date</Label>
-                                <Input 
-                                    type="date" 
-                                    value={startDate} 
-                                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setStartDate(e.target.value)} 
+                            <div className="col-span-2 flex items-center justify-between p-3 border rounded-md bg-muted/30">
+                                <div className="flex items-center gap-2">
+                                    {downloadAll ? (
+                                        <Download className="h-4 w-4 text-primary" />
+                                    ) : (
+                                        <CalendarRange className="h-4 w-4 text-muted-foreground" />
+                                    )}
+                                    <div>
+                                        <Label htmlFor="download-all" className="text-sm font-medium cursor-pointer">
+                                            {downloadAll ? 'Download All Records' : 'Filter by Date Range'}
+                                        </Label>
+                                        <p className="text-xs text-muted-foreground">
+                                            {downloadAll
+                                                ? 'Export every record — no date filter applied.'
+                                                : 'Select a date range to filter records.'}
+                                        </p>
+                                    </div>
+                                </div>
+                                <Switch
+                                    id="download-all"
+                                    checked={downloadAll}
+                                    onCheckedChange={setDownloadAll}
                                 />
                             </div>
-                            <div className="space-y-2">
-                                <Label>To Date</Label>
-                                <Input 
-                                    type="date" 
-                                    value={endDate} 
-                                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEndDate(e.target.value)} 
-                                />
-                            </div>
+                            {!downloadAll && (
+                                <>
+                                    <div className="space-y-2">
+                                        <Label>From Date</Label>
+                                        <Input
+                                            type="date"
+                                            value={startDate}
+                                            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setStartDate(e.target.value)}
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label>To Date</Label>
+                                        <Input
+                                            type="date"
+                                            value={endDate}
+                                            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEndDate(e.target.value)}
+                                        />
+                                    </div>
+                                </>
+                            )}
                         </>
                     )}
 
