@@ -64,7 +64,7 @@ export function EditCropDialog({ crop }: Props) {
     const [slabError, setSlabError] = useState('');
 
     function addSlab() {
-        const lastMonth = slabs.length > 0 ? slabs[slabs.length - 1].up_to_months : 0;
+        const lastMonth = slabs.length > 0 ? slabs[slabs.length - 1]!.up_to_months : 0;
         setSlabs([...slabs, { up_to_months: lastMonth + 6, rate_per_bag: 0 }]);
     }
 
