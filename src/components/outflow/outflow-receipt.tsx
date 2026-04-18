@@ -48,13 +48,15 @@ export function OutflowReceipt({ record, customer, withdrawnBags, finalRent, pai
 
         // Look up crop pricing for correct rate display
         let pricing = undefined;
+        let pricingSlabs = undefined;
         if (record.cropId && crops) {
             const crop = crops.find((c: any) => c.id === record.cropId);
             if (crop) {
                 pricing = { price6m: crop.rent_price_6m, price1y: crop.rent_price_1y };
+                pricingSlabs = crop.pricing_slabs || undefined;
             }
         }
-        const { rentPerBag } = calculateFinalRent(safeRecord, endDate, withdrawnBags, pricing);
+        const { rentPerBag } = calculateFinalRent(safeRecord, endDate, withdrawnBags, pricing, pricingSlabs);
         setRentBreakdown({ rentPerBag });
 
         // record.totalRentBilled already includes finalRent because wait, OutflowReceipt is generated AFTER addOutflow updates the record!

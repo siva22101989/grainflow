@@ -27,6 +27,20 @@ export type Commodity = {
 export type PaymentType = 'rent' | 'hamali' | 'advance' | 'security_deposit' | 'other';
 export type BillingCycle = '6m' | '1y';
 export type InflowType = 'purchase' | 'transfer_in' | 'return' | 'other';
+
+// Flexible crop-based billing configuration
+export type PricingSlab = {
+  up_to_months: number;
+  rate_per_bag: number;
+};
+
+export type PricingSlabConfig = {
+  mode: 'minimum_monthly' | 'slabs';
+  min_months: number;
+  base_rate?: number;       // required for mode=minimum_monthly
+  monthly_rate: number;     // per-month rate after min period or last slab
+  slabs?: PricingSlab[];    // required for mode=slabs, sorted ascending by up_to_months
+};
 export type Payment = {
   amount: number;
   date: Date | string;

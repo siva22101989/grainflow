@@ -1,8 +1,80 @@
 import { addMonths, isAfter, startOfDay, differenceInMonths } from 'date-fns';
-import type { StorageRecord } from '@/lib/definitions';
+import type { StorageRecord, PricingSlabConfig } from '@/lib/definitions';
 import { toDate } from './utils';
 
 import { BILLING_RATES } from '@/lib/constants';
+
+/**
+ * Validate a PricingSlabConfig for correctness.
+ * Returns an error message string, or null if valid.
+ */
+export function validatePricingSlabs(config: PricingSlabConfig): string | null {
+  if (config.min_months < 0 || !Number.isInteger(config.min_months)) {
+    return 'Minimum months must be a non-negative integer.';
+  }
+  if (config.monthly_rate < 0) {
+    return 'Monthly rate must be non-negative.';
+  }
+
+  if (config.mode === 'minimum_monthly') {
+    if (config.base_rate == null || config.base_rate < 0) {
+      return 'Base rate is required and must be non-negative for Minimum + Monthly mode.';
+    }
+  } else if (config.mode === 'slabs') {
+    if (!config.slabs || config.slabs.length === 0) {
+      return 'At least one slab is required for Custom Slabs mode.';
+    }
+    for (let i = 0; i < config.slabs.length; i++) {
+      const slab = config.slabs[i];
+      if (slab.up_to_months <= 0 || !Number.isInteger(slab.up_to_months)) {
+        return `Slab ${i + 1}: "Up to months" must be a positive integer.`;
+      }
+      if (slab.rate_per_bag < 0) {
+        return `Slab ${i + 1}: Rate must be non-negative.`;
+      }
+      if (i > 0 && slab.up_to_months <= config.slabs[i - 1].up_to_months) {
+        return `Slab ${i + 1}: "Up to months" must be greater than the previous slab (${config.slabs[i - 1].up_to_months}).`;
+      }
+    }
+  } else {
+    return 'Invalid pricing mode. Must be "minimum_monthly" or "slabs".';
+  }
+
+  return null;
+}
+
+/**
+ * Calculate rent using flexible pricing slabs.
+ * Called internally by calculateFinalRent when pricingSlabs is provided.
+ */
+function calculateRentFromSlabs(
+  effectiveMonths: number,
+  config: PricingSlabConfig
+): number {
+  if (config.mode === 'minimum_monthly') {
+    const baseRate = config.base_rate ?? 0;
+    if (effectiveMonths <= config.min_months) {
+      return baseRate;
+    }
+    const overflowMonths = effectiveMonths - config.min_months;
+    return baseRate + overflowMonths * config.monthly_rate;
+  }
+
+  // mode === 'slabs'
+  const slabs = config.slabs!;
+
+  // Find matching slab
+  for (const slab of slabs) {
+    if (effectiveMonths <= slab.up_to_months) {
+      return slab.rate_per_bag;
+    }
+  }
+
+  // Beyond all slabs: last slab rate + overflow * monthly_rate
+  const lastSlab = slabs[slabs.length - 1];
+  const overflowMonths = effectiveMonths - lastSlab.up_to_months;
+  return lastSlab.rate_per_bag + overflowMonths * config.monthly_rate;
+}
 
 // Rates
 // Deprecated: Use BILLING_RATES from @/lib/constants
@@ -117,11 +189,12 @@ export function getRecordStatus(record: StorageRecord): RecordStatusInfo {
  * ```
  */
 export function calculateFinalRent(
-    record: StorageRecord, 
-    withdrawalDate: Date, 
+    record: StorageRecord,
+    withdrawalDate: Date,
     bagsToWithdraw: number,
-    pricing?: { price6m: number, price1y: number }
-): { 
+    pricing?: { price6m: number, price1y: number },
+    pricingSlabs?: PricingSlabConfig | null
+): {
     rent: number;
     monthsStored: number;
     rentPerBag: number;
@@ -129,18 +202,14 @@ export function calculateFinalRent(
 } {
   const startDate = startOfDay(toDate(record.storageStartDate));
   const endDate = startOfDay(withdrawalDate);
-  
+
   const rentAlreadyPaidPerBag = 0; // Rent is never paid in advance.
 
-  // Use dynamic pricing if available, else fallback to constants
-  const rate6m = pricing?.price6m ?? RATE_6_MONTHS;
-  const rate1y = pricing?.price1y ?? RATE_1_YEAR;
-
   let rentPerBag = 0;
-  
+
   // Calculate raw month difference
   let monthsStored = differenceInMonths(endDate, startDate);
-  
+
   // Check if we have entered into the next month even by a day
   // differenceInMonths truncates. e.g. Jan 1 to Feb 2 is 1 month.
   // We want to know if it's strictly > X months.
@@ -152,8 +221,26 @@ export function calculateFinalRent(
 
   // Minimum 1 month charge (implied by 6m bracket, but good for clarity if logic changes)
   if (monthsStored === 0 && isAfter(endDate, startDate)) {
-      monthsStored = 1; 
+      monthsStored = 1;
   }
+
+  // --- Flexible slab-based pricing (new) ---
+  if (pricingSlabs) {
+    const effectiveMonths = Math.max(monthsStored, pricingSlabs.min_months);
+    rentPerBag = effectiveMonths <= 0 ? 0 : calculateRentFromSlabs(effectiveMonths, pricingSlabs);
+    const finalRentForWithdrawnBags = rentPerBag * bagsToWithdraw;
+    return {
+      rent: Math.max(0, finalRentForWithdrawnBags),
+      monthsStored,
+      rentPerBag,
+      rentAlreadyPaidPerBag
+    };
+  }
+
+  // --- Legacy 6m/1y pricing (existing behavior, unchanged) ---
+  // Use dynamic pricing if available, else fallback to constants
+  const rate6m = pricing?.price6m ?? RATE_6_MONTHS;
+  const rate1y = pricing?.price1y ?? RATE_1_YEAR;
 
   // Handle invalid or negative duration
   if (monthsStored <= 0) {
@@ -165,13 +252,13 @@ export function calculateFinalRent(
   } else {
     // Multi-year logic
     // Year 1 is covered by rate1y. Subsequent years are additive.
-    // Example: 13 months. 
+    // Example: 13 months.
     // We treat first 12 months as Year 1 (rate1y).
     // Remaining = 1 month.
-    
+
     // Total chunks of 12 months fully completed or entered
     const fullYears = Math.floor((monthsStored - 1) / 12);
-    
+
     rentPerBag = fullYears * rate1y;
 
     const remainingMonths = monthsStored - (fullYears * 12);
@@ -184,10 +271,10 @@ export function calculateFinalRent(
         }
     }
   }
-  
+
   const finalRentForWithdrawnBags = rentPerBag * bagsToWithdraw;
 
-  return { 
+  return {
       rent: Math.max(0, finalRentForWithdrawnBags),
       monthsStored,
       rentPerBag,
@@ -207,12 +294,13 @@ export class BillingService {
    * @returns {{ rent: number, monthsStored: number, rentPerBag: number, rentAlreadyPaidPerBag: number }}
    */
   static calculateRent(
-    record: StorageRecord, 
-    withdrawalDate: Date, 
+    record: StorageRecord,
+    withdrawalDate: Date,
     bagsToWithdraw: number,
-    pricing?: { price6m: number, price1y: number }
+    pricing?: { price6m: number, price1y: number },
+    pricingSlabs?: PricingSlabConfig | null
   ) {
-    return calculateFinalRent(record, withdrawalDate, bagsToWithdraw, pricing);
+    return calculateFinalRent(record, withdrawalDate, bagsToWithdraw, pricing, pricingSlabs);
   }
 
   /**

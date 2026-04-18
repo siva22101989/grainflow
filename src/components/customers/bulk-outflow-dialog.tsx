@@ -79,6 +79,15 @@ export function BulkOutflowDialog({ customer, records, crops, onOpenChange: _onO
         return undefined;
     };
 
+    // Helper: get pricing slabs for a record
+    const getCropPricingSlabs = (record: StorageRecord) => {
+        if (record.cropId && crops) {
+            const crop = crops.find((c: any) => c.id === record.cropId);
+            if (crop?.pricing_slabs) return crop.pricing_slabs;
+        }
+        return undefined;
+    };
+
     // Derived: Available Commodities
     const commodities = useMemo(() => {
         const unique = new Set(records.filter(r => !r.storageEndDate && r.bagsStored > 0).map(r => r.commodityDescription));
@@ -132,7 +141,7 @@ export function BulkOutflowDialog({ customer, records, crops, onOpenChange: _onO
 
             if (take <= 0) continue;
 
-            const { rent } = calculateFinalRent(r, new Date(withdrawalDate), take, getCropPricing(r));
+            const { rent } = calculateFinalRent(r, new Date(withdrawalDate), take, getCropPricing(r), getCropPricingSlabs(r));
 
             const amountPaid = (r.payments || []).reduce((acc, p) => acc + p.amount, 0);
             const totalBilledSoFar = r.hamaliPayable + (r.totalRentBilled || 0);

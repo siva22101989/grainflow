@@ -168,12 +168,31 @@ export async function updateCrop(cropId: string, formData: FormData) {
     throw new Error('Invalid crop data');
   }
 
+  // Parse optional pricing slabs
+  const pricingSlabsRaw = formData.get('pricingSlabs') as string | null;
+  let pricingSlabs: any = null;
+  if (pricingSlabsRaw) {
+    try {
+      pricingSlabs = JSON.parse(pricingSlabsRaw);
+      // Server-side validation
+      const { validatePricingSlabs } = await import('@/lib/billing');
+      const validationError = validatePricingSlabs(pricingSlabs);
+      if (validationError) {
+        throw new Error(validationError);
+      }
+    } catch (e: any) {
+      if (e.message && !e.message.includes('JSON')) throw e;
+      throw new Error('Invalid pricing slab configuration');
+    }
+  }
+
   const { error } = await supabase
     .from('crops')
-    .update({ 
-        name, 
+    .update({
+        name,
         rent_price_6m: rentPrice6m,
-        rent_price_1y: rentPrice1y
+        rent_price_1y: rentPrice1y,
+        pricing_slabs: pricingSlabs
     })
     .eq('id', cropId)
     .eq('warehouse_id', warehouseId);

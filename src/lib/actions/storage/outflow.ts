@@ -103,7 +103,7 @@ export async function addOutflow(_prevState: OutflowFormState, formData: FormDat
                 const supabase = await createClient();
                 const { data: crop } = await supabase
                     .from('crops')
-                    .select('rent_price_6m, rent_price_1y')
+                    .select('rent_price_6m, rent_price_1y, pricing_slabs')
                     .eq('id', originalRecord.cropId)
                     .single();
                 if (crop) {
@@ -111,7 +111,8 @@ export async function addOutflow(_prevState: OutflowFormState, formData: FormDat
                         originalRecord,
                         new Date(withdrawalDate),
                         bagsToWithdraw,
-                        { price6m: crop.rent_price_6m, price1y: crop.rent_price_1y }
+                        { price6m: crop.rent_price_6m, price1y: crop.rent_price_1y },
+                        crop.pricing_slabs
                     );
                     serverRent = recalculated;
                 }

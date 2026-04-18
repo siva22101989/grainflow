@@ -91,6 +91,7 @@ export function OutflowForm({
 
             // Find crop pricing if available
             let pricing = undefined;
+            let pricingSlabs = undefined;
             if (selectedRecord.cropId && crops) {
                 const crop = crops.find(c => c.id === selectedRecord.cropId);
                 if (crop) {
@@ -98,11 +99,12 @@ export function OutflowForm({
                         price6m: crop.rent_price_6m,
                         price1y: crop.rent_price_1y
                     };
+                    pricingSlabs = crop.pricing_slabs || undefined;
                 }
             }
 
             if (bagsToWithdraw > 0) {
-                const { rent, monthsStored } = calculateFinalRent(safeRecord, withdrawalDate, bagsToWithdraw, pricing);
+                const { rent, monthsStored } = calculateFinalRent(safeRecord, withdrawalDate, bagsToWithdraw, pricing, pricingSlabs);
                 setStandardRent(rent);
                 setStorageMonths(monthsStored);
             } else {

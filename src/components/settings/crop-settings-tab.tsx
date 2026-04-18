@@ -8,6 +8,7 @@ import { Plus, Wheat } from "lucide-react";
 import { AddCropForm } from "@/components/lots/add-crop-form";
 import { MobileCard } from "@/components/ui/mobile-card";
 import { EmptyState } from "@/components/ui/empty-state";
+import { Badge } from "@/components/ui/badge";
 
 type CropTabProps = {
     crops: any[];
@@ -39,6 +40,8 @@ export function CropSettingsTab({ crops }: CropTabProps) {
                                                 <Wheat className="w-4 h-4" />
                                             </div>
                                             <MobileCard.Title>{crop.name}</MobileCard.Title>
+                                            {crop.pricing_slabs?.mode === 'minimum_monthly' && <Badge variant="secondary" className="text-[10px] px-1.5 py-0">Min+Monthly</Badge>}
+                                            {crop.pricing_slabs?.mode === 'slabs' && <Badge variant="secondary" className="text-[10px] px-1.5 py-0">Custom</Badge>}
                                         </div>
                                     </div>
                                     <MobileCard.Actions>
@@ -48,7 +51,8 @@ export function CropSettingsTab({ crops }: CropTabProps) {
                                                     id: crop.id,
                                                     name: crop.name,
                                                     rent_price_6m: crop.rent_price_6m,
-                                                    rent_price_1y: crop.rent_price_1y
+                                                    rent_price_1y: crop.rent_price_1y,
+                                                    pricing_slabs: crop.pricing_slabs
                                                 }}
                                             />
                                             <DeleteCropButton 
@@ -92,6 +96,8 @@ export function CropSettingsTab({ crops }: CropTabProps) {
                                                     <Wheat className="w-4 h-4" />
                                                 </div>
                                                 {crop.name}
+                                                {crop.pricing_slabs?.mode === 'minimum_monthly' && <Badge variant="secondary" className="text-[10px] px-1.5 py-0">Min+Monthly</Badge>}
+                                                {crop.pricing_slabs?.mode === 'slabs' && <Badge variant="secondary" className="text-[10px] px-1.5 py-0">Custom</Badge>}
                                             </div>
                                         </TableCell>
                                         <TableCell>
