@@ -25,15 +25,18 @@ export function validatePricingSlabs(config: PricingSlabConfig): string | null {
       return 'At least one slab is required for Custom Slabs mode.';
     }
     for (let i = 0; i < config.slabs.length; i++) {
-      const slab = config.slabs[i];
+      const slab = config.slabs[i]!;
       if (slab.up_to_months <= 0 || !Number.isInteger(slab.up_to_months)) {
         return `Slab ${i + 1}: "Up to months" must be a positive integer.`;
       }
       if (slab.rate_per_bag < 0) {
         return `Slab ${i + 1}: Rate must be non-negative.`;
       }
-      if (i > 0 && slab.up_to_months <= config.slabs[i - 1].up_to_months) {
-        return `Slab ${i + 1}: "Up to months" must be greater than the previous slab (${config.slabs[i - 1].up_to_months}).`;
+      if (i > 0) {
+        const prevSlab = config.slabs[i - 1]!;
+        if (slab.up_to_months <= prevSlab.up_to_months) {
+          return `Slab ${i + 1}: "Up to months" must be greater than the previous slab (${prevSlab.up_to_months}).`;
+        }
       }
     }
   } else {
@@ -71,7 +74,7 @@ function calculateRentFromSlabs(
   }
 
   // Beyond all slabs: last slab rate + overflow * monthly_rate
-  const lastSlab = slabs[slabs.length - 1];
+  const lastSlab = slabs[slabs.length - 1]!;
   const overflowMonths = effectiveMonths - lastSlab.up_to_months;
   return lastSlab.rate_per_bag + overflowMonths * config.monthly_rate;
 }
