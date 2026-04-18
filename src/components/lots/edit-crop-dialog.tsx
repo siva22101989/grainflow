@@ -74,9 +74,9 @@ export function EditCropDialog({ crop }: Props) {
     }
 
     function updateSlab(index: number, field: keyof PricingSlab, value: number) {
-        const updated = [...slabs];
-        updated[index] = { ...updated[index], [field]: value };
-        setSlabs(updated);
+        setSlabs(prev => prev.map((slab, i) =>
+            i === index ? { ...slab, [field]: value } : slab
+        ));
     }
 
     function buildPricingSlabsConfig(): PricingSlabConfig | null {
