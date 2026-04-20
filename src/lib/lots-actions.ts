@@ -4,6 +4,7 @@ import { createClient } from '@/utils/supabase/server';
 import { getUserWarehouse } from "@/lib/queries";
 import { revalidatePath } from 'next/cache';
 import { logError } from '@/lib/error-logger';
+import { validatePricingSlabs } from '@/lib/billing';
 
 export async function addLot(formData: FormData) {
   const supabase = await createClient();
@@ -174,15 +175,12 @@ export async function updateCrop(cropId: string, formData: FormData) {
   if (pricingSlabsRaw) {
     try {
       pricingSlabs = JSON.parse(pricingSlabsRaw);
-      // Server-side validation
-      const { validatePricingSlabs } = await import('@/lib/billing');
-      const validationError = validatePricingSlabs(pricingSlabs);
-      if (validationError) {
-        throw new Error(validationError);
-      }
-    } catch (e: any) {
-      if (e.message && !e.message.includes('JSON')) throw e;
-      throw new Error('Invalid pricing slab configuration');
+    } catch {
+      throw new Error('Invalid pricing slab JSON');
+    }
+    const validationError = validatePricingSlabs(pricingSlabs);
+    if (validationError) {
+      throw new Error(validationError);
     }
   }
 
