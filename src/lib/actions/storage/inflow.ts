@@ -239,7 +239,14 @@ export async function addInflow(_prevState: InflowFormState, formData: FormData)
                       logWarning("Invalid plot bags for plot inflow", { operation: 'addInflow', metadata: { customerId: rest.customerId } });
                       return { message: "Plot Bags must be a positive number for 'Plot' inflow.", success: false };
                   }
-                  inflowBags = plotBags;
+                  // Plot Bags = gross qty placed for drying. Load Bags (Final) = actual qty
+                  // loaded into storage after drying/cleaning. The stored amount is the
+                  // FINAL loaded qty when provided; otherwise fall back to plot qty.
+                  inflowBags = (loadBags && loadBags > 0) ? loadBags : plotBags;
+                  if (loadBags && loadBags > plotBags) {
+                      logWarning("Load bags exceeds plot bags", { operation: 'addInflow', metadata: { plotBags, loadBags } });
+                      return { message: `Load Bags (${loadBags}) cannot exceed Plot Bags (${plotBags}).`, success: false };
+                  }
               } else { // 'Direct' / 'purchase'
                   if (!bagsStored || bagsStored <= 0) {
                       logWarning("Invalid bags stored for direct inflow", { operation: 'addInflow', metadata: { customerId: rest.customerId } });
