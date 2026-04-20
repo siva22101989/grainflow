@@ -232,13 +232,15 @@ export async function addInflow(_prevState: InflowFormState, formData: FormData)
 
           try {
               let inflowBags = 0;
-              if (inflowType === 'Plot') {
+              // Accept both legacy ('Plot'/'Direct') and new ('transfer_in'/'purchase') values
+              const isPlotInflow = inflowType === 'Plot' || inflowType === 'transfer_in';
+              if (isPlotInflow) {
                   if (!plotBags || plotBags <= 0) {
                       logWarning("Invalid plot bags for plot inflow", { operation: 'addInflow', metadata: { customerId: rest.customerId } });
                       return { message: "Plot Bags must be a positive number for 'Plot' inflow.", success: false };
                   }
                   inflowBags = plotBags;
-              } else { // 'Direct'
+              } else { // 'Direct' / 'purchase'
                   if (!bagsStored || bagsStored <= 0) {
                       logWarning("Invalid bags stored for direct inflow", { operation: 'addInflow', metadata: { customerId: rest.customerId } });
                       return { message: "Number of Bags must be a positive number for 'Direct' inflow.", success: false };
