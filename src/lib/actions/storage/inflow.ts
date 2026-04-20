@@ -344,7 +344,10 @@ export async function addInflow(_prevState: InflowFormState, formData: FormData)
               const savedRecord = await saveStorageRecord(newRecord);
               savedRecordId = savedRecord.id;
 
-              // Decrement bags_remaining on the linked unloading record
+              // Decrement bags_remaining on the linked unloading record.
+              // For Plot inflows: decrement by plotBags (gross qty consumed from truck),
+              // NOT loadBags — drying shrinkage isn't bags "still in the queue", it's loss.
+              // For Direct inflows: decrement by inflowBags (= bagsStored).
               if (rawData.unloadingRecordId && rawData.unloadingRecordId !== '_none_') {
                   const supabase = await createClient();
                   const { data: uRecord } = await supabase
@@ -353,7 +356,8 @@ export async function addInflow(_prevState: InflowFormState, formData: FormData)
                       .eq('id', rawData.unloadingRecordId)
                       .single();
                   if (uRecord) {
-                      const newRemaining = Math.max(0, (uRecord.bags_remaining || 0) - inflowBags);
+                      const consumedFromUnloading = isPlotInflow ? (plotBags || inflowBags) : inflowBags;
+                      const newRemaining = Math.max(0, (uRecord.bags_remaining || 0) - consumedFromUnloading);
                       await supabase
                           .from('unloading_records')
                           .update({ bags_remaining: newRemaining, updated_at: new Date().toISOString() })
