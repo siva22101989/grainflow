@@ -49,7 +49,13 @@ export async function recordUnloading(formData: {
         return { success: true, data: unloadingRecord };
     } catch (error: any) {
         logError(error, { operation: 'recordUnloading', metadata: { formData } });
-        return { success: false, error: error instanceof Error ? error.message : String(error) };
+        // Supabase PostgrestError has message/details/hint/code; plain Error has .message
+        const msg = error?.message
+            || error?.details
+            || error?.hint
+            || (typeof error === 'string' ? error : null)
+            || 'Failed to record unloading. Please try again.';
+        return { success: false, error: String(msg) };
     }
 }
 
@@ -182,7 +188,12 @@ export async function movePlotToStorage(formData: {
         return { success: true, data: storageRecord };
     } catch (error: any) {
         logError(error, { operation: 'movePlotToStorage', metadata: { formData } });
-        return { success: false, error: error instanceof Error ? error.message : String(error) };
+        const msg = error?.message
+            || error?.details
+            || error?.hint
+            || (typeof error === 'string' ? error : null)
+            || 'Failed to move bags to storage. Please try again.';
+        return { success: false, error: String(msg) };
     }
 }
 
