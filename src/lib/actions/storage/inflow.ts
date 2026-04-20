@@ -335,6 +335,23 @@ export async function addInflow(_prevState: InflowFormState, formData: FormData)
               const savedRecord = await saveStorageRecord(newRecord);
               savedRecordId = savedRecord.id;
 
+              // Decrement bags_remaining on the linked unloading record
+              if (rawData.unloadingRecordId && rawData.unloadingRecordId !== '_none_') {
+                  const supabase = await createClient();
+                  const { data: uRecord } = await supabase
+                      .from('unloading_records')
+                      .select('bags_remaining')
+                      .eq('id', rawData.unloadingRecordId)
+                      .single();
+                  if (uRecord) {
+                      const newRemaining = Math.max(0, (uRecord.bags_remaining || 0) - inflowBags);
+                      await supabase
+                          .from('unloading_records')
+                          .update({ bags_remaining: newRemaining, updated_at: new Date().toISOString() })
+                          .eq('id', rawData.unloadingRecordId);
+                  }
+              }
+
               // Check Lot Capacity for Alert (Low Stock / High Utilization)
               if (rest.lotId) {
                   const supabase = await createClient();
@@ -368,6 +385,7 @@ export async function addInflow(_prevState: InflowFormState, formData: FormData)
 
               logger.info("Inflow record created successfully", { recordId: savedRecord.id });
               revalidatePath('/storage');
+              revalidatePath('/inflow');
           } catch (error: any) {
               logError(error, {
                   operation: 'addInflow',
