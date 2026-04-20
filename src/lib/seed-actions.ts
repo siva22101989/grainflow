@@ -175,8 +175,10 @@ export async function resetAndSeedDatabase(options?: { skipSeeding?: boolean }) 
                 location: lot.name,
                 hamali_payable: hamaliPayable,
                 total_rent_billed: isCompleted ? (bags * crop.rent_price_6m) : 0,
-                billing_cycle: isCompleted ? 'Completed' : 'Active',
-                inflow_type: 'Direct'
+                // billing_cycle is the DB enum '6m' | '1y' (record completion is tracked via storage_end_date)
+                billing_cycle: '6m',
+                // inflow_type DB enum: 'purchase' | 'transfer_in' | 'return' | 'other'
+                inflow_type: 'purchase'
             });
 
             if (error) {

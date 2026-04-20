@@ -124,7 +124,7 @@ export async function addPayment(_prevState: PaymentFormState, formData: FormDat
 export async function updatePayment(paymentId: string, formData: FormData) {
     const amount = parseFloat(formData.get('amount') as string);
     const date = formData.get('date') as string;
-    const type = formData.get('type') as string;
+    const rawType = formData.get('type') as string;
     const notes = formData.get('notes') as string;
     const customerId = formData.get('customerId') as string;
 
@@ -133,6 +133,14 @@ export async function updatePayment(paymentId: string, formData: FormData) {
 
     if (!amount || amount <= 0) {
         return { message: 'Invalid payment amount', success: false };
+    }
+
+    // Map UI values to valid PaymentType DB enum values
+    // 'both' is a UI-only label that means "auto-allocate" → maps to 'other'
+    const validTypes = ['rent', 'hamali', 'advance', 'security_deposit', 'other'];
+    const type = rawType === 'both' ? 'other' : rawType;
+    if (type && !validTypes.includes(type)) {
+        return { message: `Invalid payment type: ${rawType}`, success: false };
     }
 
     try {

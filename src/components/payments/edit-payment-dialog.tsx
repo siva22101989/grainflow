@@ -110,7 +110,7 @@ export function EditPaymentDialog({ payment, customerId, variant = 'ghost', size
                                 <SelectContent>
                                     <SelectItem value="rent">Rent</SelectItem>
                                     <SelectItem value="hamali">Hamali</SelectItem>
-                                    <SelectItem value="both">Both</SelectItem>
+                                    <SelectItem value="other">Both (auto-allocate)</SelectItem>
                                 </SelectContent>
                             </Select>
                         </div>
