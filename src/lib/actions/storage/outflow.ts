@@ -12,7 +12,7 @@ import { getStorageRecord, getCustomer } from '@/lib/queries';
 import { updateStorageRecord, addPaymentToRecord, saveWithdrawalTransaction } from '@/lib/data';
 import { checkRateLimit } from '@/lib/rate-limit';
 import { getNextInvoiceNumber } from '@/lib/sequence-utils';
-import { logError, logWarning } from '@/lib/error-logger';
+import { logError, logWarning, formatActionError } from '@/lib/error-logger';
 import { BillingService } from '@/lib/billing';
 
 
@@ -187,7 +187,7 @@ export async function addOutflow(_prevState: OutflowFormState, formData: FormDat
                     operation: 'addOutflow',
                     metadata: { recordId, bagsToWithdraw }
                 });
-                return { message: error.message || "Failed to save outflow transaction.", success: false, data: rawData };
+                return { message: formatActionError(error, "Failed to save outflow transaction."), success: false, data: rawData };
             }
             redirect(`/outflow/receipt/${recordId}?withdrawn=${bagsToWithdraw}&rent=${finalRent}&paidNow=${paymentMade}`);
         }

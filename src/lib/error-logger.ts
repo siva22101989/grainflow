@@ -52,3 +52,21 @@ export function logWarning(
     console.warn(`[${context?.operation || 'Warning'}]:`, message, context?.metadata);
   }
 }
+
+/**
+ * Extract a user-readable error message from any thrown value.
+ *
+ * Supabase PostgrestError is NOT `instanceof Error`, so the common pattern
+ * `error instanceof Error ? error.message : String(error)` results in
+ * "[object Object]" in toasts. This helper handles all common cases:
+ * - Standard Error: returns .message
+ * - Supabase PostgrestError: returns .message, falls back to .details, then .hint
+ * - Plain string: returns as-is
+ * - Anything else: returns the fallback message
+ */
+export function formatActionError(error: unknown, fallback = 'An unexpected error occurred. Please try again.'): string {
+  if (!error) return fallback;
+  if (typeof error === 'string') return error;
+  const e = error as any;
+  return String(e?.message || e?.details || e?.hint || fallback);
+}

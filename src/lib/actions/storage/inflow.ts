@@ -67,9 +67,10 @@ export async function finalizePlotDrying(_prevState: FormState, formData: FormDa
   // OR: If it wasn't affecting stock before?
   // Assuming it affects stock.
   
-  if (record.lot_id) { // snake_case from DB
-       // Correction: record object from DB uses snake_case keys if typed by supabase client?
-       // Yes, usually. But let's check. Select query 'lot_id, bags_stored' -> returns { lot_id: ..., bags_stored: ... }
+  // Capacity pre-check ONLY (do NOT manually update current_stock — the
+  // sync_lot_stock DB trigger auto-recalculates from SUM(bags_stored) on
+  // every storage_records change. Manual update here would double-count.)
+  if (record.lot_id) {
        const lotId = record.lot_id;
        const recordBags = record.bags_stored || 0;
 
@@ -77,22 +78,19 @@ export async function finalizePlotDrying(_prevState: FormState, formData: FormDa
        if (lot) {
            const oldStock = lot.current_stock || 0;
            const capacity = lot.capacity || 1000;
-           
            const correction = finalBags - recordBags;
-           const newStock = Math.max(0, oldStock + correction);
-           
-           if (newStock > capacity) {
-                return { 
-                    message: `Cannot finalize: Lot ${lot.name} capacity exceeded! Limit: ${capacity}, Projected: ${newStock}`, 
-                    success: false 
+           const projectedStock = Math.max(0, oldStock + correction);
+
+           if (projectedStock > capacity) {
+                return {
+                    message: `Cannot finalize: Lot ${lot.name} capacity exceeded! Limit: ${capacity}, Projected: ${projectedStock}`,
+                    success: false
                 };
            }
-           
-           await supabase.from('warehouse_lots').update({ current_stock: newStock }).eq('id', lotId);
        }
   }
-  
-  // Update Record 
+
+  // Update Record — the sync_lot_stock trigger handles current_stock.
   await updateStorageRecord(recordId, {
       loadBags: finalBags,
       bagsStored: finalBags,
@@ -108,6 +106,7 @@ export async function finalizePlotDrying(_prevState: FormState, formData: FormDa
   }
 
   revalidatePath('/storage');
+  revalidatePath('/inflow');
   return { message: `Drying finalized. Stock updated to ${finalBags} bags.`, success: true, recordId };
   } catch (error: any) {
       logError(error, {
@@ -117,7 +116,8 @@ export async function finalizePlotDrying(_prevState: FormState, formData: FormDa
               finalBags: formData.get('finalBags')
           }
       });
-      return { message: `Failed to finalize drying: ${error.message}`, success: false };
+      const { formatActionError } = await import('@/lib/error-logger');
+      return { message: `Failed to finalize drying: ${formatActionError(error)}`, success: false };
   }
 }
 
@@ -393,7 +393,8 @@ export async function addInflow(_prevState: InflowFormState, formData: FormData)
                   operation: 'addInflow',
                   metadata: { customerId: rest.customerId, commodity: rest.commodityDescription }
               });
-              return { message: `Failed to create record: ${error.message || 'Unknown error'}`, success: false, data: rawData };
+              const { formatActionError } = await import('@/lib/error-logger');
+              return { message: `Failed to create record: ${formatActionError(error)}`, success: false, data: rawData };
           }
           if (savedRecordId) {
               redirect(`/inflow/receipt/${savedRecordId}`);

@@ -8,7 +8,7 @@ import { createClient } from '@/utils/supabase/server';
 import { getPaginatedStorageRecords, getStorageRecord, searchActiveStorageRecords, getUserWarehouse, getStorageRecords } from '@/lib/queries';
 import { updateStorageRecord, deleteStorageRecord, restoreStorageRecord } from '@/lib/data';
 import { detectStorageAnomalies as detectStorageAnomaliesFlow } from '@/ai/flows/anomaly-detection';
-import { logError } from '@/lib/error-logger';
+import { logError, formatActionError } from '@/lib/error-logger';
 import { FormState } from '../common';
 import type { StorageRecord } from '@/lib/definitions';
 
@@ -303,7 +303,7 @@ export async function deleteStorageRecordAction(recordId: string): Promise<FormS
     return { message: 'Record deleted successfully.', success: true };
   } catch (error: any) {
     logError(error, { operation: 'deleteStorageRecordAction', metadata: { recordId } });
-    return { message: error.message || 'Failed to delete record.', success: false };
+    return { message: formatActionError(error, 'Failed to delete record.'), success: false };
   }
 }
 
@@ -316,7 +316,7 @@ export async function restoreStorageRecordAction(recordId: string): Promise<Form
     return { message: 'Record restored successfully.', success: true };
   } catch (error: any) {
     logError(error, { operation: 'restoreStorageRecordAction', metadata: { recordId } });
-    return { message: error.message || 'Failed to restore record.', success: false };
+    return { message: formatActionError(error, 'Failed to restore record.'), success: false };
   }
 }
 

@@ -3,7 +3,7 @@
 import { createClient } from '@/utils/supabase/server';
 import { getUserWarehouse } from '@/lib/queries/warehouses';
 import { revalidatePath } from 'next/cache';
-import { logError } from './error-logger';
+import { logError, formatActionError } from './error-logger';
 
 export async function recordUnloading(formData: {
     customerId: string;
@@ -46,16 +46,12 @@ export async function recordUnloading(formData: {
         if (unloadingError) throw unloadingError;
 
         revalidatePath('/inflow');
+        revalidatePath('/customers');
+        revalidatePath(`/customers/${formData.customerId}`);
         return { success: true, data: unloadingRecord };
     } catch (error: any) {
         logError(error, { operation: 'recordUnloading', metadata: { formData } });
-        // Supabase PostgrestError has message/details/hint/code; plain Error has .message
-        const msg = error?.message
-            || error?.details
-            || error?.hint
-            || (typeof error === 'string' ? error : null)
-            || 'Failed to record unloading. Please try again.';
-        return { success: false, error: String(msg) };
+        return { success: false, error: formatActionError(error, 'Failed to record unloading. Please try again.') };
     }
 }
 
@@ -164,18 +160,21 @@ export async function movePlotToStorage(formData: {
 
         if (storageError) throw storageError;
 
-        // 3. Deduct from plot records (FIFO)
+        // 3. Deduct from plot records (FIFO) — decrement BOTH bags_remaining_in_plot
+        // AND bags_remaining (else the unloading record stays visible in unloaded inventory)
         let remaining = formData.bagsToMove;
         for (const record of plotRecords) {
             if (remaining <= 0) break;
 
             const deduction = Math.min(remaining, record.bags_remaining_in_plot);
-            const newRemaining = record.bags_remaining_in_plot - deduction;
+            const newRemainingInPlot = record.bags_remaining_in_plot - deduction;
+            const newBagsRemaining = Math.max(0, (record.bags_remaining || 0) - deduction);
 
             await supabase
                 .from('unloading_records')
-                .update({ 
-                    bags_remaining_in_plot: newRemaining,
+                .update({
+                    bags_remaining_in_plot: newRemainingInPlot,
+                    bags_remaining: newBagsRemaining,
                     updated_at: new Date().toISOString()
                 })
                 .eq('id', record.id);
@@ -185,15 +184,12 @@ export async function movePlotToStorage(formData: {
 
         revalidatePath('/inflow');
         revalidatePath('/storage');
+        revalidatePath('/customers');
+        revalidatePath(`/customers/${formData.customerId}`);
         return { success: true, data: storageRecord };
     } catch (error: any) {
         logError(error, { operation: 'movePlotToStorage', metadata: { formData } });
-        const msg = error?.message
-            || error?.details
-            || error?.hint
-            || (typeof error === 'string' ? error : null)
-            || 'Failed to move bags to storage. Please try again.';
-        return { success: false, error: String(msg) };
+        return { success: false, error: formatActionError(error, 'Failed to move bags to storage. Please try again.') };
     }
 }
 

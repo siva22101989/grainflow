@@ -7,7 +7,7 @@ import { getAuthUser } from '@/lib/queries/auth';
 
 
 import { checkRateLimit } from '@/lib/rate-limit';
-import { logError, logWarning } from '@/lib/error-logger';
+import { logError, logWarning, formatActionError } from '@/lib/error-logger';
 import { ApiResponse } from '@/lib/api-response';
 import { PaymentService } from '@/lib/services/payments';
 import { getUserWarehouse } from '@/lib/queries';
@@ -181,7 +181,7 @@ export async function deletePayment(paymentId: string, customerId: string) {
         return { message: 'Payment deleted successfully!', success: true };
     } catch (error: any) {
         logError(error, { operation: 'delete_payment', metadata: { paymentId } });
-        return { message: 'Failed to delete payment', success: false };
+        return { message: formatActionError(error, 'Failed to delete payment'), success: false };
     }
 }
 
