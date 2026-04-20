@@ -52,7 +52,10 @@ export default async function SuperAdminDashboard({
     .eq('id', user.id)
     .single();
 
-  if (profile?.role !== UserRole.SUPER_ADMIN && profile?.role !== UserRole.OWNER) {
+  // Admin Panel is platform-level: only SUPER_ADMIN can access.
+  // Owners are tenant-level — their warehouse management lives in /settings.
+  // (Allowing OWNER here previously leaked other tenants' subscriptions/codes/etc.)
+  if (profile?.role !== UserRole.SUPER_ADMIN) {
       return (
         <div className="flex h-screen w-full flex-col items-center justify-center gap-4 bg-slate-50">
             <h1 className="text-4xl font-bold text-slate-800">403 Forbidden</h1>

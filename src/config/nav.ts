@@ -15,7 +15,8 @@ import {
 
 export const navItems = [
     { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-    { label: 'Admin Panel', href: '/admin', icon: Shield, roles: ['super_admin', 'owner'] },
+    // Admin Panel is platform-level (super_admin only). Owners manage their warehouse via /settings.
+    { label: 'Admin Panel', href: '/admin', icon: Shield, roles: ['super_admin'] },
     { label: 'Inflow', href: '/inflow', icon: Truck },
     { label: 'Outflow', href: '/outflow', icon: ArrowRight },
     { label: 'Storage', href: '/storage', icon: Package },
