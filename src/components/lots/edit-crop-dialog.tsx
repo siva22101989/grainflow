@@ -30,6 +30,7 @@ interface Props {
         rent_price_6m: number;
         rent_price_1y: number;
         pricing_slabs?: PricingSlabConfig | null;
+        insurance_per_bag?: number;
     };
 }
 
@@ -174,6 +175,24 @@ export function EditCropDialog({ crop }: Props) {
                                 defaultValue={crop.name}
                                 required
                             />
+                        </div>
+
+                        {/* Insurance — applies to all pricing modes */}
+                        <div className="grid gap-2">
+                            <Label htmlFor="insurancePerBag">Insurance (₹/bag)</Label>
+                            <Input
+                                id="insurancePerBag"
+                                name="insurancePerBag"
+                                type="number"
+                                step="0.01"
+                                min="0"
+                                defaultValue={crop.insurance_per_bag ?? 0}
+                                onFocus={(e) => e.target.select()}
+                                onWheel={(e) => e.currentTarget.blur()}
+                            />
+                            <p className="text-xs text-muted-foreground">
+                                Per-bag insurance premium. Set 0 for no insurance.
+                            </p>
                         </div>
 
                         {/* Pricing Mode Selector */}

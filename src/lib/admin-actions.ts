@@ -286,16 +286,22 @@ export async function addCrop(formData: FormData) {
     const name = formData.get('name') as string;
     const rentPrice6m = parseFloat(formData.get('price6m') as string);
     const rentPrice1y = parseFloat(formData.get('price1y') as string);
+    const insurancePerBagRaw = formData.get('insurancePerBag') as string | null;
+    const insurancePerBag = insurancePerBagRaw ? parseFloat(insurancePerBagRaw) : 0;
 
     if (!name || isNaN(rentPrice6m) || isNaN(rentPrice1y)) {
         throw new Error('Invalid crop data');
+    }
+    if (isNaN(insurancePerBag) || insurancePerBag < 0) {
+        throw new Error('Insurance per bag must be a non-negative number');
     }
 
     const { error } = await supabase.from('crops').insert({
         warehouse_id: warehouseId,
         name,
         rent_price_6m: rentPrice6m,
-        rent_price_1y: rentPrice1y
+        rent_price_1y: rentPrice1y,
+        insurance_per_bag: insurancePerBag
     });
 
     if (error) {

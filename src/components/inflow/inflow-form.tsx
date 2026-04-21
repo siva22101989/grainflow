@@ -477,6 +477,16 @@ function InflowFormInner({
                                     <span className="font-mono">₹{selectedCrop.rent_price_6m} / bag</span>
                                 </div>
                             )}
+                            {selectedCrop && (selectedCrop.insurance_per_bag ?? 0) > 0 && (() => {
+                                const insuranceBags = inflowType === 'transfer_in' ? (plotBags || 0) : (bags || 0);
+                                const insuranceTotal = insuranceBags * (selectedCrop.insurance_per_bag || 0);
+                                return (
+                                    <div className="flex justify-between items-center text-sm">
+                                        <span className="text-muted-foreground">Insurance ({insuranceBags} bags × ₹{selectedCrop.insurance_per_bag}/bag)</span>
+                                        <span className="font-mono text-blue-700">₹{insuranceTotal.toFixed(2)}</span>
+                                    </div>
+                                );
+                            })()}
                             <p className="text-xs text-muted-foreground">
                                 Rent will be calculated at the time of withdrawal.
                             </p>

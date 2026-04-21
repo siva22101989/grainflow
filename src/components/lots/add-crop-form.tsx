@@ -50,7 +50,7 @@ export function AddCropForm() {
     }, [state, refresh, toast]);
 
     return (
-        <form ref={formRef} action={formAction} className="grid gap-4 md:grid-cols-5 items-end bg-muted/20 p-4 rounded-lg border border-dashed">
+        <form ref={formRef} action={formAction} className="grid gap-4 md:grid-cols-6 items-end bg-muted/20 p-4 rounded-lg border border-dashed">
             <div className="grid gap-2 md:col-span-2">
                 <Label htmlFor="crop-name">Name</Label>
                 <Input id="crop-name" name="name" placeholder="e.g. Paddy" required className="bg-background" />
@@ -69,7 +69,14 @@ export function AddCropForm() {
                     <Input id="price1y" name="price1y" type="number" step="0.01" placeholder="50" required className="pl-9 bg-background" onFocus={(e) => e.target.select()} onWheel={(e) => e.currentTarget.blur()} />
                 </div>
             </div>
-            <div className="md:col-span-5 md:col-start-5">
+            <div className="grid gap-2">
+                <Label htmlFor="insurancePerBag">Insurance (/bag)</Label>
+                <div className="relative">
+                    <IndianRupee className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                    <Input id="insurancePerBag" name="insurancePerBag" type="number" step="0.01" min="0" placeholder="0" defaultValue="0" className="pl-9 bg-background" onFocus={(e) => e.target.select()} onWheel={(e) => e.currentTarget.blur()} />
+                </div>
+            </div>
+            <div className="md:col-span-6 md:col-start-6">
                 <Button type="submit" disabled={isPending} className="w-full md:w-auto">
                     {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Plus className="mr-2 h-4 w-4" />}
                     Add Crop

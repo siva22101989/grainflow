@@ -164,9 +164,14 @@ export async function updateCrop(cropId: string, formData: FormData) {
   const name = formData.get('name') as string;
   const rentPrice6m = parseFloat(formData.get('price6m') as string);
   const rentPrice1y = parseFloat(formData.get('price1y') as string);
+  const insurancePerBagRaw = formData.get('insurancePerBag') as string | null;
+  const insurancePerBag = insurancePerBagRaw ? parseFloat(insurancePerBagRaw) : 0;
 
   if (!name || isNaN(rentPrice6m) || isNaN(rentPrice1y)) {
     throw new Error('Invalid crop data');
+  }
+  if (isNaN(insurancePerBag) || insurancePerBag < 0) {
+    throw new Error('Insurance per bag must be a non-negative number');
   }
 
   // Parse optional pricing slabs
@@ -190,7 +195,8 @@ export async function updateCrop(cropId: string, formData: FormData) {
         name,
         rent_price_6m: rentPrice6m,
         rent_price_1y: rentPrice1y,
-        pricing_slabs: pricingSlabs
+        pricing_slabs: pricingSlabs,
+        insurance_per_bag: insurancePerBag
     })
     .eq('id', cropId)
     .eq('warehouse_id', warehouseId);

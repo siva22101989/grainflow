@@ -52,7 +52,8 @@ export function CropSettingsTab({ crops }: CropTabProps) {
                                                     name: crop.name,
                                                     rent_price_6m: crop.rent_price_6m,
                                                     rent_price_1y: crop.rent_price_1y,
-                                                    pricing_slabs: crop.pricing_slabs
+                                                    pricing_slabs: crop.pricing_slabs,
+                                                    insurance_per_bag: crop.insurance_per_bag
                                                 }}
                                             />
                                             <DeleteCropButton 
@@ -65,6 +66,9 @@ export function CropSettingsTab({ crops }: CropTabProps) {
                                 <MobileCard.Content>
                                     <MobileCard.Row label="Rent (6M)" value={`₹${crop.rent_price_6m}`} />
                                     <MobileCard.Row label="Rent (1Y)" value={`₹${crop.rent_price_1y}`} />
+                                    {crop.insurance_per_bag > 0 && (
+                                        <MobileCard.Row label="Insurance" value={`₹${crop.insurance_per_bag}/bag`} />
+                                    )}
                                 </MobileCard.Content>
                             </MobileCard>
                         ))}
@@ -84,6 +88,7 @@ export function CropSettingsTab({ crops }: CropTabProps) {
                                     <TableHead className="w-[300px]">Crop Name</TableHead>
                                     <TableHead>Rent (6M)</TableHead>
                                     <TableHead>Rent (1Y)</TableHead>
+                                    <TableHead>Insurance</TableHead>
                                     <TableHead className="w-[100px] text-right">Actions</TableHead>
                                 </TableRow>
                             </TableHeader>
@@ -110,17 +115,28 @@ export function CropSettingsTab({ crops }: CropTabProps) {
                                                 ₹{crop.rent_price_1y}
                                             </span>
                                         </TableCell>
+                                        <TableCell>
+                                            {crop.insurance_per_bag > 0 ? (
+                                                <span className="inline-flex items-center px-2 py-1 rounded-md bg-blue-50 text-blue-700 text-xs font-medium">
+                                                    ₹{crop.insurance_per_bag}/bag
+                                                </span>
+                                            ) : (
+                                                <span className="text-xs text-muted-foreground">—</span>
+                                            )}
+                                        </TableCell>
                                         <TableCell className="text-right">
                                             <div className="flex items-center justify-end gap-1">
-                                                <EditCropDialog 
+                                                <EditCropDialog
                                                     crop={{
                                                         id: crop.id,
                                                         name: crop.name,
                                                         rent_price_6m: crop.rent_price_6m,
-                                                        rent_price_1y: crop.rent_price_1y
+                                                        rent_price_1y: crop.rent_price_1y,
+                                                        pricing_slabs: crop.pricing_slabs,
+                                                        insurance_per_bag: crop.insurance_per_bag
                                                     }}
                                                 />
-                                                <DeleteCropButton 
+                                                <DeleteCropButton
                                                     cropId={crop.id}
                                                     cropName={crop.name}
                                                 />
@@ -130,7 +146,7 @@ export function CropSettingsTab({ crops }: CropTabProps) {
                                 ))}
                                 {(!crops || crops.length === 0) && (
                                     <TableRow>
-                                        <TableCell colSpan={4} className="text-center py-12 text-muted-foreground">
+                                        <TableCell colSpan={5} className="text-center py-12 text-muted-foreground">
                                             No crops configured. Add one below to get started.
                                         </TableCell>
                                     </TableRow>
