@@ -303,11 +303,25 @@ export async function addInflow(_prevState: InflowFormState, formData: FormData)
                       });
                   }
               }
+              // Calculate Insurance Payable from crop.insurance_per_bag
+              let insurancePayable = 0;
+              if (rest.cropId) {
+                  const supabase = await createClient();
+                  const { data: cropData } = await supabase
+                      .from('crops')
+                      .select('insurance_per_bag')
+                      .eq('id', rest.cropId)
+                      .single();
+                  if (cropData && cropData.insurance_per_bag) {
+                      insurancePayable = Number(cropData.insurance_per_bag) * inflowBags;
+                  }
+              }
+
               const payments: Payment[] = [];
               if (hamaliPaid && hamaliPaid > 0) {
                   payments.push({ amount: hamaliPaid, date: new Date(storageStartDate), type: 'hamali' });
               }
-              
+
               const newRecordId = await getNextInvoiceNumber('inflow');
 
               const finalPlotBags = (plotBags && plotBags > 0) ? plotBags : undefined;
@@ -324,6 +338,7 @@ export async function addInflow(_prevState: InflowFormState, formData: FormData)
                   billingCycle: '6m', // Default new records to 6m Enum
                   payments: payments,
                   hamaliPayable: hamaliPayable,
+                  insurancePayable: insurancePayable,
                   totalRentBilled: 0,
                   lorryTractorNo: rest.lorryTractorNo ?? '',
                   // Map Legacy Types to DB Enums

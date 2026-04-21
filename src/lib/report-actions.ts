@@ -61,24 +61,35 @@ import { logError } from './error-logger';
   
             // 2. Hamali Due - FOR ALL RECORDS (both active and closed)
             const hamaliDue = record.hamali_payable || 0;
-  
+
+            // 2b. Insurance Due
+            const insuranceDue = record.insurance_payable || 0;
+
             // 3. Payments made against THIS record
             let rentPaid = 0;
             let hamaliPaid = 0;
+            let insurancePaid = 0;
             let otherPaid = 0;
-  
+
             (record.payments || []).forEach((p: any) => {
                  if (p.type === 'rent') rentPaid += p.amount;
                  else if (p.type === 'hamali') hamaliPaid += p.amount;
+                 else if (p.type === 'insurance') insurancePaid += p.amount;
                  else otherPaid += p.amount;
             });
-  
-            // Allocation of 'other' payments -> prioritize Hamali then Rent
+
+            // Allocation of 'other' payments -> prioritize Hamali, then Insurance, then Rent
             let remaining = otherPaid;
             if (remaining > 0) {
                 const hamaliBalance = Math.max(0, hamaliDue - hamaliPaid);
                 const take = Math.min(hamaliBalance, remaining);
                 hamaliPaid += take;
+                remaining -= take;
+            }
+            if (remaining > 0) {
+                const insuranceBalance = Math.max(0, insuranceDue - insurancePaid);
+                const take = Math.min(insuranceBalance, remaining);
+                insurancePaid += take;
                 remaining -= take;
             }
             if (remaining > 0 && filters?.duesType !== 'hamali') {
@@ -87,18 +98,16 @@ import { logError } from './error-logger';
                 rentPaid += take;
                 remaining -= take;
             }
-  
+
             // If Hamali Only, zero out Rent Paid if it was somehow tracked?
-            // Actually, if we are hiding Rent, we should probably hide Rent payments too.
-            // But strict 'Rent' payments shouldn't exist if we are looking at Hamali Only view? 
-            // Better to just zero them for the display logic.
             if (filters?.duesType === 'hamali') {
                 rentPaid = 0;
             }
-  
+
             const rentBalance = Math.max(0, rentDue - rentPaid);
             const hamaliBalance = Math.max(0, hamaliDue - hamaliPaid);
-            const totalBalance = rentBalance + hamaliBalance;
+            const insuranceBalance = Math.max(0, insuranceDue - insurancePaid);
+            const totalBalance = rentBalance + hamaliBalance + insuranceBalance;
   
             return {
                 recordId: record.id,
@@ -110,10 +119,13 @@ import { logError } from './error-logger';
                 status: record.storage_end_date ? 'Closed' : 'Active',
                 rentDue: Math.round(rentDue),
                 hamaliDue: Math.round(hamaliDue),
+                insuranceDue: Math.round(insuranceDue),
                 rentPaid: Math.round(rentPaid),
                 hamaliPaid: Math.round(hamaliPaid),
+                insurancePaid: Math.round(insurancePaid),
                 rentBalance: Math.round(rentBalance),
                 hamaliBalance: Math.round(hamaliBalance),
+                insuranceBalance: Math.round(insuranceBalance),
                 totalBalance: Math.round(totalBalance),
                 isProjected: isprojected,
                 withdrawalTransactions: record.withdrawal_transactions || [], // Pass for PDF export
@@ -144,6 +156,7 @@ import { logError } from './error-logger';
             bagsIn: record.bags_in || (record.bags_stored + (record.withdrawal_transactions || []).reduce((sum: number, w: any) => sum + (w.bags_withdrawn || 0), 0)),
             bagsOut: null,
             hamali: record.hamali_payable || 0,
+            insurance: record.insurance_payable || 0,
             rent: null,
             credit: null
           });
@@ -181,22 +194,23 @@ import { logError } from './error-logger';
         
         let runningBalance = 0;
         transactions.forEach(t => {
-          runningBalance += (t.hamali || 0) + (t.rent || 0) - (t.credit || 0);
+          runningBalance += (t.hamali || 0) + (t.insurance || 0) + (t.rent || 0) - (t.credit || 0);
           t.balance = runningBalance;
         });
-        
+
         const summary = {
           totalBagsIn: transactions.filter(t => t.type === 'inflow').reduce((sum, t) => sum + (t.bagsIn || 0), 0),
           totalBagsOut: transactions.filter(t => t.type === 'outflow').reduce((sum, t) => sum + (t.bagsOut || 0), 0),
           balanceStock: 0,
           totalHamali: transactions.filter(t => t.type === 'inflow').reduce((sum, t) => sum + (t.hamali || 0), 0),
+          totalInsurance: transactions.filter(t => t.type === 'inflow').reduce((sum, t) => sum + (t.insurance || 0), 0),
           totalRent: transactions.filter(t => t.type === 'outflow').reduce((sum, t) => sum + (t.rent || 0), 0),
           totalPaid: transactions.filter(t => t.type === 'payment').reduce((sum, t) => sum + (t.credit || 0), 0),
           balanceDue: 0
         };
         
         summary.balanceStock = summary.totalBagsIn - summary.totalBagsOut;
-        summary.balanceDue = (summary.totalHamali + summary.totalRent) - summary.totalPaid;
+        summary.balanceDue = (summary.totalHamali + summary.totalInsurance + summary.totalRent) - summary.totalPaid;
   
         return {
             type: 'customer-dues-details',

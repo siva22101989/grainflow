@@ -1490,6 +1490,7 @@ export function exportCustomReportToExcel(
                 'Bags': r.bags,
                 'Status': r.status,
                 'Hamali Due': r.hamaliDue,
+                'Insurance Due': r.insuranceDue || 0,
             };
             
             // Only add Rent columns if not Hamali-only view

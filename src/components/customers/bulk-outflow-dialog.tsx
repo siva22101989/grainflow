@@ -144,7 +144,7 @@ export function BulkOutflowDialog({ customer, records, crops, onOpenChange: _onO
             const { rent } = calculateFinalRent(r, new Date(withdrawalDate), take, getCropPricing(r), getCropPricingSlabs(r));
 
             const amountPaid = (r.payments || []).reduce((acc, p) => acc + p.amount, 0);
-            const totalBilledSoFar = r.hamaliPayable + (r.totalRentBilled || 0);
+            const totalBilledSoFar = r.hamaliPayable + (r.insurancePayable || 0) + (r.totalRentBilled || 0);
             const pending = totalBilledSoFar - amountPaid;
 
             if (pending > 0) {

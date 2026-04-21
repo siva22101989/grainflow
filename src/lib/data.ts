@@ -42,6 +42,7 @@ interface DbStorageRecord {
   storage_end_date?: string | null;
   billing_cycle?: '6m' | '1y'; // Updated to DB Enum
   hamali_payable: number;
+  insurance_payable?: number;
   total_rent_billed: number;
   lorry_tractor_no: string;
   inflow_type?: 'purchase' | 'transfer_in' | 'return' | 'other'; // Updated to DB Enum
@@ -286,6 +287,7 @@ export const storageRecords = cache(async (): Promise<StorageRecord[]> => {
       updatedAt: p.updated_at ? new Date(p.updated_at) : undefined
     })),
     hamaliPayable: r.hamali_payable,
+    insurancePayable: r.insurance_payable ?? 0,
     totalRentBilled: r.total_rent_billed,
     lorryTractorNo: r.lorry_tractor_no,
     inflowType: r.inflow_type,
@@ -338,6 +340,7 @@ export const getStorageRecord = async (id: string): Promise<StorageRecord | null
       updatedAt: p.updated_at ? new Date(p.updated_at) : undefined
     })),
     hamaliPayable: r.hamali_payable,
+    insurancePayable: r.insurance_payable ?? 0,
     totalRentBilled: r.total_rent_billed,
     lorryTractorNo: r.lorry_tractor_no,
     inflowType: r.inflow_type,
@@ -391,6 +394,7 @@ export const saveStorageRecord = async (record: StorageRecord): Promise<{ id: st
     storage_end_date: record.storageEndDate ? (record.storageEndDate instanceof Date ? record.storageEndDate.toISOString() : record.storageEndDate) : undefined,
     billing_cycle: record.billingCycle || '6m',
     hamali_payable: record.hamaliPayable,
+    insurance_payable: record.insurancePayable ?? 0,
     total_rent_billed: record.totalRentBilled,
     warehouse_id: warehouseId,
     lot_id: record.lotId,
@@ -460,6 +464,7 @@ export const updateStorageRecord = async (id: string, data: Partial<StorageRecor
     if (data.storageEndDate) dbData.storage_end_date = data.storageEndDate instanceof Date ? data.storageEndDate.toISOString() : data.storageEndDate;
     if (data.billingCycle) dbData.billing_cycle = data.billingCycle;
     if (data.hamaliPayable !== undefined) dbData.hamali_payable = data.hamaliPayable;
+    if (data.insurancePayable !== undefined) dbData.insurance_payable = data.insurancePayable;
     if (data.totalRentBilled !== undefined) dbData.total_rent_billed = data.totalRentBilled;
     if (data.plotBags !== undefined) dbData.plot_bags = data.plotBags;
     if (data.loadBags !== undefined) dbData.load_bags = data.loadBags;

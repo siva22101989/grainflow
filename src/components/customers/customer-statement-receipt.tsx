@@ -23,6 +23,7 @@ export const CustomerStatementReceipt = React.forwardRef<HTMLDivElement, Custome
     const [totals, setTotals] = useState({
       rent: 0,
       hamali: 0,
+      insurance: 0,
       billed: 0,
       paid: 0,
       balance: 0,
@@ -30,23 +31,26 @@ export const CustomerStatementReceipt = React.forwardRef<HTMLDivElement, Custome
 
     useEffect(() => {
         setFormattedDate(format(new Date(), 'dd MMM yyyy'));
-        
+
         let totalRent = 0;
         let totalHamali = 0;
+        let totalInsurance = 0;
         let totalPaid = 0;
 
         records.forEach(r => {
             totalRent += r.totalRentBilled || 0;
             totalHamali += r.hamaliPayable || 0;
+            totalInsurance += (r as any).insurancePayable || 0;
             const payments = r.payments || [];
             totalPaid += payments.reduce((sum, p) => sum + p.amount, 0);
         });
 
-        const totalBilled = totalRent + totalHamali;
+        const totalBilled = totalRent + totalHamali + totalInsurance;
 
         setTotals({
             rent: totalRent,
             hamali: totalHamali,
+            insurance: totalInsurance,
             billed: totalBilled,
             paid: totalPaid,
             balance: totalBilled - totalPaid
@@ -127,7 +131,7 @@ export const CustomerStatementReceipt = React.forwardRef<HTMLDivElement, Custome
                                 {records.map((r) => {
                                     const payments = r.payments || [];
                                     const paid = payments.reduce((sum, p) => sum + p.amount, 0);
-                                    const billed = (r.totalRentBilled || 0) + (r.hamaliPayable || 0);
+                                    const billed = (r.totalRentBilled || 0) + (r.hamaliPayable || 0) + (((r as any).insurancePayable) || 0);
                                     const balance = billed - paid;
 
                                     return (

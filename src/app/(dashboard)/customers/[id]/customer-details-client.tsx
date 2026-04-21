@@ -146,7 +146,7 @@ export function CustomerDetailsClient({ customer, initialRecords, crops }: Custo
         // sum(billed) of filtered records.
         // sum(paid) of ONLY payments in range.
         
-        totalBilled += (r.hamaliPayable || 0) + (r.totalRentBilled || 0);
+        totalBilled += (r.hamaliPayable || 0) + (r.insurancePayable || 0) + (r.totalRentBilled || 0);
 
         const relevantPayments = r.payments?.filter(p => {
              if (!dateRange?.from) return true;

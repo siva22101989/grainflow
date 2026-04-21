@@ -24,7 +24,7 @@ export type Commodity = {
 };
 
 // Database Enums
-export type PaymentType = 'rent' | 'hamali' | 'advance' | 'security_deposit' | 'other';
+export type PaymentType = 'rent' | 'hamali' | 'insurance' | 'advance' | 'security_deposit' | 'other';
 export type BillingCycle = '6m' | '1y';
 export type InflowType = 'purchase' | 'transfer_in' | 'return' | 'other';
 
@@ -65,6 +65,7 @@ export type StorageRecord = {
   billingCycle: BillingCycle;
   payments: Payment[];
   hamaliPayable: number;
+  insurancePayable?: number;
   totalRentBilled: number;
   lorryTractorNo: string;
   inflowType?: InflowType;

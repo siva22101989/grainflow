@@ -41,6 +41,7 @@ interface Payment {
 interface RecordWithPayments {
     storage_start_date: string;
     hamali_payable: number | null;
+    insurance_payable?: number | null;
     total_rent_billed: number | null;
     customer_id?: string;
     customers?: { name: string };
@@ -67,7 +68,7 @@ export async function getRevenueMetrics(): Promise<RevenueMetrics> {
     // Get all storage records with payments
     const { data: records, error } = await supabase
         .from('storage_records')
-        .select('hamali_payable, total_rent_billed, payments(amount)')
+        .select('hamali_payable, insurance_payable, total_rent_billed, payments(amount)')
         .eq('warehouse_id', warehouseId);
 
     if (error || !records) {
@@ -84,21 +85,24 @@ export async function getRevenueMetrics(): Promise<RevenueMetrics> {
     let hamaliRevenue = 0;
     let totalPaid = 0;
 
+    let insuranceRevenue = 0;
     records.forEach((r) => {
         const record = r as unknown as RecordWithPayments;
         rentRevenue += record.total_rent_billed || 0;
         hamaliRevenue += record.hamali_payable || 0;
-        
+        insuranceRevenue += record.insurance_payable || 0;
+
         const payments = record.payments || [];
         totalPaid += payments.reduce((sum: number, p: Payment) => sum + (p.amount || 0), 0);
     });
 
+    const totalRevenue = rentRevenue + hamaliRevenue + insuranceRevenue;
     return {
-        totalRevenue: rentRevenue + hamaliRevenue,
+        totalRevenue,
         rentRevenue,
         hamaliRevenue,
         totalPaid,
-        totalOutstanding: (rentRevenue + hamaliRevenue) - totalPaid
+        totalOutstanding: totalRevenue - totalPaid
     };
 }
 
@@ -196,7 +200,7 @@ export async function getAgingAnalysis(): Promise<AgingAnalysis[]> {
 
     const { data: records } = await supabase
         .from('storage_records')
-        .select('storage_start_date, hamali_payable, total_rent_billed, payments(amount)')
+        .select('storage_start_date, hamali_payable, insurance_payable, total_rent_billed, payments(amount)')
         .eq('warehouse_id', warehouseId);
 
     if (!records) return [];
@@ -212,7 +216,7 @@ export async function getAgingAnalysis(): Promise<AgingAnalysis[]> {
 
     records.forEach((r) => {
         const record = r as unknown as RecordWithPayments;
-        const totalBilled = (record.hamali_payable || 0) + (record.total_rent_billed || 0);
+        const totalBilled = (record.hamali_payable || 0) + (record.insurance_payable || 0) + (record.total_rent_billed || 0);
         const payments = record.payments || [];
         const amountPaid = payments.reduce((sum: number, p: Payment) => sum + (p.amount || 0), 0);
         const outstanding = totalBilled - amountPaid;
@@ -248,7 +252,7 @@ export async function getCollectionMetrics() {
 
     const { data: records } = await supabase
         .from('storage_records')
-        .select('storage_start_date, hamali_payable, total_rent_billed, payments(amount, payment_date)')
+        .select('storage_start_date, hamali_payable, insurance_payable, total_rent_billed, payments(amount, payment_date)')
         .eq('warehouse_id', warehouseId);
 
     if (!records) return { collectionRate: 0, averageDaysToPayment: 0, totalCollected: 0, totalBilled: 0 };
@@ -260,7 +264,7 @@ export async function getCollectionMetrics() {
 
     records.forEach((r) => {
         const record = r as unknown as RecordWithPayments;
-        const billed = (record.hamali_payable || 0) + (record.total_rent_billed || 0);
+        const billed = (record.hamali_payable || 0) + (record.insurance_payable || 0) + (record.total_rent_billed || 0);
         totalBilled += billed;
 
         const payments = record.payments || [];

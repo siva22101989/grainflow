@@ -19,7 +19,7 @@ const PaymentSchema = z.object({
   paymentAmount: z.coerce.number().positive('Payment amount must be a positive number.'),
   paymentDate: z.string().refine(val => !isNaN(Date.parse(val)), { message: "Invalid date format" }),
   // Accept both UI legacy values and new DB Enum values
-  paymentType: z.enum(['Rent/Other', 'Hamali', 'rent', 'hamali', 'advance', 'security_deposit', 'other']),
+  paymentType: z.enum(['Rent/Other', 'Hamali', 'rent', 'hamali', 'insurance', 'advance', 'security_deposit', 'other']),
 });
 
 export type PaymentFormState = {
@@ -137,7 +137,7 @@ export async function updatePayment(paymentId: string, formData: FormData) {
 
     // Map UI values to valid PaymentType DB enum values
     // 'both' is a UI-only label that means "auto-allocate" → maps to 'other'
-    const validTypes = ['rent', 'hamali', 'advance', 'security_deposit', 'other'];
+    const validTypes = ['rent', 'hamali', 'insurance', 'advance', 'security_deposit', 'other'];
     const type = rawType === 'both' ? 'other' : rawType;
     if (type && !validTypes.includes(type)) {
         return { message: `Invalid payment type: ${rawType}`, success: false };
