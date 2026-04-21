@@ -18,6 +18,13 @@ interface UnloadingFormProps {
 
 export function UnloadingForm({ customers, crops }: UnloadingFormProps) {
     const [isLoading, setIsLoading] = useState(false);
+    // Radix Select doesn't reset with form.reset() — we have to control it ourselves
+    // to guarantee a clean form after each successful submission.
+    const [customerId, setCustomerId] = useState<string>('');
+    const [cropId, setCropId] = useState<string>('');
+    // formKey bumps on successful submit to force-remount native inputs
+    // (so the number/text fields also clear reliably)
+    const [formKey, setFormKey] = useState(0);
     const { toast } = useToast();
 
     async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -25,11 +32,11 @@ export function UnloadingForm({ customers, crops }: UnloadingFormProps) {
         setIsLoading(true);
 
         const formData = new FormData(e.currentTarget);
-        
+
         const data = {
-            customerId: formData.get('customerId') as string,
+            customerId,
             commodityDescription: formData.get('commodityDescription') as string,
-            cropId: formData.get('cropId') as string || undefined,
+            cropId: cropId || undefined,
             bagsUnloaded: parseInt(formData.get('bagsUnloaded') as string),
             lorryTractorNo: formData.get('lorryTractorNo') as string || undefined,
             notes: formData.get('notes') as string || undefined,
@@ -57,9 +64,12 @@ export function UnloadingForm({ customers, crops }: UnloadingFormProps) {
         if (result.success) {
             toast({
                 title: 'Success',
-                description: `Recorded arrival of ${data.bagsUnloaded} bags`,
+                description: `Recorded arrival of ${data.bagsUnloaded} bags for ${customers.find(c => c.id === customerId)?.name ?? 'customer'}`,
             });
-            (e.target as HTMLFormElement).reset();
+            // Explicitly clear ALL fields — Radix Selects and native inputs
+            setCustomerId('');
+            setCropId('');
+            setFormKey(k => k + 1);
         } else {
             toast({
                 title: 'Error',
@@ -83,12 +93,12 @@ export function UnloadingForm({ customers, crops }: UnloadingFormProps) {
                 </CardDescription>
             </CardHeader>
             <CardContent>
-                <form onSubmit={handleSubmit} className="space-y-4">
+                <form key={formKey} onSubmit={handleSubmit} className="space-y-4">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         {/* Customer */}
                         <div className="space-y-2">
                             <Label htmlFor="customerId">Customer *</Label>
-                            <Select name="customerId" required>
+                            <Select value={customerId} onValueChange={setCustomerId} required>
                                 <SelectTrigger>
                                     <SelectValue placeholder="Select customer" />
                                 </SelectTrigger>
@@ -105,7 +115,7 @@ export function UnloadingForm({ customers, crops }: UnloadingFormProps) {
                         {/* Commodity */}
                         <div className="space-y-2">
                             <Label htmlFor="cropId">Commodity *</Label>
-                            <Select name="cropId" required>
+                            <Select value={cropId} onValueChange={setCropId} required>
                                 <SelectTrigger>
                                     <SelectValue placeholder="Select commodity" />
                                 </SelectTrigger>
