@@ -279,7 +279,13 @@ export async function addInflow(_prevState: InflowFormState, formData: FormData)
                   }
               }
 
-              // Calculate Hamali Payable (Inflow + Unloading Carry-over)
+              // Calculate Hamali Payable.
+              // Two distinct hamali operations:
+              //   1. Stacking hamali (this inflow): charged on the bags actually stored
+              //      → inflowBags (= loadBags for plot, bagsStored for direct)
+              //   2. Unloading hamali carry-over: charged on the bags actually unloaded
+              //      from the truck. For Plot inflows, that's plotBags (gross, pre-drying).
+              //      For Direct inflows, unloading bags == stored bags.
               let hamaliPayable = inflowBags * (hamaliRate || 0);
 
               // Add proportionate share from Unloading Record if selected
@@ -290,16 +296,21 @@ export async function addInflow(_prevState: InflowFormState, formData: FormData)
                       .select('hamali_amount, bags_unloaded')
                       .eq('id', rawData.unloadingRecordId)
                       .single();
-                  
+
                   if (uRecord && uRecord.hamali_amount && uRecord.bags_unloaded > 0) {
                       const costPerBag = uRecord.hamali_amount / uRecord.bags_unloaded;
-                      const carryOverAmount = costPerBag * inflowBags;
+                      // Plot inflows: use plotBags (gross truck qty) so the drying-loss
+                      // bags still get their unloading hamali share billed to the customer.
+                      // Direct inflows: use inflowBags (no drying stage).
+                      const unloadingBagsToCharge = isPlotInflow ? (plotBags || inflowBags) : inflowBags;
+                      const carryOverAmount = costPerBag * unloadingBagsToCharge;
                       hamaliPayable += carryOverAmount;
-                      logger.info("Added unloading hamali carry-over", { 
-                          inflowBags, 
-                          costPerBag, 
+                      logger.info("Added unloading hamali carry-over", {
+                          inflowBags,
+                          unloadingBagsToCharge,
+                          costPerBag,
                           carryOverAmount,
-                          totalHamali: hamaliPayable 
+                          totalHamali: hamaliPayable
                       });
                   }
               }

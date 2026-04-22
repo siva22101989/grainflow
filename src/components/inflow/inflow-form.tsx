@@ -72,6 +72,7 @@ function InflowFormInner({
     const [selectedCustomerId, setSelectedCustomerId] = useState(queryCustomerId || '');
     const [inflowType, setInflowType] = useState<'purchase' | 'transfer_in'>('purchase');
     const [plotBags, setPlotBags] = useState(0);
+    const [loadBags, setLoadBags] = useState(0);
     const [selectedLotId, setSelectedLotId] = useState('');
     const [selectedCropId, setSelectedCropId] = useState('');
     const [sendSms] = useState(smsEnabledDefault);
@@ -112,19 +113,25 @@ function InflowFormInner({
 
 
     useEffect(() => {
-        const bagsValue = inflowType === 'transfer_in' ? plotBags : bags;
+        // Stacking hamali (loading into storage) is charged on the final stored qty
+        // Plot inflow: loadBags (post-drying); Direct inflow: bags
+        const stackingBags = inflowType === 'transfer_in'
+            ? (loadBags > 0 ? loadBags : plotBags)
+            : bags;
         const rateValue = rate || 0;
-        
-        let calculatedHamali = (bagsValue || 0) * rateValue;
 
-        // Add Unloading Share if selected
+        let calculatedHamali = (stackingBags || 0) * rateValue;
+
+        // Unloading hamali share: charged on the bags actually unloaded from truck
+        // Plot inflow: plotBags (gross, pre-drying); Direct inflow: bags
         if (selectedUnloading && selectedUnloading.hamali_amount && selectedUnloading.bags_unloaded > 0) {
             const unloadingRate = selectedUnloading.hamali_amount / selectedUnloading.bags_unloaded;
-            calculatedHamali += (bagsValue || 0) * unloadingRate;
+            const unloadingBagsToCharge = inflowType === 'transfer_in' ? plotBags : bags;
+            calculatedHamali += (unloadingBagsToCharge || 0) * unloadingRate;
         }
 
         setHamali(calculatedHamali);
-    }, [bags, plotBags, rate, inflowType, selectedUnloading]);
+    }, [bags, plotBags, loadBags, rate, inflowType, selectedUnloading]);
 
 
     const [error, setError] = useState<string | null>(null);
@@ -341,14 +348,15 @@ function InflowFormInner({
                             </div>
                              <div className="space-y-2">
                                 <Label htmlFor="loadBags">Load Bags (Final)</Label>
-                                <Input 
-                                    id="loadBags" 
-                                    name="loadBags" 
-                                    type="number" 
+                                <Input
+                                    id="loadBags"
+                                    name="loadBags"
+                                    type="number"
                                     min="1"
-                                    placeholder="0" 
+                                    placeholder="0"
                                     onFocus={(e) => e.target.select()}
                                     onWheel={(e) => e.currentTarget.blur()}
+                                    onChange={e => setLoadBags(Number(e.target.value))}
                                 />
                             </div>
                         </div>
@@ -478,7 +486,10 @@ function InflowFormInner({
                                 </div>
                             )}
                             {selectedCrop && (selectedCrop.insurance_per_bag ?? 0) > 0 && (() => {
-                                const insuranceBags = inflowType === 'transfer_in' ? (plotBags || 0) : (bags || 0);
+                                // Insurance is charged on the final stored qty (loadBags for plot, bags for direct)
+                                const insuranceBags = inflowType === 'transfer_in'
+                                    ? (loadBags > 0 ? loadBags : plotBags)
+                                    : (bags || 0);
                                 const insuranceTotal = insuranceBags * (selectedCrop.insurance_per_bag || 0);
                                 return (
                                     <div className="flex justify-between items-center text-sm">
