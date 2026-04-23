@@ -376,6 +376,17 @@ export async function addInflow(_prevState: InflowFormState, formData: FormData)
               const savedRecord = await saveStorageRecord(newRecord);
               savedRecordId = savedRecord.id;
 
+              // Persist the link to the unloading record for full-journey traceability
+              // (used in SMS/reports). We do this after save to avoid complicating the
+              // core StorageRecord type.
+              if (rawData.unloadingRecordId && rawData.unloadingRecordId !== '_none_') {
+                  const supabase = await createClient();
+                  await supabase
+                      .from('storage_records')
+                      .update({ unloading_record_id: rawData.unloadingRecordId })
+                      .eq('id', savedRecord.id);
+              }
+
               // Decrement bags_remaining on the linked unloading record.
               // For Plot inflows: decrement by plotBags (gross qty consumed from truck),
               // NOT loadBags — drying shrinkage isn't bags "still in the queue", it's loss.

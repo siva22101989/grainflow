@@ -203,9 +203,16 @@ export class TextBeeService {
 
   /**
    * Inflow welcome — sent when a storage record is created.
-   * Example: "Dear Namasvi, your inflow of 30 bags of Paddy(Summer) has
-   * been recorded on 23/04/26. Bill No: 1152. Hamali: Rs.300.00.
-   * Thank you. - Sri Lakshmi Warehouse"
+   *
+   * Two variants:
+   *  - Linked to an unloading record (plot inflow from truck):
+   *      Full journey: unloading bags → plot bags → inflow bags.
+   *      "Dear {name}, from your unloading of 419 bags (Bill #3),
+   *       323 bags were plotted for drying and 300 bags of Paddy(Summer)
+   *       have been recorded as inflow on 22 Apr 2026. Bill No: 166.
+   *       Location: C2. Thank you. - Sri Lakshmi Warehouse"
+   *  - Not linked (direct or standalone plot):
+   *      Short: "Dear {name}, your inflow of {bags} bags of {commodity}..."
    */
   async sendInflowWelcome({
     warehouseName,
@@ -217,6 +224,9 @@ export class TextBeeService {
     storageDate,
     location,
     hamali,
+    plotBags,
+    unloadingBags,
+    unloadingBillNo,
   }: {
     warehouseName: string;
     customerName: string;
@@ -227,12 +237,24 @@ export class TextBeeService {
     storageDate?: string;
     location?: string;
     hamali?: number;
+    plotBags?: number;
+    unloadingBags?: number;
+    unloadingBillNo?: string;
   }): Promise<SMSResponse> {
     const dateStr = storageDate ? ` on ${storageDate}` : '';
     const hamaliStr = hamali !== undefined && hamali > 0 ? ` Hamali: ${rs(hamali)}.` : '';
     const locationStr = location ? ` Location: ${location}.` : '';
 
-    const message = `Dear ${customerName}, your inflow of ${bags} bags of ${commodity} has been recorded${dateStr}. Bill No: ${recordNumber}.${hamaliStr}${locationStr} Thank you. - ${warehouseName}`;
+    // Detailed journey message when we have the unloading link + plot info
+    const hasJourney = !!(unloadingBags && plotBags);
+
+    let message: string;
+    if (hasJourney) {
+      const unloadingBillStr = unloadingBillNo ? ` (Bill #${unloadingBillNo})` : '';
+      message = `Dear ${customerName}, from your unloading of ${unloadingBags} bags${unloadingBillStr}, ${plotBags} bags were plotted for drying and ${bags} bags of ${commodity} have been recorded as inflow${dateStr}. Bill No: ${recordNumber}.${hamaliStr}${locationStr} Thank you. - ${warehouseName}`;
+    } else {
+      message = `Dear ${customerName}, your inflow of ${bags} bags of ${commodity} has been recorded${dateStr}. Bill No: ${recordNumber}.${hamaliStr}${locationStr} Thank you. - ${warehouseName}`;
+    }
 
     return this.sendSMS({ to: phone, message });
   }

@@ -59,19 +59,32 @@ export async function sendInflowWelcomeSMS(storageRecordId: string, bypassSettin
         const customer = Array.isArray(record.customers) ? record.customers[0] : record.customers;
         const warehouse = Array.isArray(record.warehouses) ? record.warehouses[0] : record.warehouses;
         const lot = Array.isArray(record.warehouse_lots) ? record.warehouse_lots[0] : record.warehouse_lots;
-        
+
+        // If this inflow was linked to an unloading record, fetch it for the
+        // full-journey SMS (unloading → plot → storage).
+        let unloadingBags: number | undefined;
+        let unloadingBillNo: string | undefined;
+        if (record.unloading_record_id) {
+            const { data: uRec } = await supabase
+                .from('unloading_records')
+                .select('bags_unloaded, record_number')
+                .eq('id', record.unloading_record_id)
+                .single();
+            if (uRec) {
+                unloadingBags = uRec.bags_unloaded || undefined;
+                unloadingBillNo = uRec.record_number != null ? String(uRec.record_number) : undefined;
+            }
+        }
+
         // Format storage date
-        const storageDate = record.storage_start_date 
-            ? new Date(record.storage_start_date).toLocaleDateString('en-IN', { 
-                day: '2-digit', 
-                month: 'short', 
-                year: 'numeric' 
+        const storageDate = record.storage_start_date
+            ? new Date(record.storage_start_date).toLocaleDateString('en-IN', {
+                day: '2-digit',
+                month: 'short',
+                year: 'numeric'
               })
             : undefined;
-        
-        // Send SMS with detailed information.
-        // Uses bags_stored (= loadBags for plot inflows after drying) — the actual
-        // stored quantity the customer has in the warehouse, NOT the gross plot qty.
+
         const result = await textBeeService.sendInflowWelcome({
             warehouseName: warehouse?.name || 'Warehouse',
             customerName: customer.name,
@@ -81,6 +94,10 @@ export async function sendInflowWelcomeSMS(storageRecordId: string, bypassSettin
             recordNumber: record.record_number || record.id.substring(0, 8),
             storageDate,
             location: lot?.name,
+            hamali: record.hamali_payable,
+            plotBags: record.plot_bags || undefined,
+            unloadingBags,
+            unloadingBillNo,
         });
         
         // Log SMS
