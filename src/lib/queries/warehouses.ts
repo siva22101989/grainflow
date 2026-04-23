@@ -5,8 +5,12 @@ import { getAuthUser } from './auth';
 import { logError } from '@/lib/error-logger';
 
 
-// Helper to get current user's warehouse
-// Helper to get current user's warehouse
+// Helper to get current user's warehouse.
+// Resolution order: user_metadata → profiles.warehouse_id → warehouse_assignments.
+// The assignments fallback is critical — some owners have profile.warehouse_id NULL
+// but still have a valid row in warehouse_assignments (e.g., created via signup trigger
+// or invited as a team member). Without this fallback, /settings, /inflow, /outflow,
+// /storage, and other pages silently return empty data for them.
 export const getUserWarehouse = cache(async () => {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -16,7 +20,7 @@ export const getUserWarehouse = cache(async () => {
   const metaWarehouseId = user.user_metadata?.warehouse_id;
   if (metaWarehouseId) return metaWarehouseId;
 
-  // 2. DB Fallback (and Heal)
+  // 2. DB Fallback — profiles.warehouse_id
   const { data: profile } = await supabase
     .from('profiles')
     .select('warehouse_id')
@@ -24,10 +28,23 @@ export const getUserWarehouse = cache(async () => {
     .single();
 
   if (profile?.warehouse_id) {
-     // Optional: Heal metadata here if we had write access context, but for query just return
      return profile.warehouse_id;
   }
-  
+
+  // 3. DB Fallback — warehouse_assignments (for users without profile.warehouse_id)
+  const { data: assignment } = await supabase
+    .from('warehouse_assignments')
+    .select('warehouse_id')
+    .eq('user_id', user.id)
+    .is('deleted_at', null)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (assignment?.warehouse_id) {
+    return assignment.warehouse_id;
+  }
+
   return null;
 });
 
