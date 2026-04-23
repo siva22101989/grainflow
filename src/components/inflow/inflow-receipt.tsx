@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import type { Customer, StorageRecord } from '@/lib/definitions';
 import { format } from 'date-fns';
 import { Button } from '../ui/button';
@@ -14,6 +15,7 @@ interface InflowReceiptProps {
 }
 
 export function InflowReceipt({ record, customer, warehouse }: InflowReceiptProps) {
+    const router = useRouter();
     const [formattedDate, setFormattedDate] = useState('');
 
     useEffect(() => {
@@ -143,7 +145,7 @@ export function InflowReceipt({ record, customer, warehouse }: InflowReceiptProp
                     variant="default"
                 />
                 
-                <Button onClick={() => window.location.reload()} variant="outline">
+                <Button onClick={() => router.push('/inflow')} variant="outline">
                     Done
                 </Button>
             </div>
