@@ -69,7 +69,9 @@ export async function sendInflowWelcomeSMS(storageRecordId: string, bypassSettin
               })
             : undefined;
         
-        // Send SMS with detailed information
+        // Send SMS with detailed information.
+        // Uses bags_stored (= loadBags for plot inflows after drying) — the actual
+        // stored quantity the customer has in the warehouse, NOT the gross plot qty.
         const result = await textBeeService.sendInflowWelcome({
             warehouseName: warehouse?.name || 'Warehouse',
             customerName: customer.name,
