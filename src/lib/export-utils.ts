@@ -1057,21 +1057,26 @@ export function generateCustomReportPDF(
     else if (reportType === 'outflow-register') {
         const dateRange = formatDateRange(data.period);
         title = `Outflow Register ${dateRange}`;
-        const rows = data.data.map((r: any) => `
+        const rows = data.data.map((r: any) => {
+            const balance = Number(r.record_balance || 0);
+            const paid = Number(r.record_total_paid || 0);
+            const statusColor = balance === 0 && paid > 0 ? '#16a34a' : balance > 0 ? '#dc2626' : '#6b7280';
+            return `
             <tr>
                 <td>${new Date(r.storage_end_date).toLocaleDateString()}</td>
                 <td>${r.record_number || r.id.substring(0, 8)}</td>
                 <td>${r.customers?.name || 'Unknown'}</td>
                 <td style="text-align: right">${r.bags_stored}</td>
                 <td style="text-align: right">${formatCurrency(r.total_rent_billed)}</td>
-                <td style="text-align: right">${formatCurrency(r.hamali_payable)}</td>
-                <td style="text-align: right">${formatCurrency((r.total_rent_billed || 0) + (r.hamali_payable || 0))}</td>
+                <td style="text-align: right">${formatCurrency(paid)}</td>
+                <td style="text-align: right; color: ${statusColor}; font-weight: 600;">${formatCurrency(balance)}</td>
             </tr>
-        `).join('');
-        
+        `;
+        }).join('');
+
         const totalRent = data.data.reduce((sum: number, r: any) => sum + (r.total_rent_billed || 0), 0);
-        const totalHamali = data.data.reduce((sum: number, r: any) => sum + (r.hamali_payable || 0), 0);
-        const totalAmount = totalRent + totalHamali;
+        const totalPaid = data.data.reduce((sum: number, r: any) => sum + (r.record_total_paid || 0), 0);
+        const totalBalance = data.data.reduce((sum: number, r: any) => sum + (r.record_balance || 0), 0);
 
         content = `
             <table>
@@ -1081,9 +1086,9 @@ export function generateCustomReportPDF(
                         <th>Ref #</th>
                         <th>Customer</th>
                         <th style="text-align: right">Bags</th>
-                        <th style="text-align: right">Rent</th>
-                        <th style="text-align: right">Hamali</th>
-                        <th style="text-align: right">Total</th>
+                        <th style="text-align: right">Rent Billed</th>
+                        <th style="text-align: right">Paid (Record)</th>
+                        <th style="text-align: right">Balance (Record)</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -1091,11 +1096,15 @@ export function generateCustomReportPDF(
                     <tr style="font-weight: bold; background-color: #f0f0f0;">
                         <td colspan="4" style="text-align: right;">Totals:</td>
                         <td style="text-align: right;">${formatCurrency(totalRent)}</td>
-                        <td style="text-align: right;">${formatCurrency(totalHamali)}</td>
-                        <td style="text-align: right;">${formatCurrency(totalAmount)}</td>
+                        <td style="text-align: right;">${formatCurrency(totalPaid)}</td>
+                        <td style="text-align: right;">${formatCurrency(totalBalance)}</td>
                     </tr>
                 </tbody>
             </table>
+            <p style="font-size: 11px; color: #6b7280; margin-top: 8px;">
+                Note: "Paid (Record)" and "Balance (Record)" reflect the total payment status
+                of the parent storage record, not individual withdrawal transactions.
+            </p>
         `;
     }
 
@@ -1460,8 +1469,9 @@ export function exportCustomReportToExcel(
             'Customer': r.customers?.name || 'Unknown',
             'Bags': r.bags_stored,
             'Rent': r.total_rent_billed || 0,
-            'Hamali': r.hamali_payable || 0,
-            'Total Amount': (r.total_rent_billed || 0) + (r.hamali_payable || 0)
+            'Record Billed': r.record_total_billed || 0,
+            'Record Paid': r.record_total_paid || 0,
+            'Record Balance': r.record_balance || 0,
         }));
     } else if (reportType === 'payment-register') {
         filename = 'payment-register';

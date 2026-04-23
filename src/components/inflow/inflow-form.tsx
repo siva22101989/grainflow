@@ -478,9 +478,15 @@ function InflowFormInner({
                                     {selectedUnloading && <span className="text-[10px] text-muted-foreground block leading-tight">(Includes Unloading)</span>}
                                 </div>
                             </div>
+                            {hamaliPaid > 0 && (
+                                <div className="flex justify-between items-center text-sm">
+                                    <span className="text-green-700">Hamali Paid Now</span>
+                                    <span className="font-mono text-green-700">₹{hamaliPaid.toFixed(2)}</span>
+                                </div>
+                            )}
                             <div className="flex justify-between items-center font-semibold text-base">
                                 <span className="text-destructive">Hamali Pending</span>
-                                <span className="font-mono text-destructive">₹{(hamali - hamaliPaid).toFixed(2)}</span>
+                                <span className="font-mono text-destructive">₹{Math.max(0, hamali - hamaliPaid).toFixed(2)}</span>
                             </div>
                              {selectedCrop && (
                                 <div className="flex justify-between items-center text-sm mt-2 pt-2 border-t">

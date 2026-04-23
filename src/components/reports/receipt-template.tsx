@@ -94,12 +94,34 @@ export const ReceiptTemplate = forwardRef<HTMLDivElement, ReceiptTemplateProps>(
                     )}
 
                     {/* Total Row */}
-                    {type === 'bill' && (
-                        <tr className="font-bold text-lg">
-                            <td className="py-4 pt-6 text-right" colSpan={3}>Total Payable</td>
-                            <td className="py-4 pt-6 text-right">₹{(data.totalRentBilled || 0) + (data.hamaliPayable || 0)}</td>
-                        </tr>
-                    )}
+                    {type === 'bill' && (() => {
+                        const totalPayable = (data.totalRentBilled || 0) + (data.hamaliPayable || 0) + ((data as any).insurancePayable || 0);
+                        const totalPaid = ((data.payments || []) as any[]).reduce(
+                          (s: number, p: any) => s + Number(p.amount || 0), 0
+                        );
+                        const balanceDue = Math.max(0, totalPayable - totalPaid);
+                        const hasPayments = totalPaid > 0;
+                        return (
+                            <>
+                                <tr className="font-bold text-lg">
+                                    <td className="py-4 pt-6 text-right" colSpan={3}>Total Billed</td>
+                                    <td className="py-4 pt-6 text-right">₹{totalPayable}</td>
+                                </tr>
+                                {hasPayments && (
+                                    <>
+                                        <tr className="text-green-700">
+                                            <td className="py-2 text-right" colSpan={3}>Paid</td>
+                                            <td className="py-2 text-right">₹{totalPaid}</td>
+                                        </tr>
+                                        <tr className={`font-bold text-lg ${balanceDue > 0 ? 'text-destructive' : 'text-green-700'}`}>
+                                            <td className="py-3 text-right" colSpan={3}>{balanceDue > 0 ? 'Balance Due' : 'Fully Paid'}</td>
+                                            <td className="py-3 text-right">₹{balanceDue}</td>
+                                        </tr>
+                                    </>
+                                )}
+                            </>
+                        );
+                    })()}
                 </tbody>
             </table>
 

@@ -419,10 +419,14 @@ import { logError } from './error-logger';
           record_number,
           commodity_description,
           customer_id,
+          hamali_payable,
+          total_rent_billed,
+          insurance_payable,
           customers (
             id,
             name
-          )
+          ),
+          payments (amount)
         )
       `)
       .eq('warehouse_id', warehouseId)
@@ -460,7 +464,16 @@ import { logError } from './error-logger';
     const transformedData = filteredRecords.map(record => {
       // Supabase returns storage_records as an object (not array) when using foreign key relationship
       const storageRecord = record.storage_records as any;
-      
+
+      // Aggregate payments for the parent storage record (at record level, not per-withdrawal)
+      const recordPayments = (storageRecord?.payments || []) as Array<{ amount: number | string }>;
+      const recordTotalPaid = recordPayments.reduce((sum, p) => sum + Number(p.amount || 0), 0);
+      const recordTotalBilled =
+        Number(storageRecord?.total_rent_billed || 0) +
+        Number(storageRecord?.hamali_payable || 0) +
+        Number(storageRecord?.insurance_payable || 0);
+      const recordBalance = Math.max(0, recordTotalBilled - recordTotalPaid);
+
       return {
         id: record.id,
         record_number: storageRecord?.record_number,
@@ -469,6 +482,9 @@ import { logError } from './error-logger';
         bags_stored: record.bags_withdrawn, // Bags withdrawn in this transaction
         total_rent_billed: parseFloat(record.rent_collected || '0'),
         hamali_payable: 0, // Not tracked at withdrawal level
+        record_total_billed: recordTotalBilled,
+        record_total_paid: recordTotalPaid,
+        record_balance: recordBalance,
         customer_id: storageRecord?.customer_id,
         customers: storageRecord?.customers,
       };
