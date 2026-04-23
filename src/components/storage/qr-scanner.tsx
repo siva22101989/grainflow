@@ -7,24 +7,45 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Camera, X, CheckCircle2 } from 'lucide-react';
+import { isNative, scanBarcodeNative, hapticImpact } from '@/lib/native/capacitor-bridge';
 
 export function QRScanner() {
   const router = useRouter();
   const [scanning, setScanning] = useState(false);
   const [result, setResult] = useState<string | null>(null);
+  const [scanError, setScanError] = useState<string | null>(null);
+
+  // Route a scanned value to the storage page
+  const routeToRecord = (value: string) => {
+    setResult(value);
+    setScanning(false);
+    hapticImpact('medium');
+    setTimeout(() => {
+      router.push(`/storage?search=${encodeURIComponent(value)}`);
+    }, 800);
+  };
 
   const handleScan = (result: any) => {
     if (result) {
       const scannedValue = result?.text || result;
-      setResult(scannedValue);
-      setScanning(false);
-      
-      // Navigate to the storage record
-      // Assuming QR contains the record ID (REC-1001 format)
-      setTimeout(() => {
-        router.push(`/storage?search=${scannedValue}`);
-      }, 1000);
+      routeToRecord(scannedValue);
     }
+  };
+
+  // Inside the Capacitor app, open the ML Kit native scanner instead of
+  // the web camera preview — much faster, works better in low light.
+  const startScan = async () => {
+    setScanError(null);
+    if (isNative()) {
+      const res = await scanBarcodeNative();
+      if (res.ok && res.value) {
+        routeToRecord(res.value);
+      } else if (res.error && res.error !== 'canceled' && res.error !== 'No code scanned') {
+        setScanError(res.error);
+      }
+      return;
+    }
+    setScanning(true);
   };
 
 
@@ -44,10 +65,15 @@ export function QRScanner() {
               <p className="text-muted-foreground mb-4">
                 Point your camera at a storage record QR code
               </p>
-              <Button onClick={() => setScanning(true)}>
+              <Button onClick={startScan}>
                 <Camera className="h-4 w-4 mr-2" />
                 Start Scanning
               </Button>
+              {scanError && (
+                <Alert className="mt-4 text-left">
+                  <AlertDescription>{scanError}</AlertDescription>
+                </Alert>
+              )}
             </div>
           )}
 

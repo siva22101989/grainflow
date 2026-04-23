@@ -34,6 +34,7 @@ import { OfflineIndicator } from '@/components/shared/offline-indicator';
 import { AnalyticsProvider } from '@/components/shared/analytics-provider';
 import { LoadingProvider } from '@/components/providers/loading-provider';
 import { QueryProvider } from '@/providers/query-provider';
+import { CapacitorBackHandler } from '@/components/providers/capacitor-back-handler';
 
 import { Suspense } from 'react';
 
@@ -58,6 +59,7 @@ export default function RootLayout({
               </Suspense>
               <KeyboardShortcuts />
               <OfflineIndicator />
+              <CapacitorBackHandler />
             </LoadingProvider>
           </QueryProvider>
         </ThemeProvider>

@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Share2, Check } from 'lucide-react';
 import { useState } from 'react';
 import { getShareableFilterUrl } from '@/lib/url-filters';
+import { shareNative } from '@/lib/native/capacitor-bridge';
 
 interface ShareFilterButtonProps {
   filters: any;
@@ -26,31 +27,22 @@ export function ShareFilterButton({
   
   const handleShare = async () => {
     const url = getShareableFilterUrl(filters);
-    
-    // Try native share API first (mobile)
-    if (navigator.share) {
-      try {
-        await navigator.share({
-          title: 'Filtered View',
-          text: 'Check out this filtered view',
-          url: url,
-        });
-        return;
-      } catch (err) {
-        // User cancelled or share failed, fall through to clipboard
-        if (err instanceof Error && err.name !== 'AbortError') {
-          console.error('Share failed:', err);
-        }
-      }
-    }
-    
-    // Fallback to clipboard
-    try {
-      await navigator.clipboard.writeText(url);
+
+    // shareNative handles all three paths:
+    //  1. Capacitor native share sheet (Android app)
+    //  2. navigator.share (mobile browser)
+    //  3. clipboard fallback (desktop browser, older phones)
+    const result = await shareNative({
+      title: 'Filtered View',
+      text: 'Check out this filtered view',
+      url,
+    });
+
+    if (result.method === 'clipboard' && result.ok) {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
-    } catch (err) {
-      console.error('Copy failed:', err);
+    } else if (!result.ok && result.error !== 'canceled') {
+      console.error('Share failed:', result.error);
     }
   };
   
