@@ -81,10 +81,42 @@ export function InflowReceipt({ record, customer, warehouse }: InflowReceiptProp
                         <span className="w-1/3 font-bold">LOT NO.</span>
                         <span>: {record.location || 'N/A'}</span>
                     </div>
-                    <div className="flex">
-                        <span className="w-1/3 font-bold">HAMALI PAYABLE</span>
-                        <span>: ₹{record.hamaliPayable || 0}</span>
-                    </div>
+                    {(() => {
+                        const hamaliPayable = Number(record.hamaliPayable || 0);
+                        // Inflow payments are hamali-only (recorded at inflow time).
+                        // Sum all 'hamali' payments for this record; fall back to summing all
+                        // payments if type isn't set (legacy records).
+                        const payments = record.payments || [];
+                        const typedHamali = payments
+                            .filter((p: any) => p.type === 'hamali')
+                            .reduce((s: number, p: any) => s + Number(p.amount || 0), 0);
+                        const hamaliPaid = typedHamali > 0
+                            ? typedHamali
+                            : payments.reduce((s: number, p: any) => s + Number(p.amount || 0), 0);
+                        const hamaliPending = Math.max(0, hamaliPayable - hamaliPaid);
+                        const hasPaid = hamaliPaid > 0;
+
+                        return (
+                            <>
+                                <div className="flex">
+                                    <span className="w-1/3 font-bold">HAMALI PAYABLE</span>
+                                    <span>: ₹{hamaliPayable}</span>
+                                </div>
+                                {hasPaid && (
+                                    <>
+                                        <div className="flex">
+                                            <span className="w-1/3 font-bold">HAMALI PAID</span>
+                                            <span>: ₹{hamaliPaid}</span>
+                                        </div>
+                                        <div className="flex">
+                                            <span className="w-1/3 font-bold">HAMALI PENDING</span>
+                                            <span>: ₹{hamaliPending}</span>
+                                        </div>
+                                    </>
+                                )}
+                            </>
+                        );
+                    })()}
                     {record.notes && (
                         <div className="flex">
                             <span className="w-1/3 font-bold">NOTES</span>
