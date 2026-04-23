@@ -178,7 +178,24 @@ export async function getActiveWarehouseId() {
 // --- Invitations (Magic Links) ---
 
 export async function generateInviteLink(role: UserRole = UserRole.STAFF): Promise<ActionState> {
-    return authenticatedAction('generateInviteLink', async (_user, supabase, _userRole) => {
+    return authenticatedAction('generateInviteLink', async (_user, supabase, userRole) => {
+        // Only owners, admins, and super_admin can invite team members.
+        // Staff/manager calling this directly would be a privilege escalation risk.
+        const allowed = [UserRole.OWNER, UserRole.ADMIN, UserRole.SUPER_ADMIN].includes(userRole as UserRole);
+        if (!allowed) {
+            return { message: 'Only owners and admins can generate invite links.', success: false };
+        }
+
+        // Prevent anyone from escalating: no one except super_admin can mint OWNER invites.
+        // super_admin is platform-level and shouldn't be invited via a tenant link at all.
+        const invalidRoles: UserRole[] = [UserRole.SUPER_ADMIN];
+        if (userRole !== UserRole.SUPER_ADMIN) {
+            invalidRoles.push(UserRole.OWNER);
+        }
+        if (invalidRoles.includes(role)) {
+            return { message: `You cannot generate an invite link for role '${role}'.`, success: false };
+        }
+
         const warehouseId = await getUserWarehouse();
         if (!warehouseId) return { message: 'No active warehouse', success: false };
 
