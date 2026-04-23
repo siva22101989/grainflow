@@ -245,13 +245,19 @@ export class TextBeeService {
     const hamaliStr = hamali !== undefined && hamali > 0 ? ` Hamali: ${rs(hamali)}.` : '';
     const locationStr = location ? ` Location: ${location}.` : '';
 
-    // Detailed journey message when we have the unloading link + plot info
-    const hasJourney = !!(unloadingBags && plotBags);
+    // Pick the most detailed template we have data for:
+    //   3-step: unloading → plot → storage (when unloading record is linked)
+    //   2-step: plot → storage (plot inflow with drying, no unloading link)
+    //   1-step: short direct inflow (no plot stage)
+    const hasFullJourney = !!(unloadingBags && plotBags);
+    const hasPlotJourney = !hasFullJourney && !!plotBags && plotBags > bags;
 
     let message: string;
-    if (hasJourney) {
+    if (hasFullJourney) {
       const unloadingBillStr = unloadingBillNo ? ` (Bill #${unloadingBillNo})` : '';
       message = `Dear ${customerName}, from your unloading of ${unloadingBags} bags${unloadingBillStr}, ${plotBags} bags were plotted for drying and ${bags} bags of ${commodity} have been recorded as inflow${dateStr}. Bill No: ${recordNumber}.${hamaliStr}${locationStr} Thank you. - ${warehouseName}`;
+    } else if (hasPlotJourney) {
+      message = `Dear ${customerName}, ${plotBags} bags of ${commodity} were plotted for drying and ${bags} bags have been recorded as inflow${dateStr}. Bill No: ${recordNumber}.${hamaliStr}${locationStr} Thank you. - ${warehouseName}`;
     } else {
       message = `Dear ${customerName}, your inflow of ${bags} bags of ${commodity} has been recorded${dateStr}. Bill No: ${recordNumber}.${hamaliStr}${locationStr} Thank you. - ${warehouseName}`;
     }
