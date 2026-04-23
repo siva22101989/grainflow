@@ -5,6 +5,7 @@ import { Testimonials } from '@/components/landing/Testimonials'
 import { About } from '@/components/landing/About'
 import { CtaSection } from '@/components/landing/CtaSection'
 import { Footer } from '@/components/landing/Footer'
+import { WhatsAppChatButton } from '@/components/landing/whatsapp-chat-button'
 import { createClient } from '@/utils/supabase/server'
 import { redirect } from 'next/navigation'
 
@@ -33,6 +34,7 @@ export default async function LandingPage() {
       </main>
 
       <Footer />
+      <WhatsAppChatButton />
     </div>
   )
 }
