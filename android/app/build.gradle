@@ -1,5 +1,14 @@
 apply plugin: 'com.android.application'
 
+// Load release signing config from ../keystore.properties (gitignored).
+// File is optional — falls back to debug signing if missing, so dev builds
+// still work on machines without the production keystore.
+def keystorePropertiesFile = rootProject.file("keystore.properties")
+def keystoreProperties = new Properties()
+if (keystorePropertiesFile.exists()) {
+    keystorePropertiesFile.withReader('UTF-8') { keystoreProperties.load(it) }
+}
+
 android {
     namespace = "com.grainflow.app"
     compileSdk = rootProject.ext.compileSdkVersion
@@ -16,10 +25,25 @@ android {
             ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+    signingConfigs {
+        release {
+            if (keystoreProperties['storeFile']) {
+                storeFile rootProject.file(keystoreProperties['storeFile'])
+                storePassword keystoreProperties['storePassword']
+                keyAlias keystoreProperties['keyAlias']
+                keyPassword keystoreProperties['keyPassword']
+            }
+        }
+    }
     buildTypes {
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            // Only apply our release signing config if the keystore file is present;
+            // otherwise the build would fail. Missing keystore = unsigned release.
+            if (keystoreProperties['storeFile']) {
+                signingConfig signingConfigs.release
+            }
         }
     }
 }
