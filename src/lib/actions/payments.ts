@@ -108,7 +108,18 @@ export async function addPayment(_prevState: PaymentFormState, formData: FormDat
                 revalidatePath('/financials');
                 revalidatePath('/storage');
                 revalidatePath('/payments/pending');
-                
+
+                // Fire-and-forget payment confirmation SMS (respects user's
+                // enable_payment_confirmation setting; no-op if disabled).
+                if (result.customerId) {
+                    try {
+                        const { sendPaymentConfirmationSMS } = await import('@/lib/sms-event-actions');
+                        void sendPaymentConfirmationSMS(result.customerId, paymentAmount, paymentDate);
+                    } catch {
+                        // SMS failures must never block the payment flow
+                    }
+                }
+
                 return { message: 'Payment recorded successfully!', success: true };
             } catch (error: any) {
                 logError(error, {

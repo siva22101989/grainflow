@@ -165,6 +165,10 @@ export class TextBeeService {
 
   /**
    * Payment confirmation — sent when a payment is recorded.
+   * If remainingBalance is provided:
+   *   - > 0  → shows "Balance: Rs.{x}"
+   *   - = 0  → shows "Account fully cleared."
+   *   - undefined → no balance line
    */
   async sendPaymentConfirmation({
     warehouseName,
@@ -172,6 +176,7 @@ export class TextBeeService {
     phone,
     amount,
     paymentDate,
+    remainingBalance,
   }: {
     warehouseName: string;
     customerName: string;
@@ -179,9 +184,20 @@ export class TextBeeService {
     amount: number;
     recordNumber?: string;
     paymentDate?: string;
+    remainingBalance?: number;
   }): Promise<SMSResponse> {
     const dateStr = paymentDate ? ` on ${paymentDate}` : '';
-    const message = `Dear ${customerName}, payment of ${rs(amount)} received${dateStr}. Thank you. - ${warehouseName}`;
+
+    let balanceStr = '';
+    if (remainingBalance !== undefined) {
+      if (remainingBalance <= 0) {
+        balanceStr = ' Your account is fully cleared.';
+      } else {
+        balanceStr = ` Remaining balance: ${rs(remainingBalance)}.`;
+      }
+    }
+
+    const message = `Dear ${customerName}, payment of ${rs(amount)} received${dateStr}.${balanceStr} Thank you. - ${warehouseName}`;
     return this.sendSMS({ to: phone, message });
   }
 

@@ -263,7 +263,7 @@ export async function sendDryingConfirmationSMS(recordId: string, bypassSettings
                 record_id: recordId,
             });
         }
-        
+
         return result;
     } catch (error) {
         logError(error, { operation: 'sendDryingConfirmationSMS', metadata: { recordId } });
@@ -272,4 +272,86 @@ export async function sendDryingConfirmationSMS(recordId: string, bypassSettings
             error: error instanceof Error ? error.message : 'Failed to send SMS',
         };
     }
+}
+
+/**
+ * Send a payment confirmation SMS after a payment is recorded.
+ * Includes the remaining outstanding balance for the customer.
+ */
+export async function sendPaymentConfirmationSMS(
+  customerId: string,
+  paidAmount: number,
+  paymentDateISO?: string,
+  bypassSettings: boolean = false
+) {
+  const hasPermission = await hasSMSPermission();
+  if (!hasPermission) {
+    return {
+      success: false,
+      error: 'SMS service is disabled for trial users. Please upgrade your plan to enable SMS notifications.'
+    };
+  }
+
+  const enabled = await isSMSEnabled('payment_confirmation');
+  if (!enabled && !bypassSettings) {
+    return { success: false, error: 'SMS disabled in settings' };
+  }
+
+  try {
+    const supabase = await createClient();
+
+    // Customer + warehouse
+    const { data: customer, error: cErr } = await supabase
+      .from('customers')
+      .select('id, name, phone, warehouses(name)')
+      .eq('id', customerId)
+      .single();
+
+    if (cErr || !customer) {
+      logError(cErr || new Error('Customer not found'), { operation: 'sendPaymentConfirmationSMS', metadata: { customerId } });
+      return { success: false, error: 'Customer not found' };
+    }
+
+    const warehouse = Array.isArray(customer.warehouses) ? customer.warehouses[0] : customer.warehouses;
+
+    // Remaining balance from the existing view (updated AFTER payment was recorded)
+    const { data: bal } = await supabase
+      .from('customer_balances')
+      .select('balance')
+      .eq('customer_id', customerId)
+      .single();
+
+    const remainingBalance = bal?.balance != null ? Number(bal.balance) : undefined;
+
+    const paymentDate = paymentDateISO
+      ? new Date(paymentDateISO).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
+      : undefined;
+
+    const result = await textBeeService.sendPaymentConfirmation({
+      warehouseName: warehouse?.name || 'Warehouse',
+      customerName: customer.name,
+      phone: customer.phone,
+      amount: paidAmount,
+      paymentDate,
+      remainingBalance,
+    });
+
+    if (result.success) {
+      await supabase.from('sms_logs').insert({
+        customer_id: customerId,
+        phone: customer.phone,
+        message_type: 'payment_confirmation',
+        message_id: result.messageId,
+        status: 'sent',
+      });
+    }
+
+    return result;
+  } catch (error) {
+    logError(error, { operation: 'sendPaymentConfirmationSMS', metadata: { customerId, paidAmount } });
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to send SMS',
+    };
+  }
 }
