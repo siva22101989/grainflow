@@ -113,17 +113,20 @@ function InflowFormInner({
 
 
     useEffect(() => {
-        // Stacking hamali (loading into storage) is charged on the final stored qty
-        // Plot inflow: loadBags (post-drying); Direct inflow: bags
-        const stackingBags = inflowType === 'transfer_in'
-            ? (loadBags > 0 ? loadBags : plotBags)
-            : bags;
+        // Hamali charging rule:
+        // - Plot inflow linked to unloading → ALL hamali (stacking + unloading share)
+        //   on plot bags (gross, pre-drying) since labor was done on all bags.
+        // - Plot inflow without unloading link → stacking on loadBags (actual stored).
+        // - Direct inflow → on bags (bagsStored); no drying stage.
         const rateValue = rate || 0;
+        const hasUnloadingLink = !!selectedUnloading;
+        const stackingBags = inflowType === 'transfer_in'
+            ? (hasUnloadingLink ? plotBags : (loadBags > 0 ? loadBags : plotBags))
+            : bags;
 
         let calculatedHamali = (stackingBags || 0) * rateValue;
 
-        // Unloading hamali share: charged on the bags actually unloaded from truck
-        // Plot inflow: plotBags (gross, pre-drying); Direct inflow: bags
+        // Unloading carry-over share
         if (selectedUnloading && selectedUnloading.hamali_amount && selectedUnloading.bags_unloaded > 0) {
             const unloadingRate = selectedUnloading.hamali_amount / selectedUnloading.bags_unloaded;
             const unloadingBagsToCharge = inflowType === 'transfer_in' ? plotBags : bags;

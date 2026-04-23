@@ -280,16 +280,23 @@ export async function addInflow(_prevState: InflowFormState, formData: FormData)
               }
 
               // Calculate Hamali Payable.
-              // Two distinct hamali operations:
-              //   1. Stacking hamali (this inflow): charged on the bags actually stored
-              //      → inflowBags (= loadBags for plot, bagsStored for direct)
-              //   2. Unloading hamali carry-over: charged on the bags actually unloaded
-              //      from the truck. For Plot inflows, that's plotBags (gross, pre-drying).
-              //      For Direct inflows, unloading bags == stored bags.
-              let hamaliPayable = inflowBags * (hamaliRate || 0);
+              //
+              // Rule: when the inflow is linked to an unloading record, ALL hamali
+              // (stacking + unloading share) is charged on the pre-drying gross qty
+              // (plotBags). The physical labor was performed on ALL the bags that
+              // came off the truck — the drying shrinkage doesn't reduce the work done.
+              //
+              // When NOT linked to unloading (plot or direct): charge on the actual
+              // stored qty (inflowBags = loadBags for plot, bagsStored for direct).
+              const hasUnloadingLink = rawData.unloadingRecordId && rawData.unloadingRecordId !== '_none_';
+              const stackingBags = (isPlotInflow && hasUnloadingLink)
+                  ? (plotBags || inflowBags)   // all bags handled before drying
+                  : inflowBags;                 // just what got stacked
+
+              let hamaliPayable = stackingBags * (hamaliRate || 0);
 
               // Add proportionate share from Unloading Record if selected
-              if (rawData.unloadingRecordId && rawData.unloadingRecordId !== '_none_') {
+              if (hasUnloadingLink) {
                   const supabase = await createClient();
                   const { data: uRecord } = await supabase
                       .from('unloading_records')
@@ -299,14 +306,13 @@ export async function addInflow(_prevState: InflowFormState, formData: FormData)
 
                   if (uRecord && uRecord.hamali_amount && uRecord.bags_unloaded > 0) {
                       const costPerBag = uRecord.hamali_amount / uRecord.bags_unloaded;
-                      // Plot inflows: use plotBags (gross truck qty) so the drying-loss
-                      // bags still get their unloading hamali share billed to the customer.
-                      // Direct inflows: use inflowBags (no drying stage).
+                      // Use the same gross qty as the stacking portion above for consistency.
                       const unloadingBagsToCharge = isPlotInflow ? (plotBags || inflowBags) : inflowBags;
                       const carryOverAmount = costPerBag * unloadingBagsToCharge;
                       hamaliPayable += carryOverAmount;
                       logger.info("Added unloading hamali carry-over", {
                           inflowBags,
+                          stackingBags,
                           unloadingBagsToCharge,
                           costPerBag,
                           carryOverAmount,
@@ -363,7 +369,7 @@ export async function addInflow(_prevState: InflowFormState, formData: FormData)
                   lotId: rest.lotId,
                   cropId: rest.cropId,
                   notes: (rawData.unloadingRecordId && rawData.unloadingRecordId !== '_none_')
-                      ? `Quick Inflow. Hamali: ₹${inflowBags * (hamaliRate || 0)} (Inflow) + ₹${Math.round(hamaliPayable - (inflowBags * (hamaliRate || 0)))} (Unloading Share).`
+                      ? `Quick Inflow. Hamali: ₹${stackingBags * (hamaliRate || 0)} (Inflow ${stackingBags} bags) + ₹${Math.round(hamaliPayable - (stackingBags * (hamaliRate || 0)))} (Unloading Share).`
                       : undefined,
               };
 
