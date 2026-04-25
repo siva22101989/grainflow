@@ -1,12 +1,17 @@
 'use client';
 
+import Link from 'next/link';
 import { Card, CardContent } from "@/components/ui/card";
-import { Warehouse, Package, Users, IndianRupee } from "lucide-react";
+import { Warehouse, Package, IndianRupee, Sun, AlertCircle } from "lucide-react";
 
 interface DashboardStatsProps {
     metrics: {
         totalCapacity: number;
         totalStock: number;
+        confirmedStock?: number;
+        dryingBags?: number;
+        dryingCount?: number;
+        staleDryingCount?: number;
         occupancyRate: number;
         activeRecordsCount: number;
         pendingRevenue?: number;
@@ -16,25 +21,40 @@ interface DashboardStatsProps {
 export function DashboardStats({ metrics }: DashboardStatsProps) {
     if (!metrics) return null;
 
+    // If there are records currently in drying, surface them as a top-line
+    // metric. Otherwise hide the card and show "Active Records" instead so
+    // owners without any drying activity get the standard 4-card layout.
+    const dryingCount = metrics.dryingCount || 0;
+    const dryingBags = metrics.dryingBags || 0;
+    const confirmedStock = metrics.confirmedStock ?? metrics.totalStock;
+    const showDryingCard = dryingCount > 0;
+
     const stats = [
         {
-            title: "Total Stock",
-            value: `${metrics.totalStock.toLocaleString()} bags`,
-            subValue: `${metrics.occupancyRate.toFixed(1)}% Capacity`,
+            title: "Confirmed Stock",
+            value: `${confirmedStock.toLocaleString()} bags`,
+            subValue: showDryingCard
+                ? `${metrics.totalStock.toLocaleString()} total · ${dryingBags.toLocaleString()} drying`
+                : `${metrics.occupancyRate.toFixed(1)}% Capacity`,
             icon: Package,
             color: "text-blue-600",
             bg: "bg-blue-100",
-            trend: "up" // Mock trend
+            href: '/storage',
         },
-        {
-            title: "Active Records",
-            value: metrics.activeRecordsCount,
-            subValue: "Current Customers",
-            icon: Users,
-            color: "text-purple-600",
-            bg: "bg-purple-100",
-            trend: "up"
-        },
+        showDryingCard
+            ? {
+                title: "In Drying",
+                value: `${dryingBags.toLocaleString()} bags`,
+                subValue:
+                    (metrics.staleDryingCount || 0) > 0
+                        ? `${dryingCount} record${dryingCount === 1 ? '' : 's'} · ${metrics.staleDryingCount} pending >7 days`
+                        : `${dryingCount} record${dryingCount === 1 ? '' : 's'} pending finalization`,
+                icon: (metrics.staleDryingCount || 0) > 0 ? AlertCircle : Sun,
+                color: (metrics.staleDryingCount || 0) > 0 ? "text-red-600" : "text-amber-600",
+                bg: (metrics.staleDryingCount || 0) > 0 ? "bg-red-100" : "bg-amber-100",
+                href: '/storage?filter=drying',
+            }
+            : null,
         {
             title: "Available Space",
             value: `${(metrics.totalCapacity - metrics.totalStock).toLocaleString()} bags`,
@@ -42,43 +62,38 @@ export function DashboardStats({ metrics }: DashboardStatsProps) {
             icon: Warehouse,
             color: "text-green-600",
             bg: "bg-green-100",
-             trend: "down"
+            href: '/storage',
         },
-         {
+        {
             title: "Pending Revenue",
             value: `₹${(metrics.pendingRevenue || 0).toLocaleString()}`,
             subValue: "Outstanding",
             icon: IndianRupee,
             color: "text-orange-600",
             bg: "bg-orange-100",
-            trend: "up"
-        }
-    ];
+            href: '/payments/pending',
+        },
+    ].filter(Boolean) as Array<{ title: string; value: string; subValue: string; icon: any; color: string; bg: string; href: string }>;
 
     return (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
             {stats.map((stat, index) => (
-                <Card key={index} className="overflow-hidden hover:shadow-lg transition-all duration-300 border-none shadow-sm group">
-                    <CardContent className="p-6">
-                        <div className="flex items-center justify-between space-y-0 pb-2">
-                             <div className={`p-3 rounded-xl ${stat.bg} ${stat.color} group-hover:scale-110 transition-transform`}>
-                                <stat.icon className="h-5 w-5" />
+                <Link key={index} href={stat.href} className="block">
+                    <Card className="overflow-hidden hover:shadow-lg transition-all duration-300 border-none shadow-sm group h-full">
+                        <CardContent className="p-6">
+                            <div className="flex items-center justify-between space-y-0 pb-2">
+                                <div className={`p-3 rounded-xl ${stat.bg} ${stat.color} group-hover:scale-110 transition-transform`}>
+                                    <stat.icon className="h-5 w-5" />
+                                </div>
                             </div>
-                             {/* Mock Trend Indicator */}
-                            <div className={`flex items-center text-xs font-medium ${stat.trend === 'up' ? 'text-green-600' : 'text-stone-500'}`}>
-                                {stat.trend === 'up' ? '↑' : '↓'} 
-                                <span className="ml-1">Active</span>
+                            <div className="mt-4">
+                                <h3 className="text-2xl font-bold tracking-tight">{stat.value}</h3>
+                                <p className="text-sm text-muted-foreground mt-1 font-medium">{stat.title}</p>
+                                <p className="text-xs text-muted-foreground mt-1 opacity-80">{stat.subValue}</p>
                             </div>
-                        </div>
-                        <div className="mt-4">
-                            <h3 className="text-2xl font-bold tracking-tight">{stat.value}</h3>
-                            <p className="text-sm text-muted-foreground mt-1 font-medium">{stat.title}</p>
-                            <p className="text-xs text-muted-foreground mt-1 opacity-80">{stat.subValue}</p>
-                        </div>
-                         {/* Decorative gradient line at bottom */}
-                         <div className={`absolute bottom-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-${stat.color.split('-')[1]}-400 to-transparent opacity-0 group-hover:opacity-100 transition-opacity`} />
-                    </CardContent>
-                </Card>
+                        </CardContent>
+                    </Card>
+                </Link>
             ))}
         </div>
     );

@@ -25,12 +25,40 @@ export const getDashboardMetrics = cache(async () => {
         .is('storage_end_date', null)
         .is('deleted_at', null);
 
+    // "In Drying" = Plot inflow whose loadBags hasn't been finalized yet.
+    // These records inflate Total Stock by their drying-loss component, so we
+    // surface them separately on the dashboard and let users filter the storage
+    // page by them.
+    const { data: dryingRows, count: dryingCount } = await supabase
+        .from('storage_records')
+        .select('plot_bags, bags_stored, created_at', { count: 'exact' })
+        .eq('warehouse_id', warehouseId)
+        .eq('inflow_type', 'transfer_in')
+        .is('storage_end_date', null)
+        .is('deleted_at', null)
+        .or('load_bags.is.null,load_bags.eq.0');
+
+    let dryingBags = 0;
+    let staleDryingCount = 0; // unfinalized for >7 days
+    const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
+    const now = Date.now();
+    if (dryingRows) {
+        for (const r of dryingRows as any[]) {
+            dryingBags += Number(r.plot_bags ?? r.bags_stored ?? 0);
+            if (r.created_at && now - new Date(r.created_at).getTime() > SEVEN_DAYS_MS) {
+                staleDryingCount++;
+            }
+        }
+    }
+
     let totalCapacity = 0;
     let totalStock = 0;
     if (lots) {
         totalCapacity = lots.reduce((acc, lot) => acc + (lot.capacity || 1000), 0);
         totalStock = lots.reduce((acc, lot) => acc + (lot.current_stock || 0), 0);
     }
+    // Confirmed stock = total stock minus what's still drying (not yet committed).
+    const confirmedStock = Math.max(0, totalStock - dryingBags);
 
     // Calculate pending revenue (total dues - total paid)
     const { data: revenueRecords } = await supabase
@@ -64,6 +92,10 @@ export const getDashboardMetrics = cache(async () => {
     return {
         totalCapacity,
         totalStock,
+        confirmedStock,
+        dryingBags,
+        dryingCount: dryingCount || 0,
+        staleDryingCount,
         occupancyRate: totalCapacity > 0 ? (totalStock / totalCapacity) * 100 : 0,
         activeRecordsCount: activeRecordsCount || 0,
         pendingRevenue

@@ -107,6 +107,16 @@ export function StoragePageClient({
   const debouncedSearch = useDebounce(query, 300);
   const [selectedRecords, setSelectedRecords] = useState<Set<string>>(new Set());
 
+  // "In Drying" filter — driven by ?filter=drying URL param so the dashboard
+  // "In Drying" stat card can deep-link straight to the filtered list.
+  const dryingOnly = searchParams.get('filter') === 'drying';
+  const setDryingOnly = (next: boolean) => {
+    const sp = new URLSearchParams(searchParams.toString());
+    if (next) sp.set('filter', 'drying');
+    else sp.delete('filter');
+    router.replace(`?${sp.toString()}`);
+  };
+
   // SWR for data fetching with different status
   // Pagination state
   const pagination = usePagination(20);
@@ -202,8 +212,15 @@ export function StoragePageClient({
       }
     });
 
+    // "In Drying" filter — only Plot inflows whose loadBags hasn't been set.
+    if (dryingOnly) {
+      result = result.filter(
+        (r) => r.inflowType === 'transfer_in' && (!r.loadBags || r.loadBags === 0)
+      );
+    }
+
     return result;
-  }, [records, selectedCommodities, selectedLocations, dateRange, minBags, maxBags, minRent, maxRent, sortBy]);
+  }, [records, selectedCommodities, selectedLocations, dateRange, minBags, maxBags, minRent, maxRent, sortBy, dryingOnly]);
 
   // Create filter options
   const commodityOptions: MultiSelectOption[] = useMemo(() => {
@@ -474,6 +491,17 @@ export function StoragePageClient({
               onChange={(value) => setFilters(prev => ({ ...prev, sortBy: value }))}
             />
 
+            {/* In-Drying quick filter chip */}
+            <Button
+              variant={dryingOnly ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setDryingOnly(!dryingOnly)}
+              className={dryingOnly ? 'bg-amber-500 hover:bg-amber-600 text-white' : 'border-amber-300 text-amber-700 hover:bg-amber-50'}
+              title={dryingOnly ? 'Showing only records still in drying — click to clear' : 'Show only records currently in drying'}
+            >
+              ☀ In Drying {dryingOnly && <X className="h-3 w-3 ml-1" />}
+            </Button>
+
             {/* Share Button */}
             <ShareFilterButton filters={filters} />
 
@@ -595,16 +623,38 @@ export function StoragePageClient({
                            </TableRow>
                         ) : filteredRecords.map((record) => {
                             const { rent } = calculateFinalRent(record, new Date(), record.bagsStored);
+                            const isDrying = record.inflowType === 'transfer_in' && (!record.loadBags || record.loadBags === 0);
+                            const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
+                            const isStaleDrying = isDrying && record.storageStartDate &&
+                              (Date.now() - new Date(record.storageStartDate).getTime() > SEVEN_DAYS_MS);
                             return (
-                                <TableRow key={record.id} className={selectedRecords.has(record.id) ? "bg-muted/50" : ""}>
+                                <TableRow
+                                  key={record.id}
+                                  className={
+                                    selectedRecords.has(record.id)
+                                      ? "bg-muted/50"
+                                      : isStaleDrying
+                                        ? "bg-red-50/40 hover:bg-red-50/60 border-l-4 border-l-red-400"
+                                        : isDrying
+                                          ? "bg-amber-50/40 hover:bg-amber-50/60 border-l-4 border-l-amber-400"
+                                          : ""
+                                  }
+                                >
                                     <TableCell>
-                                        <Checkbox 
+                                        <Checkbox
                                             checked={selectedRecords.has(record.id)}
                                             onCheckedChange={(checked) => handleSelectOne(record.id, !!checked)}
                                         />
                                     </TableCell>
                                     <TableCell>{new Date(record.storageStartDate).toLocaleDateString()}</TableCell>
-                                    <TableCell className="font-medium font-mono">#{record.recordNumber}</TableCell>
+                                    <TableCell className="font-medium font-mono">
+                                      #{record.recordNumber}
+                                      {isDrying && (
+                                        <span className={`ml-2 inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${isStaleDrying ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'}`}>
+                                          {isStaleDrying ? '☀ DRYING >7d' : '☀ DRYING'}
+                                        </span>
+                                      )}
+                                    </TableCell>
                                     <TableCell className="font-medium">{record.customerName || 'Unknown'}</TableCell>
                                     <TableCell>
                                       <span className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 border-transparent bg-secondary text-secondary-foreground hover:bg-secondary/80">
@@ -612,7 +662,12 @@ export function StoragePageClient({
                                       </span>
                                     </TableCell>
                                     <TableCell>{record.commodityDescription}</TableCell>
-                                    <TableCell className="text-right font-medium">{record.bagsStored}</TableCell>
+                                    <TableCell className="text-right font-medium">
+                                      {record.bagsStored}
+                                      {isDrying && (
+                                        <span className="block text-[10px] text-amber-700 font-normal">(plot, pending finalization)</span>
+                                      )}
+                                    </TableCell>
                                     <TableCell className="text-right text-muted-foreground">{formatCurrency(rent)}</TableCell>
                                     <TableCell className="text-right flex justify-end gap-2 items-center">
                                         {record.inflowType === 'transfer_in' && (!record.loadBags || record.loadBags === 0) && (

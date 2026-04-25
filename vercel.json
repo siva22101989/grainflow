@@ -41,7 +41,11 @@
     },
     {
       "path": "/api/cron/check-dues",
-      "schedule": "0 9 * * 1" 
+      "schedule": "0 9 * * 1"
+    },
+    {
+      "path": "/api/cron/drying-reminders",
+      "schedule": "30 2 * * *"
     }
   ]
 }
