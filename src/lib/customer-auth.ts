@@ -5,7 +5,7 @@ import { logError } from '@/lib/error-logger';
 
 const DEFAULT_CUSTOMER_PASSWORD = process.env.CUSTOMER_DEFAULT_PASSWORD || '123456';
 
-export function customerLoginEmail(phone: string): string | null {
+function customerLoginEmail(phone: string): string | null {
   const last10 = phone.replace(/\D/g, '').slice(-10);
   if (!/^\d{10}$/.test(last10)) return null;
   return `${last10}@rentapp.local`;
