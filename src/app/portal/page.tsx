@@ -1,5 +1,6 @@
 
 import { getCustomerPortfolio } from '@/lib/portal-queries';
+import { requireCustomerPasswordChanged } from '@/lib/portal-guards';
 import { Wheat } from 'lucide-react';
 import { createClient } from '@/utils/supabase/server';
 import Link from 'next/link';
@@ -9,6 +10,7 @@ import { PortalView } from '@/components/portal/portal-view';
 export const dynamic = 'force-dynamic';
 
 export default async function PortalPage() {
+    await requireCustomerPasswordChanged();
     const portfolio = await getCustomerPortfolio();
 
     // Check Role for Back Button (Admin Access)

@@ -10,6 +10,7 @@ import { getCustomers, getUserWarehouse } from '@/lib/queries';
 import { saveCustomer } from '@/lib/data';
 import { logError, logWarning } from '@/lib/error-logger';
 import { checkRateLimit } from '@/lib/rate-limit';
+import { ensureCustomerAuthUser } from '@/lib/customer-auth';
 import { FormState } from './common';
 import { CommonSchemas } from '../validation';
 
@@ -59,43 +60,13 @@ export async function addCustomer(_prevState: FormState, formData: FormData): Pr
 
             const { email, fatherName, village, ...rest } = validatedFields.data;
 
-            // Auto-Link Logic (Portal Compatible)
-            let linkedUserId = undefined;
-            if (rest.phone && /^\d{10}$/.test(rest.phone)) {
-                 try {
-                     const { createAdminClient } = await import('@/utils/supabase/admin');
-                     const supabaseAdmin = createAdminClient();
-                     const searchPhone = `+91${rest.phone}`;
-                     
-                     // Search for existing Phone Auth User
-                     // We can't efficiently filter listUsers by phone in all versions, 
-                     // but we can try getUserById if we had it, or just list and find.
-                     // Since this is an admin action, listing is acceptable for now.
-                     // Optimization: Use listUsers({ page: 1, perPage: 100 }) might miss it if DB huge.
-                     // Better: We can rely on the trigger for *future* users.
-                     // But for *existing* users who haven't been linked, we need to find them.
-                     
-                     // Actually, Supabase Admin API allows strict phone search? Not easily.
-                     // Let's iterate.
-                     const { data: { users } } = await supabaseAdmin.auth.admin.listUsers();
-                     const existingUser = users.find(u => u.phone === searchPhone);
-
-                     if (existingUser) {
-                         linkedUserId = existingUser.id;
-                         Sentry.addBreadcrumb({
-                             category: 'auth',
-                             message: 'Linked to existing phone user',
-                             data: { userId: linkedUserId },
-                             level: 'info'
-                         });
-                     }
-                     // NOTE: We do NOT create dummy users anymore. 
-                     // We wait for the real user to sign up via Portal.
-                     // When they sign up, the Trigger will link them (if this Customer exists).
-                 } catch (e) {
-                     logError(e, { operation: 'addCustomer_autoLink', metadata: { phone: rest.phone } });
-                 }
-            }
+            // Auto-create a Supabase auth user with the default password so the
+            // farmer can log in immediately. must_change_password defaults to true
+            // so they're forced to set their own password on first login.
+            const linkedUserId = await ensureCustomerAuthUser({
+              phone: rest.phone,
+              fullName: rest.name,
+            }) ?? undefined;
 
             const newCustomer = {
                 ...rest,

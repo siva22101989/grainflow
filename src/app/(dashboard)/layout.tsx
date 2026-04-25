@@ -5,6 +5,7 @@ import { StaticDataProvider } from '@/hooks/use-static-data';
 import { AuthListener } from '@/components/auth/auth-listener';
 import { LoadingProvider } from '@/components/providers/loading-provider';
 
+import { redirect } from 'next/navigation';
 import { createClient } from '@/utils/supabase/server';
 import { OnboardingTour } from '@/components/onboarding/onboarding-tour';
 
@@ -12,15 +13,19 @@ export default async function DashboardLayout({ children }: { children: React.Re
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
+  if (user?.user_metadata?.role === 'customer') {
+    redirect('/portal');
+  }
+
   let tourCompleted = false;
-  
+
   if (user) {
       const { data: profile } = await supabase
           .from('profiles')
           .select('preferences')
           .eq('id', user.id)
           .single();
-      
+
       tourCompleted = profile?.preferences?.tourCompleted || false;
   }
 
