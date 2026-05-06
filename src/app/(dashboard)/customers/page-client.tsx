@@ -170,15 +170,17 @@ export function CustomersPageClient({
     setHasActiveRecords(null);
   };
 
-  const handleExportExcel = () => {
+  const handleExport = (format: 'excel' | 'pdf' = 'excel') => {
     const metadata = {
         totalRecords: initialCustomers.length,
         filteredRecords: filteredCustomers.length,
         appliedFilters: getAppliedFiltersSummary(filters),
         exportDate: new Date()
     };
-    exportCustomersWithFilters(filteredCustomers, metadata);
+    exportCustomersWithFilters(filteredCustomers, metadata, format);
   };
+  const handleExportExcel = () => handleExport('excel');
+  const handleExportPdf = () => handleExport('pdf');
 
   return (
     <>
@@ -237,8 +239,9 @@ export function CustomersPageClient({
           />
           <ShareFilterButton filters={filters} />
           <div className="hidden sm:block">
-             <ExportButton 
+             <ExportButton
                  onExportExcel={handleExportExcel}
+                 onExportPdf={handleExportPdf}
                  label="Export"
              />
           </div>

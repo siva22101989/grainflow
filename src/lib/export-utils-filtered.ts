@@ -1,4 +1,6 @@
 import { StorageRecord } from './definitions';
+import { exportToPdfWithFilters } from './export-pdf-utils';
+import type { ExportFormat } from './export-utils';
 
 export interface ExportMetadata {
   totalRecords: number;
@@ -6,6 +8,17 @@ export interface ExportMetadata {
   appliedFilters: { label: string; value: string }[];
   exportDate: Date;
   exportedBy?: string;
+}
+
+async function dispatchFiltered<T extends Record<string, any>>(
+  data: T[],
+  filename: string,
+  metadata: ExportMetadata,
+  sheetName: string,
+  format: ExportFormat,
+) {
+  if (format === 'pdf') return exportToPdfWithFilters(data, filename, metadata, sheetName);
+  return exportToExcelWithFilters(data, filename, metadata, sheetName);
 }
 
 /**
@@ -70,8 +83,9 @@ export async function exportToExcelWithFilters<T extends Record<string, any>>(
 
 // Storage Records
 export function exportStorageRecordsWithFilters(
-  records: StorageRecord[], 
-  metadata: ExportMetadata
+  records: StorageRecord[],
+  metadata: ExportMetadata,
+  format: ExportFormat = 'excel',
 ) {
   const data = records.map(r => ({
     'Record Number': r.recordNumber || r.id.substring(0, 8),
@@ -86,13 +100,14 @@ export function exportStorageRecordsWithFilters(
     'End Date': r.storageEndDate ? new Date(r.storageEndDate).toLocaleDateString() : '-'
   }));
 
-  exportToExcelWithFilters(data, 'filtered-storage-records', metadata, 'Storage Records');
+  return dispatchFiltered(data, 'filtered-storage-records', metadata, 'Storage Records', format);
 }
 
 // Inflow Records (Unloading)
 export function exportInflowRecordsWithFilters(
   records: any[],
-  metadata: ExportMetadata
+  metadata: ExportMetadata,
+  format: ExportFormat = 'excel',
 ) {
     const data = records.map(r => ({
         'Date': r.unload_date ? new Date(r.unload_date).toLocaleDateString() : '-',
@@ -103,13 +118,14 @@ export function exportInflowRecordsWithFilters(
         'Hamali Amount': r.hamali_amount || 0,
         'Notes': r.notes || '-'
     }));
-    exportToExcelWithFilters(data, 'filtered-inflow-records', metadata, 'Inflow');
+    return dispatchFiltered(data, 'filtered-inflow-records', metadata, 'Inflow', format);
 }
 
 // Outflow Records (Loading)
 export function exportOutflowRecordsWithFilters(
   records: any[],
-  metadata: ExportMetadata
+  metadata: ExportMetadata,
+  format: ExportFormat = 'excel',
 ) {
     const data = records.map(r => ({
         'Date': r.created_at ? new Date(r.created_at).toLocaleDateString() : '-',
@@ -120,13 +136,14 @@ export function exportOutflowRecordsWithFilters(
         'Status': r.status,
         'Notes': r.notes || '-'
     }));
-    exportToExcelWithFilters(data, 'filtered-outflow-records', metadata, 'Outflow');
+    return dispatchFiltered(data, 'filtered-outflow-records', metadata, 'Outflow', format);
 }
 
 // Expenses
 export function exportExpensesWithFilters(
   expenses: any[],
-  metadata: ExportMetadata
+  metadata: ExportMetadata,
+  format: ExportFormat = 'excel',
 ) {
     const data = expenses.map(e => ({
         'Date': new Date(e.date).toLocaleDateString(),
@@ -135,13 +152,14 @@ export function exportExpensesWithFilters(
         'Category': e.category,
         'Payment Mode': e.payment_mode
     }));
-    exportToExcelWithFilters(data, 'filtered-expenses', metadata, 'Expenses');
+    return dispatchFiltered(data, 'filtered-expenses', metadata, 'Expenses', format);
 }
 
 // Customers
 export function exportCustomersWithFilters(
   customers: any[],
-  metadata: ExportMetadata
+  metadata: ExportMetadata,
+  format: ExportFormat = 'excel',
 ) {
     const data = customers.map(c => ({
         'Name': c.name,
@@ -151,5 +169,5 @@ export function exportCustomersWithFilters(
         'Balance': c.balance || 0,
         'Active Records': c.active_records_count || 0
     }));
-    exportToExcelWithFilters(data, 'filtered-customers', metadata, 'Customers');
+    return dispatchFiltered(data, 'filtered-customers', metadata, 'Customers', format);
 }

@@ -2,6 +2,25 @@
 import type { StorageRecord, Customer } from './definitions';
 import { formatCurrency } from './utils';
 import { format } from 'date-fns';
+import { exportToPdf, exportFinancialReportToPdf } from './export-pdf-utils';
+
+/**
+ * Output format selector for every public exporter.
+ * - 'excel' (default): xlsx via ExcelJS
+ * - 'pdf': landscape A4 PDF via jspdf-autotable
+ * Backward-compatible: existing call sites that omit format keep getting Excel.
+ */
+export type ExportFormat = 'excel' | 'pdf';
+
+async function dispatchExport<T extends Record<string, any>>(
+    data: T[],
+    filename: string,
+    sheetName: string,
+    format: ExportFormat,
+) {
+    if (format === 'pdf') return exportToPdf(data, filename, sheetName);
+    return exportToExcel(data, filename, sheetName);
+}
 
 /**
  * Generate Customer Statement using browser print dialog
@@ -533,7 +552,7 @@ export async function exportToExcel<T extends Record<string, any>>(
  * // Downloads: storage-records-2024-01-24.xlsx
  * ```
  */
-export function exportStorageRecordsToExcel(records: StorageRecord[]) {
+export function exportStorageRecordsToExcel(records: StorageRecord[], format: ExportFormat = 'excel') {
     const data = records.map(r => ({
         'Record Number': r.recordNumber || r.id.substring(0, 8),
         'Date': new Date(r.storageStartDate).toLocaleDateString(),
@@ -545,8 +564,8 @@ export function exportStorageRecordsToExcel(records: StorageRecord[]) {
         'Status': r.storageEndDate ? 'Completed' : 'Active',
         'End Date': r.storageEndDate ? new Date(r.storageEndDate).toLocaleDateString() : '-'
     }));
-    
-    exportToExcel(data, 'storage-records', 'Storage Records');
+
+    return dispatchExport(data, 'storage-records', 'Storage Records', format);
 }
 
 /**
@@ -577,7 +596,8 @@ export function exportStorageRecordsToExcel(records: StorageRecord[]) {
  */
 export function exportCustomersToExcel(
     customers: Customer[],
-    recordsMap: Map<string, { activeBags: number; totalDue: number }>
+    recordsMap: Map<string, { activeBags: number; totalDue: number }>,
+    format: ExportFormat = 'excel',
 ) {
     const data = customers.map(c => {
         const stats = recordsMap.get(c.id) || { activeBags: 0, totalDue: 0 };
@@ -591,8 +611,8 @@ export function exportCustomersToExcel(
             'Total Due': stats.totalDue
         };
     });
-    
-    exportToExcel(data, 'customers', 'Customers');
+
+    return dispatchExport(data, 'customers', 'Customers', format);
 }
 
 /**
@@ -628,11 +648,15 @@ export function exportCustomersToExcel(
  * // Downloads: financial-report-2024-01-24.xlsx with 3 sheets
  * ```
  */
-export async function exportFinancialReportToExcel(data: {
-    summary: { label: string; value: number }[];
-    topCustomers: { name: string; revenue: number; paid: number; outstanding: number }[];
-    aging: { range: string; count: number; amount: number }[];
-}) {
+export async function exportFinancialReportToExcel(
+    data: {
+        summary: { label: string; value: number }[];
+        topCustomers: { name: string; revenue: number; paid: number; outstanding: number }[];
+        aging: { range: string; count: number; amount: number }[];
+    },
+    format: ExportFormat = 'excel',
+) {
+    if (format === 'pdf') return exportFinancialReportToPdf(data);
     const ExcelJS = await import('exceljs');
     const workbook = new ExcelJS.Workbook();
     
@@ -679,7 +703,7 @@ export async function exportFinancialReportToExcel(data: {
 /**
  * Export Unloading Register
  */
-export function exportUnloadingRegisterToExcel(records: any[]) {
+export function exportUnloadingRegisterToExcel(records: any[], format: ExportFormat = 'excel') {
     const data = records.map(r => ({
         'Date': r.unload_date ? new Date(r.unload_date).toLocaleDateString() : '-',
         'Customer': r.customer?.name || 'Unknown',
@@ -689,13 +713,13 @@ export function exportUnloadingRegisterToExcel(records: any[]) {
         'Hamali Amount': r.hamali_amount || 0,
         'Notes': r.notes || '-'
     }));
-    exportToExcel(data, 'unloading-register', 'Unloading');
+    return dispatchExport(data, 'unloading-register', 'Unloading', format);
 }
 
 /**
  * Export Hamali Revenue
  */
-export function exportHamaliRevenueToExcel(records: any[]) {
+export function exportHamaliRevenueToExcel(records: any[], format: ExportFormat = 'excel') {
      const data = records.map(r => ({
         'Customer': r.customer?.name || 'Unknown',
         'Start Date': new Date(r.storageStartDate).toLocaleDateString(),
@@ -707,13 +731,13 @@ export function exportHamaliRevenueToExcel(records: any[]) {
         'Amount Paid': r.amountPaid || 0,
         'Balance Due': r.balanceDue || 0
     }));
-    exportToExcel(data, 'hamali-revenue', 'Hamali Revenue');
+    return dispatchExport(data, 'hamali-revenue', 'Hamali Revenue', format);
 }
 
 /**
  * Export Pending Breakdown
  */
-export function exportPendingBreakdownToExcel(data: any[]) {
+export function exportPendingBreakdownToExcel(data: any[], format: ExportFormat = 'excel') {
     const rows = data.map(r => ({
         'Customer': r.name,
         'Phone': r.phone,
@@ -725,13 +749,13 @@ export function exportPendingBreakdownToExcel(data: any[]) {
         'Hamali Due': r.hamaliPending,
         'Total Pending': r.totalPending
     }));
-    exportToExcel(rows, 'pending-dues-breakdown', 'Pending Dues');
+    return dispatchExport(rows, 'pending-dues-breakdown', 'Pending Dues', format);
 }
 
 /**
  * Export Unloading Expenses
  */
-export function exportUnloadingExpensesToExcel(expenses: any[]) {
+export function exportUnloadingExpensesToExcel(expenses: any[], format: ExportFormat = 'excel') {
     const data = expenses.map(e => ({
         'Date': new Date(e.date).toLocaleDateString(),
         'Description': e.description,
@@ -739,7 +763,7 @@ export function exportUnloadingExpensesToExcel(expenses: any[]) {
         'Category': e.category,
         'Payment Mode': e.payment_mode
     }));
-    exportToExcel(data, 'unloading-expenses', 'Expenses');
+    return dispatchExport(data, 'unloading-expenses', 'Expenses', format);
 }
 
 /**
@@ -1414,8 +1438,9 @@ export function generateCustomReportPDF(
  * Export Custom Report to Excel
  */
 export function exportCustomReportToExcel(
-    reportType: string, 
-    data: any
+    reportType: string,
+    data: any,
+    format: ExportFormat = 'excel',
 ) {
     let exportData: any[] = [];
     let filename = '';
@@ -1532,7 +1557,7 @@ export function exportCustomReportToExcel(
         }));
     }
 
-    exportToExcel(exportData, filename, 'Report Data');
+    return dispatchExport(exportData, filename, 'Report Data', format);
 }
 
 

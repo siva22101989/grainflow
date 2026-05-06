@@ -152,15 +152,17 @@ export function InflowListClient({ inflows }: InflowListClientProps) {
         }));
     };
 
-    const handleExportExcel = () => {
+    const handleExport = (format: 'excel' | 'pdf' = 'excel') => {
         const metadata = {
             totalRecords: inflows.length,
             filteredRecords: filteredInflows.length,
             appliedFilters: getAppliedFiltersSummary(filters),
             exportDate: new Date()
         };
-        exportInflowRecordsWithFilters(filteredInflows, metadata);
+        exportInflowRecordsWithFilters(filteredInflows, metadata, format);
     };
+    const handleExportExcel = () => handleExport('excel');
+    const handleExportPdf = () => handleExport('pdf');
 
     return (
         <div className="mt-8 scroll-mt-20" ref={containerRef}>
@@ -205,8 +207,9 @@ export function InflowListClient({ inflows }: InflowListClientProps) {
                 />
                 <ShareFilterButton filters={filters} />
                 <div className="hidden sm:block">
-                    <ExportButton 
+                    <ExportButton
                         onExportExcel={handleExportExcel}
+                        onExportPdf={handleExportPdf}
                         label="Export"
                     />
                 </div>

@@ -24,12 +24,13 @@ import {
     Package,
     ExternalLink,
     Search,
-    Download,
     Zap,
     AlertTriangle
 } from "lucide-react";
 import Link from "next/link";
 import { exportToExcel } from "@/lib/export-utils";
+import { exportToPdf } from "@/lib/export-pdf-utils";
+import { ExportButton } from "@/components/shared/export-button";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
@@ -133,8 +134,8 @@ function AdminWarehousesTableComponent({ warehouses }: AdminWarehousesTableProps
         }
     };
 
-    // Memoize export handler
-    const handleExport = useCallback(() => {
+    // Memoize export handler — supports both Excel and PDF.
+    const handleExport = useCallback((fmt: 'excel' | 'pdf' = 'excel') => {
         const data = filteredWarehouses.map(w => ({
             'Name': w.name,
             'Location': w.location || 'N/A',
@@ -144,7 +145,12 @@ function AdminWarehousesTableComponent({ warehouses }: AdminWarehousesTableProps
             'Active Records': w.activeRecords,
             'Created At': format(new Date(w.created_at), 'yyyy-MM-dd')
         }));
-        exportToExcel(data, `warehouses_export_${new Date().getTime()}`, 'Warehouses');
+        const filename = `warehouses_export_${new Date().getTime()}`;
+        if (fmt === 'pdf') {
+            exportToPdf(data, filename, 'Warehouses');
+        } else {
+            exportToExcel(data, filename, 'Warehouses');
+        }
         toast({ title: "Export Started", description: "Your warehouse data is being downloaded." });
     }, [filteredWarehouses, toast]);
 
@@ -160,9 +166,11 @@ function AdminWarehousesTableComponent({ warehouses }: AdminWarehousesTableProps
                         onChange={(e) => setSearchQuery(e.target.value)}
                     />
                 </div>
-                <Button variant="outline" size="sm" className="gap-2 w-full sm:w-auto" onClick={handleExport}>
-                    <Download className="h-4 w-4" /> Export CSV
-                </Button>
+                <ExportButton
+                    onExportExcel={() => handleExport('excel')}
+                    onExportPdf={() => handleExport('pdf')}
+                    label="Export"
+                />
             </div>
 
             {/* Desktop Table View */}

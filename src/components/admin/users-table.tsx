@@ -21,12 +21,14 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Card, CardContent } from "@/components/ui/card";
-import { MoreHorizontal, Shield, User, Building, Mail, Clock, Search, Download } from "lucide-react";
+import { MoreHorizontal, Shield, User, Building, Mail, Clock, Search } from "lucide-react";
 import { format } from "date-fns";
 import { updateUserRole, bulkUpdateUserRoles, bulkDeleteUsers } from "@/lib/admin-actions";
 import { useToast } from "@/hooks/use-toast";
 import { Input } from "@/components/ui/input";
 import { exportToExcel } from "@/lib/export-utils";
+import { exportToPdf } from "@/lib/export-pdf-utils";
+import { ExportButton } from "@/components/shared/export-button";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Trash2, UserCog, CheckSquare } from "lucide-react";
@@ -124,9 +126,9 @@ function AdminUsersTableComponent({ users }: AdminUsersTableProps) {
         }
     }, [selectedUserIds, toast]);
 
-    // Memoize export handler
-    const handleExport = useCallback(() => {
-        const usersToExport = selectedUserIds.length > 0 
+    // Memoize export handler — supports both Excel and PDF.
+    const handleExport = useCallback((fmt: 'excel' | 'pdf' = 'excel') => {
+        const usersToExport = selectedUserIds.length > 0
             ? filteredUsers.filter(u => selectedUserIds.includes(u.id))
             : filteredUsers;
 
@@ -137,7 +139,12 @@ function AdminUsersTableComponent({ users }: AdminUsersTableProps) {
             'Warehouse': u.warehouse?.name || 'N/A',
             'Joined': format(new Date(u.created_at), 'yyyy-MM-dd')
         }));
-        exportToExcel(data, `users_export_${new Date().getTime()}`, 'Users');
+        const filename = `users_export_${new Date().getTime()}`;
+        if (fmt === 'pdf') {
+            exportToPdf(data, filename, 'Users');
+        } else {
+            exportToExcel(data, filename, 'Users');
+        }
         toast({ title: "Export Started", description: `Exporting ${usersToExport.length} users.` });
     }, [filteredUsers, selectedUserIds, toast]);
 
@@ -204,11 +211,12 @@ function AdminUsersTableComponent({ users }: AdminUsersTableProps) {
                             </Button>
                         </div>
                     )}
-                    <Button variant="outline" size="sm" className="gap-2 h-9 flex-1 sm:flex-none" onClick={handleExport}>
-                        <Download className="h-4 w-4" /> 
-                        <span className="hidden sm:inline">{selectedUserIds.length > 0 ? 'Export Selected' : 'Export All'}</span>
-                        <span className="sm:hidden">{selectedUserIds.length > 0 ? 'Exp Selected' : 'Export'}</span>
-                    </Button>
+                    <ExportButton
+                        onExportExcel={() => handleExport('excel')}
+                        onExportPdf={() => handleExport('pdf')}
+                        label={selectedUserIds.length > 0 ? `Export (${selectedUserIds.length})` : 'Export'}
+                        size="sm"
+                    />
                 </div>
             </div>
 

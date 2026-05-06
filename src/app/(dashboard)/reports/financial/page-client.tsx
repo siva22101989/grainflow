@@ -2,9 +2,9 @@
 
 import { PageHeader } from "@/components/shared/page-header";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { ExportButton } from "@/components/shared/export-button";
 import { formatCurrency } from "@/lib/utils";
-import { 
+import {
     exportFinancialReportToExcel,
     exportUnloadingRegisterToExcel,
     exportHamaliRevenueToExcel,
@@ -15,9 +15,9 @@ import {
     LineChart, Line, PieChart, Pie, Cell,
     XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer 
 } from 'recharts';
-import { 
-    TrendingUp, DollarSign, 
-    Clock, AlertCircle, Download
+import {
+    TrendingUp, DollarSign,
+    Clock, AlertCircle
 } from "lucide-react";
 import Link from "next/link";
 import type { 
@@ -80,7 +80,7 @@ export function FinancialDashboardClient({
 
     const [activeTab, setActiveTab] = useState("overview");
 
-    const handleExportExcel = () => {
+    const handleExport = (format: 'excel' | 'pdf' = 'excel') => {
         if (activeTab === 'overview') {
             const exportData = {
                 summary: [
@@ -104,17 +104,19 @@ export function FinancialDashboardClient({
                     amount: a.amount
                 }))
             };
-            exportFinancialReportToExcel(exportData);
+            exportFinancialReportToExcel(exportData, format);
         } else if (activeTab === 'unloading') {
-            exportUnloadingRegisterToExcel(unloadingRecords);
+            exportUnloadingRegisterToExcel(unloadingRecords, format);
         } else if (activeTab === 'hamali') {
-            exportHamaliRevenueToExcel(hamaliRecords);
+            exportHamaliRevenueToExcel(hamaliRecords, format);
         } else if (activeTab === 'pending') {
-            exportPendingBreakdownToExcel(rentPendingBreakdown);
+            exportPendingBreakdownToExcel(rentPendingBreakdown, format);
         } else if (activeTab === 'expenses') {
-            exportUnloadingExpensesToExcel(unloadingExpenses);
+            exportUnloadingExpensesToExcel(unloadingExpenses, format);
         }
     };
+    const handleExportExcel = () => handleExport('excel');
+    const handleExportPdf = () => handleExport('pdf');
 
     return (
         <>
@@ -124,10 +126,11 @@ export function FinancialDashboardClient({
                 backHref="/reports"
             >
                 {allowExport ? (
-                    <Button onClick={handleExportExcel} size="sm" className="gap-2">
-                        <Download className="h-4 w-4" />
-                        Export Data
-                    </Button>
+                    <ExportButton
+                        onExportExcel={handleExportExcel}
+                        onExportPdf={handleExportPdf}
+                        label="Export Data"
+                    />
                 ) : (
                     <div className="hidden md:block text-xs text-muted-foreground bg-muted px-2 py-1 rounded">
                         Export unavailable on current plan

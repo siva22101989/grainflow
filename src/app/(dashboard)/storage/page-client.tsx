@@ -292,9 +292,9 @@ export function StoragePageClient({
       router.push(`/storage/print-labels?ids=${ids}`);
   };
 
-  const handleExportExcel = () => {
+  const handleExport = (format: 'excel' | 'pdf' = 'excel') => {
     const recordsToExport = filteredRecords.filter(r => selectedRecords.has(r.id));
-    
+
     // If no records selected, export ALL filtered records
     const finalRecords = recordsToExport.length > 0 ? recordsToExport : filteredRecords;
 
@@ -304,9 +304,11 @@ export function StoragePageClient({
         appliedFilters: getAppliedFiltersSummary(filters),
         exportDate: new Date()
     };
-    
-    exportStorageRecordsWithFilters(finalRecords, metadata);
+
+    exportStorageRecordsWithFilters(finalRecords, metadata, format);
   };
+  const handleExportExcel = () => handleExport('excel');
+  const handleExportPdf = () => handleExport('pdf');
 
   const handleExportTally = () => {
       const recordsToExport = selectedRecords.size > 0 
@@ -507,8 +509,9 @@ export function StoragePageClient({
 
             {/* Export - Hidden on Mobile */}
             <div className="ml-auto hidden sm:block">
-              <ExportButton 
-                  onExportExcel={() => exportStorageRecordsToExcel(filteredRecords)} 
+              <ExportButton
+                  onExportExcel={() => exportStorageRecordsToExcel(filteredRecords, 'excel')}
+                  onExportPdf={() => exportStorageRecordsToExcel(filteredRecords, 'pdf')}
                   onExportTally={handleExportTally}
                   label="Export View"
                   variant="outline"
@@ -527,8 +530,9 @@ export function StoragePageClient({
                     <Printer className="h-4 w-4 mr-2" />
                     Print Labels
                 </Button>
-                <ExportButton 
+                <ExportButton
                     onExportExcel={handleExportExcel}
+                    onExportPdf={handleExportPdf}
                     onExportTally={handleExportTally}
                     label="Export"
                     variant="outline"

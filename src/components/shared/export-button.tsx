@@ -1,16 +1,18 @@
 import { Button } from "@/components/ui/button";
-import { Download, FileJson } from "lucide-react";
-import { 
-    DropdownMenu, 
-    DropdownMenuContent, 
-    DropdownMenuItem, 
-    DropdownMenuLabel, 
-    DropdownMenuSeparator, 
-    DropdownMenuTrigger 
+import { Download, FileJson, FileText } from "lucide-react";
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuLabel,
+    DropdownMenuSeparator,
+    DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu";
 
 interface ExportButtonProps {
     onExportExcel: () => void;
+    /** Optional. When provided, adds an "Export as PDF" item to the menu. */
+    onExportPdf?: () => void;
     onExportTally?: () => void;
     label?: string;
     variant?: "default" | "destructive" | "outline" | "secondary" | "ghost" | "link";
@@ -18,8 +20,9 @@ interface ExportButtonProps {
     disabled?: boolean;
 }
 
-export function ExportButton({ 
-    onExportExcel, 
+export function ExportButton({
+    onExportExcel,
+    onExportPdf,
     onExportTally,
     label = "Export",
     variant = "outline",
@@ -41,6 +44,12 @@ export function ExportButton({
                     <FileJson className="mr-2 h-4 w-4 text-green-600" />
                     Export to Excel / CSV
                 </DropdownMenuItem>
+                {onExportPdf && (
+                    <DropdownMenuItem onClick={onExportPdf}>
+                        <FileText className="mr-2 h-4 w-4 text-red-600" />
+                        Export to PDF
+                    </DropdownMenuItem>
+                )}
                 {onExportTally && (
                     <>
                         <DropdownMenuSeparator />

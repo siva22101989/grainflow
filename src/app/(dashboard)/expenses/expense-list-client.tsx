@@ -147,15 +147,17 @@ export function ExpenseListClient({ expenses }: ExpenseListClientProps) {
         }));
     };
 
-    const handleExportExcel = () => {
+    const handleExport = (format: 'excel' | 'pdf' = 'excel') => {
         const metadata = {
             totalRecords: expenses.length,
             filteredRecords: filteredExpenses.length,
             appliedFilters: getAppliedFiltersSummary(filters),
             exportDate: new Date()
         };
-        exportExpensesWithFilters(filteredExpenses, metadata);
+        exportExpensesWithFilters(filteredExpenses, metadata, format);
     };
+    const handleExportExcel = () => handleExport('excel');
+    const handleExportPdf = () => handleExport('pdf');
 
     return (
         <div className="mt-6 scroll-mt-20" ref={containerRef}>
@@ -203,8 +205,9 @@ export function ExpenseListClient({ expenses }: ExpenseListClientProps) {
                         />
                         <ShareFilterButton filters={filters} />
                         <div className="hidden sm:block">
-                            <ExportButton 
+                            <ExportButton
                                 onExportExcel={handleExportExcel}
+                                onExportPdf={handleExportPdf}
                                 label="Export"
                             />
                         </div>
