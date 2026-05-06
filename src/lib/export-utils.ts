@@ -23,6 +23,107 @@ async function dispatchExport<T extends Record<string, any>>(
 }
 
 /**
+ * Shape of the JSON snapshot produced by Settings → Data Backup → Export.
+ * Keep in sync with handleExport in src/components/settings/data-management-tab.tsx.
+ */
+export interface FullBackupData {
+    timestamp: string;
+    version?: string;
+    warehouse: any;
+    sequences: any[];
+    customers: any[];
+    storage_records: any[];
+    withdrawal_transactions: any[];
+    payments: any[];
+    expenses: any[];
+    crops: any[];
+    lots: any[];
+    audit_logs: any[];
+    notifications: any[];
+}
+
+/**
+ * Multi-sheet Excel workbook of an entire warehouse snapshot.
+ *
+ * One tab per table plus a Summary tab with row counts and the
+ * "view-only" caveat. Object/array cells are JSON-stringified so they
+ * render as text instead of "[object Object]".
+ *
+ * NOT round-trippable: this file cannot be re-imported. Use the JSON
+ * backup for restore.
+ */
+export async function exportFullBackupToExcel(backup: FullBackupData) {
+    const ExcelJS = await import('exceljs');
+    const workbook = new ExcelJS.Workbook();
+
+    // Summary sheet
+    const summary = workbook.addWorksheet('Summary');
+    summary.addRow(['GrainFlow Full Backup']);
+    summary.addRow(['Generated', new Date(backup.timestamp).toLocaleString()]);
+    summary.addRow(['Warehouse', backup.warehouse?.name || 'N/A']);
+    summary.addRow(['Version', backup.version || '1.0']);
+    summary.addRow([]);
+    summary.addRow(['Table', 'Row Count']);
+    const counts: Array<[string, number]> = [
+        ['Customers', backup.customers.length],
+        ['Storage Records', backup.storage_records.length],
+        ['Withdrawals', backup.withdrawal_transactions.length],
+        ['Payments', backup.payments.length],
+        ['Expenses', backup.expenses.length],
+        ['Crops', backup.crops.length],
+        ['Lots', backup.lots.length],
+        ['Sequences', backup.sequences.length],
+        ['Audit Logs (last 1000)', backup.audit_logs.length],
+        ['Notifications (last 1000)', backup.notifications.length],
+    ];
+    counts.forEach((row) => summary.addRow(row));
+    summary.addRow([]);
+    summary.addRow(['NOTE', 'This Excel file is view-only. To restore data, import the JSON backup.']);
+    summary.getColumn(1).width = 28;
+    summary.getColumn(2).width = 36;
+
+    function addTableSheet(name: string, rows: any[]) {
+        const ws = workbook.addWorksheet(name);
+        if (!rows || rows.length === 0) {
+            ws.addRow(['No data']);
+            return;
+        }
+        const headers = Object.keys(rows[0]);
+        ws.columns = headers.map((h) => ({ header: h, key: h, width: 18 }));
+        rows.forEach((row) => {
+            const cleaned: Record<string, any> = {};
+            for (const h of headers) {
+                const v = row[h];
+                cleaned[h] = v !== null && typeof v === 'object' ? JSON.stringify(v) : v;
+            }
+            ws.addRow(cleaned);
+        });
+    }
+
+    addTableSheet('Customers', backup.customers);
+    addTableSheet('Storage Records', backup.storage_records);
+    addTableSheet('Withdrawals', backup.withdrawal_transactions);
+    addTableSheet('Payments', backup.payments);
+    addTableSheet('Expenses', backup.expenses);
+    addTableSheet('Crops', backup.crops);
+    addTableSheet('Lots', backup.lots);
+    addTableSheet('Sequences', backup.sequences);
+    addTableSheet('Audit Logs', backup.audit_logs);
+    addTableSheet('Notifications', backup.notifications);
+
+    const buffer = await workbook.xlsx.writeBuffer();
+    const blob = new Blob([buffer], {
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    });
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `grainflow-backup-${new Date().toISOString().split('T')[0]}.xlsx`;
+    link.click();
+    window.URL.revokeObjectURL(url);
+}
+
+/**
  * Generate Customer Statement using browser print dialog
  * This opens a new window with a printable statement that can be saved as PDF
  */

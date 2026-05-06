@@ -4,12 +4,13 @@ import { restoreFromBackup } from '@/lib/restore-actions';
 import { useRef, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { RefreshCw, Database, Users, Wheat, Download, Upload, AlertTriangle, Lock } from "lucide-react";
+import { RefreshCw, Database, Users, Wheat, Download, Upload, AlertTriangle, Lock, FileSpreadsheet } from "lucide-react";
 import { createClient } from "@/utils/supabase/client";
 import { useCustomers } from "@/contexts/customer-context";
 import { useTeamMembers } from "@/hooks/use-team-members";
 import { useStaticData } from "@/hooks/use-static-data";
 import { toast } from "@/hooks/use-toast";
+import { exportFullBackupToExcel, type FullBackupData } from "@/lib/export-utils";
 
 interface DataManagementTabProps {
     userRole?: string;
@@ -54,66 +55,72 @@ export function DataManagementTab({ userRole }: DataManagementTabProps) {
       setLoading(null);
   }
 
-  const handleExport = async () => {
-      setLoading('export');
+  /** Pull every table for the current warehouse into a single backup object. */
+  const fetchBackupData = async (): Promise<FullBackupData> => {
+      const supabase = createClient();
+      const [
+         { data: warehouse },
+         { data: customers },
+         { data: storage_records },
+         { data: withdrawal_transactions },
+         { data: payments },
+         { data: expenses },
+         { data: crops },
+         { data: lots },
+         { data: sequences },
+         { data: audit_logs },
+         { data: notifications }
+      ] = await Promise.all([
+         supabase.from('warehouses').select('*').single(),
+         supabase.from('customers').select('*'),
+         supabase.from('storage_records').select('*'),
+         supabase.from('withdrawal_transactions').select('*'),
+         supabase.from('payments').select('*'),
+         supabase.from('expenses').select('*'),
+         supabase.from('crops').select('*'),
+         supabase.from('warehouse_lots').select('*'),
+         supabase.from('sequences').select('*'),
+         supabase.from('audit_logs').select('*').limit(1000),
+         supabase.from('notifications').select('*').limit(1000)
+      ]);
+
+      return {
+          timestamp: new Date().toISOString(),
+          version: '1.1',
+          warehouse: warehouse || {},
+          sequences: sequences || [],
+          customers: customers || [],
+          storage_records: storage_records || [],
+          withdrawal_transactions: withdrawal_transactions || [],
+          payments: payments || [],
+          expenses: expenses || [],
+          crops: crops || [],
+          lots: lots || [],
+          audit_logs: audit_logs || [],
+          notifications: notifications || []
+      };
+  };
+
+  const handleExport = async (format: 'json' | 'excel' = 'json') => {
+      setLoading(format === 'excel' ? 'export-excel' : 'export');
       try {
-          const supabase = createClient();
-          
-          // Parallel Fetch
-          const [
-             { data: warehouse },
-             { data: customers },
-             { data: storage_records },
-             { data: withdrawal_transactions },
-             { data: payments },
-             { data: expenses },
-             { data: crops },
-             { data: lots },
-             { data: sequences },
-             { data: audit_logs },
-             { data: notifications }
-          ] = await Promise.all([
-             supabase.from('warehouses').select('*').single(),
-             supabase.from('customers').select('*'),
-             supabase.from('storage_records').select('*'),
-             supabase.from('withdrawal_transactions').select('*'),
-             supabase.from('payments').select('*'),
-             supabase.from('expenses').select('*'),
-             supabase.from('crops').select('*'),
-             supabase.from('warehouse_lots').select('*'),
-             supabase.from('sequences').select('*'),
-             supabase.from('audit_logs').select('*').limit(1000), // Limit to avoid massive payloads
-             supabase.from('notifications').select('*').limit(1000)
-          ]);
+          const backupData = await fetchBackupData();
 
-          const backupData = {
-              timestamp: new Date().toISOString(),
-              version: '1.1',
-              warehouse: warehouse || {},
-              sequences: sequences || [],
-              customers: customers || [],
-              storage_records: storage_records || [],
-              withdrawal_transactions: withdrawal_transactions || [],
-              payments: payments || [],
-              expenses: expenses || [],
-              crops: crops || [],
-              lots: lots || [],
-              audit_logs: audit_logs || [],
-              notifications: notifications || []
-          };
-
-          // Create Blob and Download
-          const blob = new Blob([JSON.stringify(backupData, null, 2)], { type: 'application/json' });
-          const url = URL.createObjectURL(blob);
-          const a = document.createElement('a');
-          a.href = url;
-          a.download = `grainflow-backup-${new Date().toISOString().split('T')[0]}.json`;
-          document.body.appendChild(a);
-          a.click();
-          document.body.removeChild(a);
-          URL.revokeObjectURL(url);
-          
-          toast({ title: "Export Successful", description: "Your full data backup has been downloaded." });
+          if (format === 'excel') {
+              await exportFullBackupToExcel(backupData);
+              toast({ title: "Excel Export Successful", description: "Multi-sheet workbook downloaded. Note: this file is view-only — use JSON to restore." });
+          } else {
+              const blob = new Blob([JSON.stringify(backupData, null, 2)], { type: 'application/json' });
+              const url = URL.createObjectURL(blob);
+              const a = document.createElement('a');
+              a.href = url;
+              a.download = `grainflow-backup-${new Date().toISOString().split('T')[0]}.json`;
+              document.body.appendChild(a);
+              a.click();
+              document.body.removeChild(a);
+              URL.revokeObjectURL(url);
+              toast({ title: "Export Successful", description: "Your full data backup has been downloaded." });
+          }
       } catch (error) {
           console.error("Export failed:", error);
           toast({ title: "Export Failed", description: "Could not fetch data for export.", variant: "destructive" });
@@ -248,32 +255,36 @@ export function DataManagementTab({ userRole }: DataManagementTabProps) {
                             </div>
                             <div>
                                 <p className="font-medium">Export / Import Data</p>
-                                <p className="text-sm text-muted-foreground">Download JSON backup or restore from a file.</p>
+                                <p className="text-sm text-muted-foreground">Download as JSON (restorable) or Excel (view-only), or restore from a JSON file.</p>
                             </div>
                         </div>
-                        <div className="flex items-center gap-2 w-full sm:w-auto">
-                            <Button variant="outline" size="sm" onClick={handleExport} disabled={!!loading} className="flex-1">
+                        <div className="flex flex-col sm:flex-row items-stretch gap-2 w-full sm:w-auto">
+                            <Button variant="outline" size="sm" onClick={() => handleExport('json')} disabled={!!loading} className="flex-1">
                                 {loading === 'export' ? <RefreshCw className="w-4 h-4 animate-spin mr-2"/> : <Download className="w-4 h-4 mr-2"/>}
-                                Export
+                                Export JSON
+                            </Button>
+                            <Button variant="outline" size="sm" onClick={() => handleExport('excel')} disabled={!!loading} className="flex-1">
+                                {loading === 'export-excel' ? <RefreshCw className="w-4 h-4 animate-spin mr-2"/> : <FileSpreadsheet className="w-4 h-4 mr-2"/>}
+                                Export Excel
                             </Button>
                             <Button variant="outline" size="sm" onClick={handleImportClick} disabled={!!loading} className="flex-1">
                                 {loading === 'import' ? <RefreshCw className="w-4 h-4 animate-spin mr-2"/> : <Upload className="w-4 h-4 mr-2"/>}
                                 Import
                             </Button>
-                            <input 
-                                type="file" 
-                                ref={fileInputRef} 
-                                onChange={handleFileChange} 
-                                className="hidden" 
+                            <input
+                                type="file"
+                                ref={fileInputRef}
+                                onChange={handleFileChange}
+                                className="hidden"
                                 accept=".json"
                             />
                         </div>
                     </div>
-                    
+
                     <div className="bg-amber-50 border border-amber-200 rounded-md p-4 text-sm text-amber-800 flex items-start gap-2">
                         <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
                         <span>
-                            <strong>Caution:</strong> Importing data will attempt to merge records. If you are restoring data, ensure you are importing into the correct account to avoid conflicts.
+                            <strong>Caution:</strong> Importing data will attempt to merge records. If you are restoring data, ensure you are importing into the correct account to avoid conflicts. <strong>Excel exports are view-only and cannot be re-imported</strong> — use the JSON file for restore.
                         </span>
                     </div>
                 </CardContent>
