@@ -118,27 +118,29 @@ export async function checkHighOutstanding() {
       .select(`
         customer_id,
         hamali_payable,
+        insurance_payable,
         customers(name),
         withdrawal_transactions(rent_collected),
         payments(amount)
       `)
       .eq('warehouse_id', warehouseId)
       .is('deleted_at', null);
-    
+
     if (!records) return;
-    
+
     // Calculate outstanding per customer
     const customerOutstanding = new Map<string, { name: string; outstanding: number }>();
-    
+
     records.forEach((r: any) => {
       const customerId = r.customer_id;
       const customerName = r.customers?.name || 'Unknown';
-      
-      // Calculate dues
+
+      // Calculate dues (rent + hamali + insurance)
       const withdrawals = r.withdrawal_transactions || [];
-      const rentDue = withdrawals.reduce((sum: number, w: any) => 
+      const rentDue = withdrawals.reduce((sum: number, w: any) =>
         sum + (parseFloat(w.rent_collected) || 0), 0);
-      const totalDue = rentDue + (r.hamali_payable || 0);
+      const totalDue =
+        rentDue + (r.hamali_payable || 0) + (r.insurance_payable || 0);
       
       // Calculate paid
       const payments = r.payments || [];

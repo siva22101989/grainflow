@@ -32,7 +32,10 @@ export const BillReceipt = React.forwardRef<HTMLDivElement, BillReceiptProps>(
         setFormattedBillDate(format(new Date(), 'dd MMM yyyy'));
         
         const totalPaid = (record.payments || []).reduce((acc, p) => acc + p.amount, 0);
-        const totalBilled = record.hamaliPayable + (record.totalRentBilled || 0);
+        const totalBilled =
+            record.hamaliPayable +
+            (record.totalRentBilled || 0) +
+            ((record as any).insurancePayable || 0);
         setPaymentInfo({
             paid: totalPaid,
             balance: totalBilled - totalPaid,
@@ -103,7 +106,7 @@ export const BillReceipt = React.forwardRef<HTMLDivElement, BillReceiptProps>(
                         <TableFooter>
                             <TableRow>
                                 <TableCell colSpan={3} className="text-right font-bold">Total Billed</TableCell>
-                                <TableCell className="text-right font-bold">{formatCurrency(record.hamaliPayable + (record.totalRentBilled || 0))}</TableCell>
+                                <TableCell className="text-right font-bold">{formatCurrency(record.hamaliPayable + (record.totalRentBilled || 0) + (((record as any).insurancePayable) || 0))}</TableCell>
                             </TableRow>
                         </TableFooter>
                     </Table>

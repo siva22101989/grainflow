@@ -65,6 +65,7 @@ export const getDashboardMetrics = cache(async () => {
         .from('storage_records')
         .select(`
             hamali_payable,
+            insurance_payable,
             withdrawal_transactions (rent_collected),
             payments (amount)
         `)
@@ -77,12 +78,15 @@ export const getDashboardMetrics = cache(async () => {
     revenueRecords?.forEach((r: any) => {
         // Calculate actual rent from withdrawal transactions
         const withdrawals = r.withdrawal_transactions || [];
-        const rentFromWithdrawals = withdrawals.reduce((sum: number, w: any) => 
+        const rentFromWithdrawals = withdrawals.reduce((sum: number, w: any) =>
             sum + (parseFloat(w.rent_collected) || 0), 0);
-        
-        totalDues += rentFromWithdrawals + (r.hamali_payable || 0);
-        
-        // Sum all payments
+
+        totalDues +=
+            rentFromWithdrawals +
+            (r.hamali_payable || 0) +
+            (r.insurance_payable || 0);
+
+        // Sum all payments (rent + hamali + insurance + other)
         const payments = r.payments || [];
         totalPaid += payments.reduce((sum: number, p: any) => sum + (p.amount || 0), 0);
     });

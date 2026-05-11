@@ -82,9 +82,13 @@ export const getCustomerPortfolio = cache(async () => {
             const recordPayments = r.payments || [];
             const recordPaid = recordPayments.reduce((acc: number, p: any) => acc + (p.amount || 0), 0);
             
-            // For now, exposure is estimated or calculated based on rent triggers if implemented.
-            // If the schema hasn't fully automated billing yet, we show what's recorded.
-            const recordBilled = (r.total_rent_billed || 0);
+            // Customer sees the FULL amount they owe: rent + hamali + insurance.
+            // Previously only rent was included, so the portal under-reported
+            // their balance.
+            const recordBilled =
+                (r.total_rent_billed || 0) +
+                (r.hamali_payable || 0) +
+                (r.insurance_payable || 0);
 
             const enrichedRecord = {
                 ...r,

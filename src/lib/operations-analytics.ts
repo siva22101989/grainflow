@@ -175,6 +175,7 @@ export async function getCommodityMetrics(): Promise<CommodityMetrics[]> {
             storage_start_date,
             storage_end_date,
             hamali_payable,
+            insurance_payable,
             total_rent_billed
         `)
         .eq('warehouse_id', warehouseId);
@@ -203,7 +204,10 @@ export async function getCommodityMetrics(): Promise<CommodityMetrics[]> {
         };
 
         existing.totalBags += r.bags_stored || 0;
-        existing.revenue += (r.hamali_payable || 0) + (r.total_rent_billed || 0);
+        existing.revenue +=
+            (r.hamali_payable || 0) +
+            (r.total_rent_billed || 0) +
+            (r.insurance_payable || 0);
         existing.recordCount++;
 
         // Calculate duration if completed

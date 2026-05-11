@@ -91,6 +91,7 @@ export class PaymentService {
             record_number,
             total_rent_billed,
             hamali_payable,
+            insurance_payable,
             storage_start_date,
             payments (amount, type, deleted_at)
         `)
@@ -105,11 +106,14 @@ export class PaymentService {
       return (records as any[]).map((r) => {
            const validPayments = (r.payments || []).filter((p: any) => !p.deleted_at);
 
-           // Sum ALL payment types (rent, hamali, other/online) to get total paid
+           // Sum ALL payment types (rent, hamali, insurance, other/online) to get total paid
            const totalPaid = validPayments
             .reduce((sum: number, p: any) => sum + p.amount, 0);
 
-           const totalBilled = (r.total_rent_billed || 0) + (r.hamali_payable || 0);
+           const totalBilled =
+               (r.total_rent_billed || 0) +
+               (r.hamali_payable || 0) +
+               (r.insurance_payable || 0);
            const totalDue = Math.max(0, totalBilled - totalPaid);
 
            return {

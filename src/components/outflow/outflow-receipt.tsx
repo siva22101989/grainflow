@@ -60,7 +60,10 @@ export function OutflowReceipt({ record, customer, withdrawnBags, finalRent, pai
         setRentBreakdown({ rentPerBag });
 
         // record.totalRentBilled already includes finalRent because wait, OutflowReceipt is generated AFTER addOutflow updates the record!
-        const totalBilledSoFar = record.hamaliPayable + Math.max(0, (record.totalRentBilled || 0) - finalRent);
+        const totalBilledSoFar =
+            record.hamaliPayable +
+            Math.max(0, (record.totalRentBilled || 0) - finalRent) +
+            (((record as any).insurancePayable) || 0);
         const totalPaymentsMade = (record.payments || []).reduce((acc, p) => acc + p.amount, 0);
         const priorPayments = Math.max(0, totalPaymentsMade - paidNow);
 

@@ -36,20 +36,22 @@ export async function GET(request: Request) {
              
              const { data: pendingRecords } = await supabase
                  .from('storage_records')
-                 .select('id, hamali_payable, total_rent_billed, payments(amount, type)')
+                 .select('id, hamali_payable, total_rent_billed, insurance_payable, payments(amount, type)')
                  .eq('warehouse_id', w.id)
-                 .not('storage_end_date', 'is', null) // Only closed records have final rent?
-                 // Actually, open records have Hamali dues immediately.
-                 // Let's check Hamali dues mostly.
-                 .or('hamali_payable.gt.0,total_rent_billed.gt.0');
+                 // Pull any record that has been billed for ANY of the three
+                 // charge types — rent, hamali, or insurance.
+                 .or('hamali_payable.gt.0,total_rent_billed.gt.0,insurance_payable.gt.0');
 
              let totalDue = 0;
              let count = 0;
-             
+
              if (pendingRecords) {
                  for (const r of pendingRecords) {
                      const paid = (r.payments || []).reduce((sum: number, p: any) => sum + p.amount, 0);
-                     const billed = (r.hamali_payable || 0) + (r.total_rent_billed || 0);
+                     const billed =
+                         (r.hamali_payable || 0) +
+                         (r.total_rent_billed || 0) +
+                         (r.insurance_payable || 0);
                      const due = billed - paid;
                      if (due > 100) { // Threshold 100rs to avoid noise
                          totalDue += due;

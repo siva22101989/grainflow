@@ -73,7 +73,10 @@ export function OutflowForm({
     useEffect(() => {
         if (selectedRecord) {
             const amountPaid = (selectedRecord.payments || []).reduce((acc, p) => acc + p.amount, 0);
-            const totalBilledSoFar = selectedRecord.hamaliPayable + (selectedRecord.totalRentBilled || 0);
+            const totalBilledSoFar =
+                selectedRecord.hamaliPayable +
+                (selectedRecord.totalRentBilled || 0) +
+                ((selectedRecord as any).insurancePayable || 0);
             const pending = totalBilledSoFar - amountPaid;
             
             if (pending > 0) {
