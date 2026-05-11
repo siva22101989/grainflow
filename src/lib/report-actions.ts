@@ -573,20 +573,24 @@ import { logError } from './error-logger';
        const userRecords = records?.filter((r: any) => r.customer_id === c.id) || [];
        let totalDues = 0;
        let totalPaid = 0;
-       
+
        userRecords.forEach((r: any) => {
          // Calculate rent from withdrawal transactions
          const withdrawals = r.withdrawal_transactions || [];
-         const rentFromWithdrawals = withdrawals.reduce((sum: number, w: any) => 
+         const rentFromWithdrawals = withdrawals.reduce((sum: number, w: any) =>
            sum + (parseFloat(w.rent_collected) || 0), 0);
-         
-         let billed = rentFromWithdrawals + (r.hamali_payable || 0);
-         
+
+         // Include insurance — was previously missing, causing customers whose
+         // only outstanding amount was insurance to be filtered out of the
+         // Pending Dues list even though their Statement of Account showed
+         // the balance correctly.
+         const billed = rentFromWithdrawals + (r.hamali_payable || 0) + (r.insurance_payable || 0);
+
          const paid = (r.payments || []).reduce((sum: number, p: any) => sum + p.amount, 0);
          totalDues += billed;
          totalPaid += paid;
        });
-       
+
        return {
          ...c,
          totalDues,
@@ -627,43 +631,51 @@ import { logError } from './error-logger';
          const userRecords = records?.filter((r: any) => r.customer_id === c.id) || [];
          let rentBilled = 0;
          let hamaliBilled = 0;
+         let insuranceBilled = 0;
          let rentPaid = 0;
          let hamaliPaid = 0;
+         let insurancePaid = 0;
          let otherPaid = 0; // Payments without type or 'other'
-         
-          userRecords.forEach((r: any) => {
-            // Calculate actual rent from withdrawal transactions (same logic as Statement of Account)
-            const withdrawals = r.withdrawal_transactions || [];
-            const rentFromWithdrawals = withdrawals.reduce((sum: number, w: any) => 
-              sum + (parseFloat(w.rent_collected) || 0), 0);
-            
-            rentBilled += rentFromWithdrawals;
-            hamaliBilled += (r.hamali_payable || 0);
-            
-            (r.payments || []).forEach((p: any) => {
-                if (p.type === 'rent') rentPaid += p.amount;
-                else if (p.type === 'hamali') hamaliPaid += p.amount;
-                else otherPaid += p.amount;
-            });
-          });
-         
-         // Logic: 
-         // Rent Pending = Rent Billed - Rent Paid.
-         // Hamali Pending = Hamali Billed - Hamali Paid.
-         // If payments are generic (no type), we assume they cover oldest dues or proportionally.
-         // For simplicity: We will assign 'otherPaid' to Hamali first, then Rent. (or vice versa).
-         // Let's assume generic payments cover Hamali first.
-         
+
+         userRecords.forEach((r: any) => {
+           // Calculate actual rent from withdrawal transactions (same logic as Statement of Account)
+           const withdrawals = r.withdrawal_transactions || [];
+           const rentFromWithdrawals = withdrawals.reduce((sum: number, w: any) =>
+             sum + (parseFloat(w.rent_collected) || 0), 0);
+
+           rentBilled += rentFromWithdrawals;
+           hamaliBilled += (r.hamali_payable || 0);
+           insuranceBilled += (r.insurance_payable || 0);
+
+           (r.payments || []).forEach((p: any) => {
+               if (p.type === 'rent') rentPaid += p.amount;
+               else if (p.type === 'hamali') hamaliPaid += p.amount;
+               else if (p.type === 'insurance') insurancePaid += p.amount;
+               else otherPaid += p.amount;
+           });
+         });
+
+         // Allocate generic ('other') payments in order: Hamali → Insurance → Rent
+         // (matches the order used by the Customer Dues report so the numbers
+         // agree across screens).
          let remainingOther = otherPaid;
-         
+
          let hamaliPending = hamaliBilled - hamaliPaid;
          if (remainingOther > 0 && hamaliPending > 0) {
              const deduct = Math.min(remainingOther, hamaliPending);
              hamaliPending -= deduct;
              remainingOther -= deduct;
-             hamaliPaid += deduct; // Effectively treated as Hamali payment
+             hamaliPaid += deduct;
          }
-         
+
+         let insurancePending = insuranceBilled - insurancePaid;
+         if (remainingOther > 0 && insurancePending > 0) {
+             const deduct = Math.min(remainingOther, insurancePending);
+             insurancePending -= deduct;
+             remainingOther -= deduct;
+             insurancePaid += deduct;
+         }
+
          let rentPending = rentBilled - rentPaid;
          if (remainingOther > 0 && rentPending > 0) {
              const deduct = Math.min(remainingOther, rentPending);
@@ -671,17 +683,20 @@ import { logError } from './error-logger';
              remainingOther -= deduct;
              rentPaid += deduct;
          }
-         
-         const totalPending = rentPending + hamaliPending;
-         
+
+         const totalPending = rentPending + hamaliPending + insurancePending;
+
          return {
            ...c,
            rentBilled,
            hamaliBilled,
+           insuranceBilled,
            rentPaid,
            hamaliPaid,
+           insurancePaid,
            rentPending,
            hamaliPending,
+           insurancePending,
            totalPending
          };
       }).filter(c => c.totalPending > 1);
