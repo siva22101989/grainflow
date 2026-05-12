@@ -1550,6 +1550,7 @@ export function exportCustomReportToExcel(
         filename = 'all-customers';
         exportData = data.data.map((c: any, index: number) => ({
             '#': index + 1,
+            'Customer ID': c.customer_number ?? c.customerNumber ?? '',
             'Name': c.name,
             'Phone': c.phone,
             'Village': c.village || '-',
@@ -1560,7 +1561,8 @@ export function exportCustomReportToExcel(
     } else if (reportType === 'active-inventory') {
         filename = 'active-inventory';
         exportData = data.data.map((r: any) => ({
-            'Record #': r.record_number || r.id.substring(0,8),
+            'Storage ID': r.record_number ?? '',
+            'Customer ID': r.customers?.customer_number ?? '',
             'Date In': new Date(r.storage_start_date).toLocaleDateString(),
             'Customer': r.customers?.name || 'Unknown',
             'Commodity': r.commodity_description,
@@ -1570,7 +1572,8 @@ export function exportCustomReportToExcel(
     } else if (reportType === 'transaction-history') {
         filename = 'transaction-history';
         exportData = data.data.map((r: any) => ({
-            'Record #': r.record_number || r.id.substring(0,8),
+            'Storage ID': r.record_number ?? '',
+            'Customer ID': r.customers?.customer_number ?? '',
             'Date In': new Date(r.storage_start_date).toLocaleDateString(),
             'Date Out': r.storage_end_date ? new Date(r.storage_end_date).toLocaleDateString() : '-',
             'Customer': r.customers?.name || 'Unknown',
@@ -1581,8 +1584,9 @@ export function exportCustomReportToExcel(
     } else if (reportType === 'inflow-register') {
         filename = 'inflow-register';
         exportData = data.data.map((r: any) => ({
+            'Storage ID': r.record_number ?? '',
+            'Customer ID': r.customers?.customer_number ?? '',
             'Date': new Date(r.storage_start_date).toLocaleDateString(),
-            'Receipt #': r.record_number || r.id.substring(0,8),
             'Customer': r.customers?.name || 'Unknown',
             'Commodity': r.commodity_description,
             'Bags In': r.bags_in || r.bags_stored
@@ -1590,8 +1594,10 @@ export function exportCustomReportToExcel(
     } else if (reportType === 'outflow-register') {
         filename = 'outflow-register';
         exportData = data.data.map((r: any) => ({
+            'Withdrawal ID': r.withdrawal_number ?? '',
+            'Storage ID': r.record_number ?? '',
+            'Customer ID': r.customers?.customer_number ?? '',
             'Date Out': new Date(r.storage_end_date).toLocaleDateString(),
-            'Ref #': r.record_number || r.id.substring(0,8),
             'Customer': r.customers?.name || 'Unknown',
             'Bags': r.bags_stored,
             'Rent': r.total_rent_billed || 0,
@@ -1602,8 +1608,10 @@ export function exportCustomReportToExcel(
     } else if (reportType === 'payment-register') {
         filename = 'payment-register';
         exportData = data.data.map((p: any) => ({
+            'Payment ID': p.payment_number ?? '',
+            'Storage ID': p.storage_records?.record_number ?? '',
+            'Customer ID': p.customers?.customer_number ?? '',
             'Date': new Date(p.payment_date).toLocaleDateString(),
-            'Ref #': p.storage_records?.record_number || p.storage_records?.id?.substring(0, 8) || '-',
             'Customer': p.customers?.name || 'Unknown',
             'Payment Mode': p.payment_mode || 'Cash',
             'Payment Type': p.type || 'Other',
@@ -1613,14 +1621,14 @@ export function exportCustomReportToExcel(
     } else if (reportType === 'customer-dues-details') {
         filename = `customer-dues-${data.customer.name.replace(/\s/g, '-').toLowerCase()}`;
         const isHamaliOnly = data.duesType === 'hamali';
-        
+
         exportData = data.data.map((r: any) => {
-            const dateRange = r.endDate 
+            const dateRange = r.endDate
                 ? `${new Date(r.date).toLocaleDateString()} to ${new Date(r.endDate).toLocaleDateString()}`
                 : `${new Date(r.date).toLocaleDateString()} to Active`;
-            
+
             const record: any = {
-                'Ref #': r.recordNumber,
+                'Storage ID': r.recordNumber ?? '',
                 'Storage Period': dateRange,
                 'Commodity': r.commodity,
                 'Bags': r.bags,
@@ -1628,20 +1636,21 @@ export function exportCustomReportToExcel(
                 'Hamali Due': r.hamaliDue,
                 'Insurance Due': r.insuranceDue || 0,
             };
-            
+
             // Only add Rent columns if not Hamali-only view
             if (!isHamaliOnly) {
                 record['Rent Due'] = r.rentDue;
             }
-            
-            record['Paid'] = r.hamaliPaid + r.rentPaid;
+
+            record['Paid'] = r.hamaliPaid + r.rentPaid + (r.insurancePaid || 0);
             record['Balance'] = r.totalBalance;
-            
+
             return record;
         });
     } else if (reportType === 'pending-dues') {
         filename = 'pending-dues';
         exportData = data.data.map((c: any) => ({
+            'Customer ID': c.customer_number ?? c.customerNumber ?? '',
             'Customer': c.name,
             'Phone': c.phone,
             'Billed Total': c.totalDues,

@@ -332,7 +332,7 @@ import { logError } from './error-logger';
       .from('storage_records')
       .select(`
         *,
-        customers (name),
+        customers (name, customer_number),
         withdrawal_transactions (bags_withdrawn)
       `)
       .eq('warehouse_id', warehouseId)
@@ -379,7 +379,7 @@ import { logError } from './error-logger';
       .from('storage_records')
       .select(`
         *,
-        customers (name)
+        customers (name, customer_number)
       `)
       .eq('warehouse_id', warehouseId)
       .is('deleted_at', null)
@@ -410,6 +410,7 @@ import { logError } from './error-logger';
       .from('withdrawal_transactions')
       .select(`
         id,
+        withdrawal_number,
         withdrawal_date,
         bags_withdrawn,
         rent_collected,
@@ -424,7 +425,8 @@ import { logError } from './error-logger';
           insurance_payable,
           customers (
             id,
-            name
+            name,
+            customer_number
           ),
           payments (amount)
         )
@@ -476,6 +478,7 @@ import { logError } from './error-logger';
 
       return {
         id: record.id,
+        withdrawal_number: record.withdrawal_number,
         record_number: storageRecord?.record_number,
         storage_end_date: record.withdrawal_date, // Use withdrawal_date as the "outflow date"
         commodity_description: storageRecord?.commodity_description,
@@ -508,7 +511,7 @@ import { logError } from './error-logger';
           id,
           commodity_description
         ),
-        customers (name)
+        customers (name, customer_number)
       `)
       .eq('warehouse_id', warehouseId)
       .is('deleted_at', null)
@@ -714,7 +717,7 @@ import { logError } from './error-logger';
       .select(`
         bags_stored,
         warehouse_lots (name),
-        customers (name),
+        customers (name, customer_number),
         crops (name)
       `)
       .eq('warehouse_id', warehouseId)
@@ -764,7 +767,7 @@ import { logError } from './error-logger';
       .from('storage_records')
       .select(`
         *,
-        customers (name),
+        customers (name, customer_number),
         withdrawal_transactions (withdrawal_date, bags_withdrawn, rent_collected),
         payments (payment_date, amount, type)
       `)
@@ -844,7 +847,7 @@ import { logError } from './error-logger';
       .from('storage_records')
       .select(`
         *,
-        customers (name)
+        customers (name, customer_number)
       `)
       .eq('warehouse_id', warehouseId)
       .is('deleted_at', null)
@@ -885,7 +888,7 @@ import { logError } from './error-logger';
         .from('unloading_records')
         .select(`
             *,
-            customer:customers(name),
+            customer:customers(name, customer_number),
             crop:crops(name)
         `)
         .eq('warehouse_id', warehouseId)

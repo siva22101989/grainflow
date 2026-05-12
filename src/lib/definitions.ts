@@ -1,5 +1,6 @@
 export type Customer = {
   id: string;
+  customerNumber?: number | null;
   name: string;
   email?: string;
   phone: string;
@@ -75,6 +76,7 @@ export type StorageRecord = {
   recordNumber?: string;
   outflowInvoiceNo?: string;
   customerName?: string;
+  customerNumber?: number | null;
   notes?: string;
   updatedAt?: Date | string;
 };

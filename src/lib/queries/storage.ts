@@ -132,6 +132,7 @@ function mapRecords(records: any[]): StorageRecord[] {
       id: r.id,
       recordNumber: r.record_number,
       customerId: r.customer_id,
+      customerNumber: r.customer?.customer_number ?? null,
       customerName: r.customer?.name || 'Unknown',
       cropId: r.crop_id,
       lotId: r.lot_id, // Added for capacity checks
@@ -186,7 +187,7 @@ function buildStorageRecordsQuery(
   // Build select clause
   const selectParts = ['*'];
   if (includePayments) selectParts.push('payments (*)');
-  if (includeCustomer) selectParts.push('customer:customers(name)');
+  if (includeCustomer) selectParts.push('customer:customers(name, customer_number)');
   // Include withdrawal transactions to calculate actual remaining stock
   selectParts.push('withdrawal_transactions (bags_withdrawn)');
 
@@ -288,7 +289,7 @@ export const getStorageRecord = cache(async (id: string): Promise<StorageRecord 
     .select(`
       *,
       payments (*),
-      customer:customers(name),
+      customer:customers(name, customer_number),
       withdrawal_transactions (bags_withdrawn)
     `)
     .eq('id', id)
@@ -342,7 +343,7 @@ export const getRecentInflows = cache(async (limit = 5) => {
       storage_start_date,
       commodity_description,
       bags_in,
-      customer:customers ( name )
+      customer:customers ( name, customer_number )
     `)
     .eq('warehouse_id', warehouseId)
     .is('deleted_at', null)
@@ -385,7 +386,7 @@ export const getRecentOutflows = cache(async (limit = 5) => {
         record_number,
         commodity_description,
         bags_stored,
-        customer:customers ( name )
+        customer:customers ( name, customer_number )
       )
     `)
     .eq('warehouse_id', warehouseId)
@@ -432,7 +433,7 @@ export const searchActiveStorageRecords = cache(async (query: string, limit = 20
       location,
       bags_stored,
       bags_in,
-      customer:customers!inner(name),
+      customer:customers!inner(name, customer_number),
       withdrawal_transactions (bags_withdrawn) 
     `)
     .eq('warehouse_id', warehouseId)
