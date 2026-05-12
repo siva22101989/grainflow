@@ -1241,7 +1241,7 @@ export function generateCustomReportPDF(
             <tr>
                 <td>${new Date(p.payment_date).toLocaleDateString()}</td>
                 <td>${p.storage_records?.record_number || p.storage_records?.id?.substring(0, 8) || '-'}</td>
-                <td>${p.customers?.name || 'Unknown'}</td>
+                <td>${p.storage_records?.customers?.name || p.customers?.name || 'Unknown'}</td>
                 <td>${p.payment_mode || 'Cash'}</td>
                 <td>${p.type || 'Other'}</td>
                 <td>${p.notes || '-'}</td>
@@ -1610,9 +1610,9 @@ export function exportCustomReportToExcel(
         exportData = data.data.map((p: any) => ({
             'Payment ID': p.payment_number ?? '',
             'Storage ID': p.storage_records?.record_number ?? '',
-            'Customer ID': p.customers?.customer_number ?? '',
+            'Customer ID': p.storage_records?.customers?.customer_number ?? p.customers?.customer_number ?? '',
             'Date': new Date(p.payment_date).toLocaleDateString(),
-            'Customer': p.customers?.name || 'Unknown',
+            'Customer': p.storage_records?.customers?.name || p.customers?.name || 'Unknown',
             'Payment Mode': p.payment_mode || 'Cash',
             'Payment Type': p.type || 'Other',
             'Notes': p.notes || '-',

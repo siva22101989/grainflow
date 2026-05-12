@@ -506,14 +506,15 @@ import { logError } from './error-logger';
       .from('payments')
       .select(`
         *,
-        storage_records (
+        storage_records!inner (
           record_number,
           id,
-          commodity_description
-        ),
-        customers (name, customer_number)
+          commodity_description,
+          warehouse_id,
+          customers ( name, customer_number )
+        )
       `)
-      .eq('warehouse_id', warehouseId)
+      .eq('storage_records.warehouse_id', warehouseId)
       .is('deleted_at', null)
       .order('payment_date', { ascending: false });
 
