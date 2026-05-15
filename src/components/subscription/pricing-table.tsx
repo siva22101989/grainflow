@@ -21,38 +21,55 @@ const PRICING_PLANS: PricingPlan[] = [
     name: 'Free',
     price: '₹0',
     description: 'Perfect for getting started.',
-    features: ['Up to 50 records', '1 Warehouse', 'Basic Reports', 'Community Support'],
+    features: ['Up to 100 records', '1 Warehouse', 'Basic Reports', 'Community Support'],
     buttonText: 'Current Plan',
   },
   {
-    tier: 'starter',
+    // Tier MUST match `plans.tier` in the DB so createSubscriptionPaymentLink
+    // can look it up. DB has '_monthly' / '_yearly' suffixed tiers.
+    tier: 'starter_monthly',
     name: 'Starter',
-    price: '₹999',
+    price: '₹499',
     description: 'Better tools for small warehouses.',
-    features: ['500 records', '1 Warehouse', 'Export Reports', 'SMS Notifications', 'Priority Support'],
+    features: ['10,000 records', '1 Warehouse', 'Export Reports', 'SMS Notifications', 'Priority Support'],
     buttonText: 'Upgrade to Starter',
     highlighted: true,
   },
   {
-    tier: 'professional',
+    tier: 'professional_monthly',
     name: 'Professional',
-    price: '₹2,999',
+    price: '₹1,499',
     description: 'Advanced features for growing businesses.',
-    features: ['Unlimited records', 'Multiple Warehouses', 'Analytics Dashboard', 'WhatsApp Integration', 'Dedicated Manager'],
+    features: ['100,000 records', 'Multiple Warehouses', 'Analytics Dashboard', 'WhatsApp Integration', 'Dedicated Manager'],
     buttonText: 'Upgrade to Pro',
   },
 ];
 
-export function PricingTable({ 
-    currentTier, 
-    onSelect 
-}: { 
-    currentTier?: PlanTier, 
-    onSelect: (tier: PlanTier) => void 
+// Hidden smoke-test plan. Only shown when ?test=1 is in the URL — used to
+// verify the live Razorpay flow end-to-end with ₹1 of real money before
+// pointing real customers at the upgrade page.
+const TEST_PLAN: PricingPlan = {
+  tier: 'test_1rupee',
+  name: 'TEST ₹1 (do not use)',
+  price: '₹1',
+  description: 'Smoke test for Razorpay live keys. Refund yourself after.',
+  features: ['Verifies payment link creation', 'Verifies webhook fires', 'Verifies subscription activation', '7 day duration'],
+  buttonText: 'Pay ₹1 (Test)',
+};
+
+export function PricingTable({
+    currentTier,
+    onSelect,
+    showTestPlan = false,
+}: {
+    currentTier?: PlanTier,
+    onSelect: (tier: PlanTier) => void,
+    showTestPlan?: boolean,
 }) {
+  const plans = showTestPlan ? [...PRICING_PLANS, TEST_PLAN] : PRICING_PLANS;
   return (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-6xl mx-auto py-8">
-      {PRICING_PLANS.map((plan) => (
+      {plans.map((plan) => (
         <Card key={plan.tier} className={`flex flex-col ${plan.highlighted ? 'border-primary shadow-md relative' : ''}`}>
           {plan.highlighted && (
             <div className="absolute top-0 right-0 bg-primary text-primary-foreground text-[10px] font-bold px-2 py-1 rounded-bl-lg rounded-tr-lg">

@@ -4,9 +4,9 @@ import { useState } from 'react';
 import { PageHeader } from '@/components/shared/page-header';
 import { PricingTable } from '@/components/subscription/pricing-table';
 import { useUnifiedToast } from '@/components/shared/toast-provider';
-import { startSubscriptionAction } from '@/lib/subscription-actions';
+import { createSubscriptionPaymentLink } from '@/lib/subscription-actions';
 import { PlanTier } from '@/lib/feature-flags';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useWarehouses } from '@/contexts/warehouse-context';
 
 export default function UpgradePage() {
@@ -16,6 +16,8 @@ export default function UpgradePage() {
 
   const { currentWarehouse } = useWarehouses();
   const warehouseId = currentWarehouse?.id;
+  const searchParams = useSearchParams();
+  const showTestPlan = searchParams.get('test') === '1';
 
   const handleUpgrade = async (tier: PlanTier) => {
     if (tier === 'free') return;
@@ -23,16 +25,23 @@ export default function UpgradePage() {
         toastError('Error', 'No active warehouse selected.');
         return;
     }
-    
+
     setLoading(true);
     try {
-      const result = await startSubscriptionAction(warehouseId, tier); 
-      
-      if (result.success) {
-          toastSuccess('Request Logged', result.message);
+      // Create a Razorpay payment link for this plan. The webhook will activate
+      // the subscription once payment is captured. SMS is sent to the owner's
+      // phone with the link as a fallback in case the popup is closed.
+      const result = await createSubscriptionPaymentLink(warehouseId, tier, false);
+
+      if (result.success && result.linkUrl) {
+          toastSuccess('Redirecting to payment…', 'Opening Razorpay checkout. SMS link also sent as backup.');
+          // Open Razorpay-hosted payment page in a new tab so the dashboard
+          // stays open. Customer pays, webhook activates, billing page reflects it.
+          window.open(result.linkUrl, '_blank', 'noopener,noreferrer');
+          // Send the user to /billing so they can see the pending payment + retry if needed
           router.push('/billing');
       } else {
-          toastError('Error', result.message);
+          toastError('Error', result.error || 'Failed to start checkout');
       }
     } catch (err) {
       toastError('Error', 'An unexpected error occurred.');
@@ -54,7 +63,7 @@ export default function UpgradePage() {
       />
 
       <div className={loading ? 'opacity-50 pointer-events-none transition-opacity' : ''}>
-        <PricingTable onSelect={handleUpgrade} />
+        <PricingTable onSelect={handleUpgrade} showTestPlan={showTestPlan} />
       </div>
 
       <div className="text-center mt-8 text-sm text-muted-foreground">

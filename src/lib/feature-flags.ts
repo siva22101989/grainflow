@@ -2,11 +2,12 @@ import React from 'react';
 import { useUnifiedToast } from '@/components/shared/toast-provider';
 import { useSubscription } from '@/components/providers/subscription-context';
 
-export type PlanTier = 
-  | 'free' 
-  | 'starter' | 'starter_monthly' | 'starter_yearly' 
-  | 'professional' | 'professional_monthly' | 'professional_yearly' 
-  | 'enterprise' | 'enterprise_monthly' | 'enterprise_yearly';
+export type PlanTier =
+  | 'free'
+  | 'starter' | 'starter_monthly' | 'starter_yearly'
+  | 'professional' | 'professional_monthly' | 'professional_yearly'
+  | 'enterprise' | 'enterprise_monthly' | 'enterprise_yearly'
+  | 'test_1rupee'; // Smoke-test plan for verifying live Razorpay end-to-end. Remove after launch.
 
 export interface FeatureGate {
   id: string;
@@ -42,7 +43,8 @@ export const LIMITS: Record<string, UsageLimit> = {
             professional_yearly: 100000,
             enterprise: 1000000,
             enterprise_monthly: 1000000,
-            enterprise_yearly: 1000000
+            enterprise_yearly: 1000000,
+            test_1rupee: 100, // smoke-test plan: free-tier limits
         }
     },
     USERS: {
@@ -58,7 +60,8 @@ export const LIMITS: Record<string, UsageLimit> = {
             professional_yearly: 10,
             enterprise: 50,
             enterprise_monthly: 50,
-            enterprise_yearly: 50
+            enterprise_yearly: 50,
+            test_1rupee: 1, // smoke-test plan: free-tier limits
         }
     }
 };
@@ -103,6 +106,7 @@ export function useFeatureGate() {
       enterprise: 3,
       enterprise_monthly: 3,
       enterprise_yearly: 3,
+      test_1rupee: 0, // smoke-test plan unlocks nothing
     };
 
     const currentPriority = tierPriority[currentPlan] ?? 0;
