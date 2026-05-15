@@ -34,25 +34,25 @@ import { logError } from './error-logger';
           .from('storage_records')
           .select(`
               *,
-              payments (amount, type, payment_date, notes),
-              withdrawal_transactions (bags_withdrawn, withdrawal_date, rent_collected)
+              payments (amount, type, payment_date, notes, deleted_at),
+              withdrawal_transactions (bags_withdrawn, withdrawal_date, rent_collected, deleted_at)
           `)
           .eq('customer_id', filters.customerId)
           .eq('warehouse_id', warehouseId)
           .is('deleted_at', null)
           .order('storage_start_date', { ascending: false });
-  
+
         if (!records) return { type: 'customer-dues-details', data: [], customer };
-  
+
         const processedRecords = records.map((record: any) => {
             // 1. Calculate Rent Due - SUM ALL WITHDRAWAL TRANSACTIONS
             let rentDue = 0;
             let isprojected = false;
-  
+
             // Filter: If Hamali Only, ignore Rent Logic entirely
             if (filters?.duesType !== 'hamali') {
-                // Sum rent from all withdrawal transactions for this record
-                const withdrawals = record.withdrawal_transactions || [];
+                // Sum rent from all NON-DELETED withdrawal transactions for this record
+                const withdrawals = (record.withdrawal_transactions || []).filter((w: any) => !w.deleted_at);
                 rentDue = withdrawals.reduce((sum: number, w: any) => 
                   sum + (parseFloat(w.rent_collected) || 0), 0);
                 
@@ -65,13 +65,13 @@ import { logError } from './error-logger';
             // 2b. Insurance Due
             const insuranceDue = record.insurance_payable || 0;
 
-            // 3. Payments made against THIS record
+            // 3. Payments made against THIS record (excluding soft-deleted)
             let rentPaid = 0;
             let hamaliPaid = 0;
             let insurancePaid = 0;
             let otherPaid = 0;
 
-            (record.payments || []).forEach((p: any) => {
+            (record.payments || []).filter((p: any) => !p.deleted_at).forEach((p: any) => {
                  if (p.type === 'rent') rentPaid += p.amount;
                  else if (p.type === 'hamali') hamaliPaid += p.amount;
                  else if (p.type === 'insurance') insurancePaid += p.amount;
@@ -128,8 +128,8 @@ import { logError } from './error-logger';
                 insuranceBalance: Math.round(insuranceBalance),
                 totalBalance: Math.round(totalBalance),
                 isProjected: isprojected,
-                withdrawalTransactions: record.withdrawal_transactions || [], // Pass for PDF export
-                payments: record.payments || [] // Pass payment history for PDF export
+                withdrawalTransactions: (record.withdrawal_transactions || []).filter((w: any) => !w.deleted_at), // Pass for PDF export
+                payments: (record.payments || []).filter((p: any) => !p.deleted_at) // Pass payment history for PDF export
             };
         });
   
@@ -153,7 +153,7 @@ import { logError } from './error-logger';
             type: 'inflow',
             description: `Inflow - ${record.commodity_description || 'Storage'}`,
             invoiceNo: record.record_number || record.id.substring(0, 8),
-            bagsIn: record.bags_in || (record.bags_stored + (record.withdrawal_transactions || []).reduce((sum: number, w: any) => sum + (w.bags_withdrawn || 0), 0)),
+            bagsIn: record.bags_in || (record.bags_stored + (record.withdrawal_transactions || []).filter((w: any) => !w.deleted_at).reduce((sum: number, w: any) => sum + (w.bags_withdrawn || 0), 0)),
             bagsOut: null,
             hamali: record.hamali_payable || 0,
             insurance: record.insurance_payable || 0,
@@ -161,7 +161,7 @@ import { logError } from './error-logger';
             credit: null
           });
           
-          (record.withdrawal_transactions || []).forEach((wt: any) => {
+          (record.withdrawal_transactions || []).filter((wt: any) => !wt.deleted_at).forEach((wt: any) => {
             transactions.push({
               date: wt.withdrawal_date,
               type: 'outflow',
@@ -240,29 +240,29 @@ import { logError } from './error-logger';
         storage_end_date,
         created_at,
         updated_at,
-        payments (amount, payment_date),
-        withdrawal_transactions (bags_withdrawn, rent_collected, withdrawal_date)
+        payments (amount, payment_date, deleted_at),
+        withdrawal_transactions (bags_withdrawn, rent_collected, withdrawal_date, deleted_at)
       `)
       .eq('warehouse_id', warehouseId)
       .is('deleted_at', null);
-    
+
     // Calculate comprehensive stats per customer
     const customersWithStats = customers?.map(c => {
       const customerRecords = activeRecords?.filter(r => r.customer_id === c.id) || [];
-      
+
       let totalDues = 0;
       let totalPaid = 0;
       let totalBagsIn = 0;
       let totalBagsOut = 0;
       let activeBags = 0;
       let lastActivityDate: Date | null = null;
-      
+
       customerRecords.forEach((r: any) => {
         // Track bags in (total stored across all records)
         totalBagsIn += r.bags_stored || 0;
-        
-        // Track bags out (total withdrawn)
-        const withdrawals = r.withdrawal_transactions || [];
+
+        // Track bags out (only non-deleted withdrawals)
+        const withdrawals = (r.withdrawal_transactions || []).filter((w: any) => !w.deleted_at);
         const bagsWithdrawn = withdrawals.reduce((sum: number, w: any) => 
           sum + (w.bags_withdrawn || 0), 0);
         totalBagsOut += bagsWithdrawn;
@@ -273,8 +273,8 @@ import { logError } from './error-logger';
         
         totalDues += rentFromWithdrawals + (r.hamali_payable || 0);
         
-        // Track payments
-        const payments = r.payments || [];
+        // Track payments (only non-deleted)
+        const payments = (r.payments || []).filter((p: any) => !p.deleted_at);
         const recordPaid = payments.reduce((sum: number, p: any) => sum + p.amount, 0);
         totalPaid += recordPaid;
         
@@ -333,7 +333,7 @@ import { logError } from './error-logger';
       .select(`
         *,
         customers (name, customer_number),
-        withdrawal_transactions (bags_withdrawn)
+        withdrawal_transactions (bags_withdrawn, deleted_at)
       `)
       .eq('warehouse_id', warehouseId)
       .is('storage_end_date', null)
@@ -349,7 +349,7 @@ import { logError } from './error-logger';
       // Calculate Stock dynamically: Inflow - Outflows
       let currentStock = r.bags_stored;
       if (r.bags_in !== null && r.bags_in !== undefined) {
-          const totalWithdrawn = r.withdrawal_transactions?.reduce((sum: number, w: any) => sum + (w.bags_withdrawn || 0), 0) || 0;
+          const totalWithdrawn = (r.withdrawal_transactions || []).filter((w: any) => !w.deleted_at).reduce((sum: number, w: any) => sum + (w.bags_withdrawn || 0), 0);
           currentStock = r.bags_in - totalWithdrawn;
       }
       
@@ -565,13 +565,13 @@ import { logError } from './error-logger';
       .from('storage_records')
       .select(`
         *,
-        payments (amount),
-        withdrawal_transactions (rent_collected)
+        payments (amount, deleted_at),
+        withdrawal_transactions (rent_collected, deleted_at)
       `)
       .eq('warehouse_id', warehouseId)
-      .is('deleted_at', null); 
+      .is('deleted_at', null);
       // Ideally we filter where total_rent + hamali > total_paid
-    
+
     // Filter in memory for precise calculation
     const reportData = customers.map(c => {
        const userRecords = records?.filter((r: any) => r.customer_id === c.id) || [];
@@ -579,8 +579,8 @@ import { logError } from './error-logger';
        let totalPaid = 0;
 
        userRecords.forEach((r: any) => {
-         // Calculate rent from withdrawal transactions
-         const withdrawals = r.withdrawal_transactions || [];
+         // Calculate rent from non-deleted withdrawal transactions only
+         const withdrawals = (r.withdrawal_transactions || []).filter((w: any) => !w.deleted_at);
          const rentFromWithdrawals = withdrawals.reduce((sum: number, w: any) =>
            sum + (parseFloat(w.rent_collected) || 0), 0);
 
@@ -590,7 +590,7 @@ import { logError } from './error-logger';
          // the balance correctly.
          const billed = rentFromWithdrawals + (r.hamali_payable || 0) + (r.insurance_payable || 0);
 
-         const paid = (r.payments || []).reduce((sum: number, p: any) => sum + p.amount, 0);
+         const paid = (r.payments || []).filter((p: any) => !p.deleted_at).reduce((sum: number, p: any) => sum + p.amount, 0);
          totalDues += billed;
          totalPaid += paid;
        });
@@ -625,12 +625,12 @@ import { logError } from './error-logger';
         .from('storage_records')
         .select(`
           *,
-          payments (amount, type),
-          withdrawal_transactions (rent_collected)
+          payments (amount, type, deleted_at),
+          withdrawal_transactions (rent_collected, deleted_at)
         `)
         .eq('warehouse_id', warehouseId)
         .is('deleted_at', null);
-      
+
       const reportData = customers.map(c => {
          const userRecords = records?.filter((r: any) => r.customer_id === c.id) || [];
          let rentBilled = 0;
@@ -642,8 +642,8 @@ import { logError } from './error-logger';
          let otherPaid = 0; // Payments without type or 'other'
 
          userRecords.forEach((r: any) => {
-           // Calculate actual rent from withdrawal transactions (same logic as Statement of Account)
-           const withdrawals = r.withdrawal_transactions || [];
+           // Calculate actual rent from non-deleted withdrawal transactions
+           const withdrawals = (r.withdrawal_transactions || []).filter((w: any) => !w.deleted_at);
            const rentFromWithdrawals = withdrawals.reduce((sum: number, w: any) =>
              sum + (parseFloat(w.rent_collected) || 0), 0);
 
@@ -651,7 +651,7 @@ import { logError } from './error-logger';
            hamaliBilled += (r.hamali_payable || 0);
            insuranceBilled += (r.insurance_payable || 0);
 
-           (r.payments || []).forEach((p: any) => {
+           (r.payments || []).filter((p: any) => !p.deleted_at).forEach((p: any) => {
                if (p.type === 'rent') rentPaid += p.amount;
                else if (p.type === 'hamali') hamaliPaid += p.amount;
                else if (p.type === 'insurance') insurancePaid += p.amount;
@@ -769,8 +769,8 @@ import { logError } from './error-logger';
       .select(`
         *,
         customers (name, customer_number),
-        withdrawal_transactions (withdrawal_date, bags_withdrawn, rent_collected),
-        payments (payment_date, amount, type)
+        withdrawal_transactions (withdrawal_date, bags_withdrawn, rent_collected, deleted_at),
+        payments (payment_date, amount, type, deleted_at)
       `)
       .eq('warehouse_id', warehouseId)
       .is('deleted_at', null)
@@ -793,8 +793,8 @@ import { logError } from './error-logger';
         description: `Inflow - ${r.bags_stored} bags received`
       });
       
-      // Withdrawal transactions
-      r.withdrawal_transactions?.forEach((w: any) => {
+      // Withdrawal transactions (skip soft-deleted)
+      r.withdrawal_transactions?.filter((w: any) => !w.deleted_at).forEach((w: any) => {
         transactions.push({
           date: new Date(w.withdrawal_date),
           type: 'outflow',
@@ -806,9 +806,9 @@ import { logError } from './error-logger';
           description: `Outflow - ${w.bags_withdrawn} bags withdrawn`
         });
       });
-      
-      // Payment transactions
-      r.payments?.forEach((p: any) => {
+
+      // Payment transactions (skip soft-deleted)
+      r.payments?.filter((p: any) => !p.deleted_at).forEach((p: any) => {
         transactions.push({
           date: new Date(p.payment_date),
           type: 'payment',

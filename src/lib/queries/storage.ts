@@ -66,8 +66,8 @@ export const getDashboardMetrics = cache(async () => {
         .select(`
             hamali_payable,
             insurance_payable,
-            withdrawal_transactions (rent_collected),
-            payments (amount)
+            withdrawal_transactions (rent_collected, deleted_at),
+            payments (amount, deleted_at)
         `)
         .eq('warehouse_id', warehouseId)
         .is('deleted_at', null);
@@ -76,8 +76,8 @@ export const getDashboardMetrics = cache(async () => {
     let totalPaid = 0;
 
     revenueRecords?.forEach((r: any) => {
-        // Calculate actual rent from withdrawal transactions
-        const withdrawals = r.withdrawal_transactions || [];
+        // Calculate actual rent from non-deleted withdrawal transactions only
+        const withdrawals = (r.withdrawal_transactions || []).filter((w: any) => !w.deleted_at);
         const rentFromWithdrawals = withdrawals.reduce((sum: number, w: any) =>
             sum + (parseFloat(w.rent_collected) || 0), 0);
 
@@ -86,8 +86,8 @@ export const getDashboardMetrics = cache(async () => {
             (r.hamali_payable || 0) +
             (r.insurance_payable || 0);
 
-        // Sum all payments (rent + hamali + insurance + other)
-        const payments = r.payments || [];
+        // Sum all non-deleted payments (rent + hamali + insurance + other)
+        const payments = (r.payments || []).filter((p: any) => !p.deleted_at);
         totalPaid += payments.reduce((sum: number, p: any) => sum + (p.amount || 0), 0);
     });
 
@@ -189,7 +189,7 @@ function buildStorageRecordsQuery(
   if (includePayments) selectParts.push('payments (*)');
   if (includeCustomer) selectParts.push('customer:customers(name, customer_number)');
   // Include withdrawal transactions to calculate actual remaining stock
-  selectParts.push('withdrawal_transactions (bags_withdrawn)');
+  selectParts.push('withdrawal_transactions (bags_withdrawn, deleted_at)');
 
   let query = supabase
     .from('storage_records')
@@ -290,7 +290,7 @@ export const getStorageRecord = cache(async (id: string): Promise<StorageRecord 
       *,
       payments (*),
       customer:customers(name, customer_number),
-      withdrawal_transactions (bags_withdrawn)
+      withdrawal_transactions (bags_withdrawn, deleted_at)
     `)
     .eq('id', id)
     .single();
@@ -434,7 +434,7 @@ export const searchActiveStorageRecords = cache(async (query: string, limit = 20
       bags_stored,
       bags_in,
       customer:customers!inner(name, customer_number),
-      withdrawal_transactions (bags_withdrawn) 
+      withdrawal_transactions (bags_withdrawn, deleted_at) 
     `)
     .eq('warehouse_id', warehouseId)
     .is('deleted_at', null)
@@ -456,7 +456,7 @@ export const searchActiveStorageRecords = cache(async (query: string, limit = 20
   if (error) return [];
 
   return data.map((r: any) => {
-      const totalWithdrawn = (r.withdrawal_transactions || []).reduce((sum: number, wt: any) => sum + (wt.bags_withdrawn || 0), 0);
+      const totalWithdrawn = (r.withdrawal_transactions || []).filter((wt: any) => !wt.deleted_at).reduce((sum: number, wt: any) => sum + (wt.bags_withdrawn || 0), 0);
       const initialBags = r.bags_in || r.bags_stored || 0;
       const currentBalance = initialBags - totalWithdrawn;
 
@@ -501,7 +501,7 @@ export const getPaginatedStorageRecords = cache(async (
                 *,
                 payments (*),
                 customer:customers${isSearchByCustomerName ? '!inner' : ''}(name),
-                withdrawal_transactions (bags_withdrawn)
+                withdrawal_transactions (bags_withdrawn, deleted_at)
             `, { count: 'exact' })
             .eq('warehouse_id', warehouseId);
 

@@ -47,9 +47,18 @@ export const getCustomerPortfolio = cache(async () => {
             withdrawal_transactions (*)
         `)
         .in('customer_id', customerIds)
+        .is('deleted_at', null)
         .order('storage_start_date', { ascending: false });
 
     if (!records) return [];
+
+    // Strip soft-deleted children — Supabase nested joins do NOT inherit the
+    // parent's deleted_at filter, so deleted withdrawals/payments leak through
+    // and show up in the customer portal as ghost transactions.
+    records.forEach((r: any) => {
+        r.payments = (r.payments || []).filter((p: any) => !p.deleted_at);
+        r.withdrawal_transactions = (r.withdrawal_transactions || []).filter((w: any) => !w.deleted_at);
+    });
 
     // 3. Aggregate by Warehouse
     const portfolio: Record<string, PortfolioItem> = {};
