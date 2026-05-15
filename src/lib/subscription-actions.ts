@@ -480,8 +480,13 @@ export async function createSubscriptionPaymentLink(
       return { success: false, error: 'Warehouse not found' };
     }
 
-    // 3. Get warehouse owner via user_warehouses join
-    const { data: ownerLink, error: ownerError } = await supabase
+    // 3. Get warehouse owner via user_warehouses join.
+    // Uses admin client to bypass RLS — when a super_admin initiates the
+    // upgrade on behalf of a warehouse, the owner's user_warehouses row is
+    // hidden from the super_admin's RLS view and the lookup would 404.
+    const { createAdminClient } = await import('@/utils/supabase/admin');
+    const adminSupabase = await createAdminClient();
+    const { data: ownerLink, error: ownerError } = await adminSupabase
       .from('user_warehouses')
       .select('user_id, profiles!inner(full_name, phone)')
       .eq('warehouse_id', warehouseId)
