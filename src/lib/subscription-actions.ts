@@ -502,10 +502,12 @@ export async function createSubscriptionPaymentLink(
       return { success: false, error: 'Owner phone number not available' };
     }
 
-    // 4. Create payment link via Razorpay service
+    // 4. Create payment link via Razorpay service.
+    // We deliberately do NOT pass customerId — the warehouse owner is a
+    // profiles row, not a customers row, and payment_links.customer_id is
+    // a FK to customers. SaaS subscription payment links leave it null.
     const linkResult = await createPaymentLink({
       warehouseId,
-      customerId: ownerLink.user_id,
       customerName: profile.full_name || 'Warehouse Owner',
       customerPhone: profile.phone,
       amount: plan.price,

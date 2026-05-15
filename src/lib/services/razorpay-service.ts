@@ -20,7 +20,12 @@ function getRazorpayInstance() {
 
 export interface CreatePaymentLinkParams {
   warehouseId: string;
-  customerId: string;
+  /**
+   * FK to public.customers (grain customer rent flow). Leave undefined for
+   * SaaS subscription payments — the warehouse owner is a profiles row,
+   * not a customers row, so we don't set customer_id at all in that case.
+   */
+  customerId?: string;
   customerName: string;
   customerPhone: string;
   amount: number;
@@ -70,12 +75,13 @@ export async function createPaymentLink(
 
     const razorpayLink = await razorpay.paymentLink.create(linkData);
 
-    // Store payment link in database
+    // Store payment link in database. customer_id is optional now (SaaS
+    // subscription payments don't have a grain-customer row to point at).
     const { data: paymentLink, error } = await supabase
       .from('payment_links')
       .insert({
         warehouse_id: params.warehouseId,
-        customer_id: params.customerId,
+        customer_id: params.customerId || null,
         record_id: params.recordId || null,
         amount: params.amount,
         description: params.description,
