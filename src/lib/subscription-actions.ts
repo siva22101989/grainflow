@@ -423,7 +423,13 @@ export type SubscriptionPayment = {
 };
 
 /**
- * Create a Razorpay payment link for subscription upgrade or renewal
+ * Create a Razorpay payment link for subscription upgrade or renewal.
+ *
+ * If `warehouseId` is empty/undefined, the active warehouse is resolved
+ * server-side via getActiveWarehouseId() — avoids a race where the client
+ * WarehouseProvider hasn't hydrated yet at click time and the user sees
+ * "No active warehouse selected" even though one is clearly active in
+ * settings.
  */
 export async function createSubscriptionPaymentLink(
   warehouseId: string,
@@ -433,9 +439,19 @@ export async function createSubscriptionPaymentLink(
   try {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
-    
+
     if (!user) {
       return { success: false, error: 'Unauthorized' };
+    }
+
+    // Server-side fallback if the client didn't pass a warehouseId
+    if (!warehouseId) {
+      const { getActiveWarehouseId } = await import('@/lib/warehouse-actions');
+      const resolvedId = await getActiveWarehouseId();
+      if (!resolvedId) {
+        return { success: false, error: 'No active warehouse. Please switch warehouses in Settings.' };
+      }
+      warehouseId = resolvedId;
     }
 
     // 1. Get plan details

@@ -21,17 +21,13 @@ export default function UpgradePage() {
 
   const handleUpgrade = async (tier: PlanTier) => {
     if (tier === 'free') return;
-    if (!warehouseId) {
-        toastError('Error', 'No active warehouse selected.');
-        return;
-    }
 
     setLoading(true);
     try {
-      // Create a Razorpay payment link for this plan. The webhook will activate
-      // the subscription once payment is captured. SMS is sent to the owner's
-      // phone with the link as a fallback in case the popup is closed.
-      const result = await createSubscriptionPaymentLink(warehouseId, tier, false);
+      // Pass whatever the client context has; the server action falls back to
+      // getActiveWarehouseId() if it's empty. Avoids a race where the warehouse
+      // provider hasn't hydrated yet when the user clicks.
+      const result = await createSubscriptionPaymentLink(warehouseId || '', tier, false);
 
       if (result.success && result.linkUrl) {
           toastSuccess('Redirecting to payment…', 'Opening Razorpay checkout. SMS link also sent as backup.');
