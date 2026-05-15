@@ -26,9 +26,9 @@ export function SubscriptionSettingsTab() {
                     <CardDescription>Get started with a premium plan to unlock more features.</CardDescription>
                 </CardHeader>
                 <CardFooter className="flex gap-2">
-                    <Button onClick={() => router.push('/pricing')} variant="outline">View Plans</Button>
+                    <Button onClick={() => router.push('/upgrade')} variant="outline">View Plans</Button>
                     {/* Note: Warehouse ID should be passed in safely */}
-                     <Button onClick={() => router.push('/pricing')}>Contact for Code</Button>
+                     <Button onClick={() => router.push('/upgrade')}>Contact for Code</Button>
                 </CardFooter>
             </Card>
         );
@@ -114,7 +114,7 @@ export function SubscriptionSettingsTab() {
                     </div>
                 </CardContent>
                 <CardFooter className="flex justify-between border-t px-6 py-4 bg-muted/20">
-                    <Button variant="outline" onClick={() => router.push('/pricing')}>
+                    <Button variant="outline" onClick={() => router.push('/upgrade')}>
                         View All Plans
                     </Button>
                     <RedeemCodeDialog warehouseId={subscription.warehouse_id} />

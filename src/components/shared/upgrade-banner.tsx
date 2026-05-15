@@ -20,7 +20,7 @@ export function UpgradeBanner({ title = "Upgrade Required", description, type = 
             <AlertTitle>{title}</AlertTitle>
             <AlertDescription className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between mt-2">
                 <span>{description}</span>
-                <Button size="sm" variant={type === 'blocker' ? 'secondary' : 'default'} onClick={() => router.push('/pricing')}>
+                <Button size="sm" variant={type === 'blocker' ? 'secondary' : 'default'} onClick={() => router.push('/upgrade')}>
                     View Plans
                 </Button>
             </AlertDescription>
