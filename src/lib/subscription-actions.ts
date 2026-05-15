@@ -577,6 +577,96 @@ export async function createSubscriptionPaymentLink(
 }
 
 /**
+ * Reconcile a subscription payment from the success page.
+ *
+ * Razorpay redirects the customer back to /payment-success after payment.
+ * Normally the webhook activates the subscription within seconds, but the
+ * webhook can fail (signature mismatch, event not subscribed, downtime).
+ * This action checks whether the subscription was activated; if not, it
+ * fetches the payment from Razorpay directly and activates it.
+ *
+ * Idempotent — activateSubscriptionPayment checks subscription_payments
+ * for an existing row before doing anything, so calling this when the
+ * webhook already ran is a safe no-op.
+ */
+export async function reconcileSubscriptionPayment(params: {
+  razorpay_payment_id: string;
+  razorpay_payment_link_id: string;
+}): Promise<{ success: boolean; pending?: boolean; message?: string; error?: string }> {
+  try {
+    const { createAdminClient } = await import('@/utils/supabase/admin');
+    const supabase = await createAdminClient();
+
+    // 1. Find the payment_link row by razorpay_link_id
+    const { data: linkRow, error: linkErr } = await supabase
+      .from('payment_links')
+      .select('*')
+      .eq('razorpay_link_id', params.razorpay_payment_link_id)
+      .single();
+
+    if (linkErr || !linkRow) {
+      return { success: false, error: 'Payment link not found in our records.' };
+    }
+
+    const metadata = linkRow.metadata || {};
+    if (!metadata.subscription_payment) {
+      return { success: false, error: 'This payment link is not for a subscription.' };
+    }
+
+    // 2. If already activated (webhook ran), just confirm
+    const { data: existingSubPayment } = await supabase
+      .from('subscription_payments')
+      .select('id')
+      .eq('razorpay_payment_id', params.razorpay_payment_id)
+      .maybeSingle();
+
+    if (existingSubPayment) {
+      return { success: true, message: 'Subscription is active. You can return to billing.' };
+    }
+
+    // 3. Webhook hasn't fired yet — fetch payment details from Razorpay
+    // and activate manually. This is the fallback path.
+    const { default: Razorpay } = await import('razorpay');
+    const razorpay = new Razorpay({
+      key_id: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID!,
+      key_secret: process.env.RAZORPAY_KEY_SECRET!,
+    });
+
+    const payment: any = await razorpay.payments.fetch(params.razorpay_payment_id);
+    if (payment.status !== 'captured' && payment.status !== 'authorized') {
+      return { success: false, error: `Payment status from Razorpay: ${payment.status}` };
+    }
+
+    // 4. Activate the subscription
+    const result = await activateSubscriptionPayment(
+      metadata.warehouse_id,
+      metadata.plan_id,
+      {
+        razorpay_payment_id: payment.id,
+        razorpay_payment_link_id: linkRow.id,
+        amount: payment.amount / 100,
+        payment_method: payment.method,
+      }
+    );
+
+    if (!result.success) {
+      return { success: false, error: result.error || 'Activation failed.' };
+    }
+
+    // 5. Mark the payment_link row as completed so it's not retried
+    await supabase
+      .from('payment_links')
+      .update({ status: 'completed', paid_at: new Date().toISOString() })
+      .eq('id', linkRow.id);
+
+    return { success: true, message: 'Subscription activated. (Webhook was delayed — we reconciled manually.)' };
+  } catch (error: any) {
+    logError(error, { operation: 'reconcileSubscriptionPayment', metadata: params });
+    return { success: false, error: error.message || 'Reconciliation failed.' };
+  }
+}
+
+/**
  * Activate subscription after successful payment
  * Called by webhook handler
  */
