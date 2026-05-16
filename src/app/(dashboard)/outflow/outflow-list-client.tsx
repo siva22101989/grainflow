@@ -3,7 +3,8 @@
 import { useState, useMemo, useRef } from 'react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { EmptyState } from "@/components/ui/empty-state";
-import { ArrowUpToLine, Trash2, MoreHorizontal } from "lucide-react";
+import { ArrowUpToLine, Trash2, MoreHorizontal, ReceiptText } from "lucide-react";
+import Link from "next/link";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
 import { DeleteOutflowDialog } from "@/components/outflow/delete-outflow-dialog";
@@ -250,6 +251,19 @@ export function OutflowListClient({ outflows }: OutflowListClientProps) {
                                     </Button>
                                 </DropdownMenuTrigger>
                                 <DropdownMenuContent align="end">
+                                    {(record as any).consolidatedInvoiceNo && (
+                                        <DropdownMenuItem asChild>
+                                            <Link
+                                                href={`/outflow/batch/${encodeURIComponent((record as any).consolidatedInvoiceNo)}`}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="w-full justify-start cursor-pointer flex items-center"
+                                            >
+                                                <ReceiptText className="mr-2 h-4 w-4" />
+                                                View Consolidated Bill
+                                            </Link>
+                                        </DropdownMenuItem>
+                                    )}
                                     <DeleteOutflowDialog transactionId={record.id} bags={record.bags}>
                                         <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="text-destructive focus:text-destructive">
                                             <Trash2 className="mr-2 h-4 w-4" />
@@ -302,6 +316,19 @@ export function OutflowListClient({ outflows }: OutflowListClientProps) {
                                                 </Button>
                                             </DropdownMenuTrigger>
                                             <DropdownMenuContent align="end">
+                                                {(record as any).consolidatedInvoiceNo && (
+                                                    <DropdownMenuItem asChild>
+                                                        <Link
+                                                            href={`/outflow/batch/${encodeURIComponent((record as any).consolidatedInvoiceNo)}`}
+                                                            target="_blank"
+                                                            rel="noopener noreferrer"
+                                                            className="w-full justify-start cursor-pointer flex items-center"
+                                                        >
+                                                            <ReceiptText className="mr-2 h-4 w-4" />
+                                                            View Consolidated Bill
+                                                        </Link>
+                                                    </DropdownMenuItem>
+                                                )}
                                                 <DropdownMenuItem asChild>
                                                     <PrintButton
                                                         data={{

@@ -227,6 +227,12 @@ export function BulkOutflowDialog({ customer, records, crops, onOpenChange: _onO
             setOpen(false);
             showSuccess('Bulk Outflow Complete', state.message);
             router.refresh();
+            // If the server returned a consolidated invoice number, open the
+            // printable consolidated bill in a new tab so the user can show
+            // or hand it to the customer immediately.
+            if (state.consolidatedInvoiceNo) {
+                window.open(`/outflow/batch/${encodeURIComponent(state.consolidatedInvoiceNo)}`, '_blank', 'noopener,noreferrer');
+            }
             setBagsToWithdraw('');
             setRentPaidNow('');
             setDiscount('');

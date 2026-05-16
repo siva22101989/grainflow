@@ -385,6 +385,8 @@ export const getRecentOutflows = cache(async (limit = 5) => {
       withdrawal_date,
       bags_withdrawn,
       rent_collected,
+      batch_id,
+      consolidated_invoice_no,
       storage_record:storage_records (
         id,
         outflow_invoice_no,
@@ -404,13 +406,17 @@ export const getRecentOutflows = cache(async (limit = 5) => {
 
   return data.map((r: any) => ({
     id: r.id,
-    invoiceNo: r.storage_record?.outflow_invoice_no || r.storage_record?.record_number || r.storage_record?.id.slice(0,8),
+    // Prefer the consolidated invoice number (bulk batch); fall back to
+    // per-record outflow invoice for legacy single outflows.
+    invoiceNo: r.consolidated_invoice_no || r.storage_record?.outflow_invoice_no || r.storage_record?.record_number || r.storage_record?.id.slice(0,8),
+    consolidatedInvoiceNo: r.consolidated_invoice_no || null,
+    batchId: r.batch_id || null,
     date: new Date(r.withdrawal_date),
     customerName: r.storage_record?.customer?.name || 'Unknown',
     commodity: r.storage_record?.commodity_description,
     bags: r.bags_withdrawn,
     rentCollected: r.rent_collected || 0,
-    maxEditableBags: (r.storage_record?.bags_stored || 0) + r.bags_withdrawn 
+    maxEditableBags: (r.storage_record?.bags_stored || 0) + r.bags_withdrawn
   }));
 });
 

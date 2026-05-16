@@ -216,4 +216,8 @@ export type OutflowRecord = {
     commodity: string;
     bags: number;
     totalRent: number;
+    /** Shared invoice number across all rows in a bulk batch. Null for single outflows. */
+    consolidatedInvoiceNo?: string | null;
+    /** UUID of the bulk batch this withdrawal belongs to. Null for single outflows. */
+    batchId?: string | null;
 };
