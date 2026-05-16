@@ -330,7 +330,9 @@ export function CustomersPageClient({
                       <Link href={`/customers/${customer.id}`} className="hover:underline">
                         <div className="text-base font-semibold text-primary">{customer.name}</div>
                       </Link>
-                      <div className="text-xs text-muted-foreground">{customer.email || '-'}</div>
+                      {customer.email && (
+                        <div className="text-xs text-muted-foreground">{customer.email}</div>
+                      )}
                     </TableCell>
                     <TableCell>{customer.phone || '-'}</TableCell>
                     <TableCell>{customer.village || '-'}</TableCell>
