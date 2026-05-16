@@ -205,7 +205,9 @@ import { logError } from './error-logger';
           }
         }
 
-        // One ledger entry per bulk batch
+        // One ledger entry per bulk batch — but the slices array travels with
+        // it so the Excel export can drill into the batch and show per-record
+        // detail rows under the consolidated bill header.
         for (const [invoiceNo, slices] of batchMap.entries()) {
           const totalBags = slices.reduce((s, sl) => s + (sl.w.bags_withdrawn || 0), 0);
           const totalRent = slices.reduce((s, sl) => s + (parseFloat(sl.w.rent_collected) || 0), 0);
@@ -226,7 +228,15 @@ import { logError } from './error-logger';
             bagsOut: totalBags,
             hamali: null,
             rent: totalRent,
-            credit: null
+            credit: null,
+            isBulkBatch: true,
+            slices: slices.map(sl => ({
+              recordNumber: sl.record.record_number,
+              recordId: sl.record.id,
+              bagsOut: sl.w.bags_withdrawn,
+              rent: parseFloat(sl.w.rent_collected) || 0,
+              withdrawalDate: sl.w.withdrawal_date,
+            })),
           });
         }
 

@@ -1667,7 +1667,159 @@ export function exportCustomReportToExcel(
         }));
     }
 
+    // Customer Dues Statement gets a richer multi-sheet workbook in Excel
+    // mode: one sheet of per-record summary (existing), plus a chronological
+    // transactions ledger with bulk batches as parent rows + nested per-record
+    // detail rows so the customer can see exactly what happened on each day.
+    if (reportType === 'customer-dues-details' && format === 'excel' && data.transactions) {
+        return exportCustomerDuesMultiSheet({
+            filename,
+            recordRows: exportData,
+            transactions: data.transactions,
+            customerName: data.customer?.name || 'Customer',
+            summary: data.summary,
+        });
+    }
+
     return dispatchExport(exportData, filename, 'Report Data', format);
+}
+
+/**
+ * Multi-sheet Excel export for Customer Dues Statement.
+ *
+ * Sheet 1 "Records Summary": one row per storage record (per-record dues view).
+ * Sheet 2 "Daily Transactions": chronological ledger. For each bulk batch:
+ *   - one parent row showing date, bill #, total bags, total rent
+ *   - immediately followed by indented child rows, one per record slice
+ *     (record #, bags taken, slice rent), grouped in Excel via outlineLevel
+ *     so the customer can collapse/expand each batch in the spreadsheet.
+ * Single (non-batch) outflows render as one row each.
+ */
+async function exportCustomerDuesMultiSheet(opts: {
+    filename: string;
+    recordRows: any[];
+    transactions: any[];
+    customerName: string;
+    summary?: any;
+}) {
+    const ExcelJS = await import('exceljs');
+    const wb = new ExcelJS.Workbook();
+
+    // --- Sheet 1: per-record summary ---
+    if (opts.recordRows.length > 0) {
+        const ws1 = wb.addWorksheet('Records Summary');
+        const headers = Object.keys(opts.recordRows[0]);
+        ws1.columns = headers.map(h => ({ header: h, key: h, width: 18 }));
+        opts.recordRows.forEach(r => ws1.addRow(r));
+        ws1.getRow(1).font = { bold: true };
+        ws1.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE3F2FD' } };
+    }
+
+    // --- Sheet 2: chronological ledger with batch grouping ---
+    const ws2 = wb.addWorksheet('Daily Transactions');
+    ws2.columns = [
+        { header: 'Date', key: 'date', width: 14 },
+        { header: 'Type', key: 'type', width: 14 },
+        { header: 'Description', key: 'description', width: 50 },
+        { header: 'Bill / Record #', key: 'invoiceNo', width: 18 },
+        { header: 'Bags In', key: 'bagsIn', width: 10 },
+        { header: 'Bags Out', key: 'bagsOut', width: 10 },
+        { header: 'Hamali (₹)', key: 'hamali', width: 14 },
+        { header: 'Rent (₹)', key: 'rent', width: 14 },
+        { header: 'Paid (₹)', key: 'credit', width: 14 },
+        { header: 'Balance (₹)', key: 'balance', width: 14 },
+    ];
+    const headerRow = ws2.getRow(1);
+    headerRow.font = { bold: true };
+    headerRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE3F2FD' } };
+
+    // Sort chronologically
+    const sorted = [...opts.transactions].sort(
+        (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
+    );
+
+    for (const t of sorted) {
+        const dateStr = new Date(t.date).toLocaleDateString();
+        const parent = ws2.addRow({
+            date: dateStr,
+            type: t.type.toUpperCase(),
+            description: t.description,
+            invoiceNo: t.invoiceNo,
+            bagsIn: t.bagsIn ?? '',
+            bagsOut: t.bagsOut ?? '',
+            hamali: t.hamali ?? '',
+            rent: t.rent ?? '',
+            credit: t.credit ?? '',
+            balance: t.balance ?? '',
+        });
+
+        if (t.isBulkBatch && Array.isArray(t.slices) && t.slices.length > 0) {
+            // Style the batch parent row distinctively
+            parent.font = { bold: true };
+            parent.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFF3E0' } };
+
+            // Indented child rows, collapsible group
+            for (const sl of t.slices) {
+                const child = ws2.addRow({
+                    date: '',
+                    type: '  ↳ slice',
+                    description: `   Record #${sl.recordNumber ?? '—'}`,
+                    invoiceNo: '',
+                    bagsIn: '',
+                    bagsOut: sl.bagsOut,
+                    hamali: '',
+                    rent: sl.rent,
+                    credit: '',
+                    balance: '',
+                });
+                child.outlineLevel = 1;
+                child.font = { color: { argb: 'FF555555' }, italic: true };
+            }
+        } else if (t.type === 'outflow') {
+            parent.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFEBEE' } };
+        } else if (t.type === 'inflow') {
+            parent.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE8F5E9' } };
+        } else if (t.type === 'payment') {
+            parent.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF3E5F5' } };
+        }
+    }
+
+    // Summary footer
+    if (opts.summary) {
+        ws2.addRow({});
+        const tot = ws2.addRow({
+            date: '',
+            type: 'TOTALS',
+            description: '',
+            invoiceNo: '',
+            bagsIn: opts.summary.totalBagsIn,
+            bagsOut: opts.summary.totalBagsOut,
+            hamali: opts.summary.totalHamali,
+            rent: opts.summary.totalRent,
+            credit: opts.summary.totalPaid,
+            balance: opts.summary.balanceDue,
+        });
+        tot.font = { bold: true };
+        tot.border = { top: { style: 'thick' } };
+    }
+
+    // Freeze headers + enable outline summary above for both sheets
+    ws2.views = [{ state: 'frozen', ySplit: 1 }];
+    ws2.properties.outlineProperties = { summaryBelow: false, summaryRight: false };
+    if (opts.recordRows.length > 0) {
+        wb.getWorksheet('Records Summary')!.views = [{ state: 'frozen', ySplit: 1 }];
+    }
+
+    const buffer = await wb.xlsx.writeBuffer();
+    const blob = new Blob([buffer], {
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    });
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${opts.filename}-${new Date().toISOString().split('T')[0]}.xlsx`;
+    link.click();
+    window.URL.revokeObjectURL(url);
 }
 
 
