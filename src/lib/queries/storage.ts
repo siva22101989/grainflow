@@ -164,6 +164,19 @@ function mapRecords(records: any[]): StorageRecord[] {
       // storage_start/end dates are back-dated. Bulk outflow back-dating
       // would otherwise hide a record from "this month" filters.
       updatedAt: r.updated_at ? new Date(r.updated_at) : undefined,
+      // Non-deleted withdrawals on this record. Surfaced so the Customer
+      // Statement modal/PDF can build a chronological ledger and group
+      // bulk-outflow batches by consolidated_invoice_no.
+      withdrawals: (r.withdrawal_transactions || [])
+        .filter((w: any) => !w.deleted_at)
+        .map((w: any) => ({
+          id: w.id,
+          date: new Date(w.withdrawal_date),
+          bagsWithdrawn: w.bags_withdrawn,
+          rentCollected: Number(w.rent_collected || 0),
+          consolidatedInvoiceNo: w.consolidated_invoice_no || null,
+          batchId: w.batch_id || null,
+        })),
     };
   });
 }
@@ -194,7 +207,10 @@ function buildStorageRecordsQuery(
   if (includePayments) selectParts.push('payments (*)');
   if (includeCustomer) selectParts.push('customer:customers(name, customer_number)');
   // Include withdrawal transactions to calculate actual remaining stock
-  selectParts.push('withdrawal_transactions (bags_withdrawn, deleted_at)');
+  // AND to drive chronological ledger views (Customer Statement etc.).
+  // id + withdrawal_date + rent_collected + consolidated_invoice_no/batch_id
+  // let downstream code group bulk batches into single ledger rows.
+  selectParts.push('withdrawal_transactions (id, bags_withdrawn, withdrawal_date, rent_collected, deleted_at, consolidated_invoice_no, batch_id)');
 
   let query = supabase
     .from('storage_records')

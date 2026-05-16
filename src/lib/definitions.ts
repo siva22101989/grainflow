@@ -51,6 +51,21 @@ export type Payment = {
   updatedAt?: Date | string;
 };
 
+/**
+ * Individual withdrawal event on a storage record. Exposed on
+ * `StorageRecord.withdrawals` so chronological-ledger views (Customer
+ * Statement modal/PDF, etc.) can group by `consolidatedInvoiceNo` and
+ * render bulk batches as one entry with per-slice detail.
+ */
+export type WithdrawalEvent = {
+  id: string;
+  date: Date | string;
+  bagsWithdrawn: number;
+  rentCollected: number;
+  consolidatedInvoiceNo?: string | null;
+  batchId?: string | null;
+};
+
 export type StorageRecord = {
   id: string;
   customerId: string;
@@ -65,6 +80,8 @@ export type StorageRecord = {
   storageEndDate: Date | string | null;
   billingCycle: BillingCycle;
   payments: Payment[];
+  /** Non-deleted withdrawals on this record. Populated by mapRecords(). */
+  withdrawals?: WithdrawalEvent[];
   hamaliPayable: number;
   insurancePayable?: number;
   totalRentBilled: number;

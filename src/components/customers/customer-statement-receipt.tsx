@@ -1,7 +1,7 @@
 
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import type { Customer, StorageRecord } from '@/lib/definitions';
@@ -57,6 +57,115 @@ export const CustomerStatementReceipt = React.forwardRef<HTMLDivElement, Custome
         });
 
     }, [records]);
+
+    // Build chronological ledger: inflow events + bulk-grouped outflows +
+    // payments, sorted by date with running balance. Bulk batches
+    // (consolidatedInvoiceNo NOT null) collapse to one parent entry with
+    // per-record slice children visible underneath.
+    type LedgerEntry = {
+        date: Date;
+        kind: 'inflow' | 'outflow' | 'payment';
+        description: string;
+        invoiceNo: string;
+        bagsIn?: number;
+        bagsOut?: number;
+        rent?: number;
+        hamali?: number;
+        insurance?: number;
+        credit?: number;
+        slices?: { recordNumber?: string | null; bagsOut: number; rent: number }[];
+    };
+
+    const ledger = useMemo<LedgerEntry[]>(() => {
+        const out: LedgerEntry[] = [];
+
+        // Inflows + payments — one entry per record / per payment
+        records.forEach(r => {
+            out.push({
+                date: toDate(r.storageStartDate),
+                kind: 'inflow',
+                description: `Inflow - ${r.commodityDescription || 'Storage'}`,
+                invoiceNo: r.recordNumber || r.id.substring(0, 8),
+                bagsIn: r.bagsIn,
+                hamali: r.hamaliPayable || 0,
+                insurance: (r as any).insurancePayable || 0,
+            });
+            (r.payments || []).forEach((p) => {
+                out.push({
+                    date: toDate(p.date),
+                    kind: 'payment',
+                    description: `Payment - ${p.type || 'general'}`,
+                    invoiceNo: r.recordNumber || r.id.substring(0, 8),
+                    credit: p.amount,
+                });
+            });
+        });
+
+        // Withdrawals: flatten across records, then group by consolidatedInvoiceNo
+        type WT = { record: StorageRecord; w: NonNullable<StorageRecord['withdrawals']>[number] };
+        const allWds: WT[] = [];
+        records.forEach(r => {
+            (r.withdrawals || []).forEach(w => allWds.push({ record: r, w }));
+        });
+
+        const batches = new Map<string, WT[]>();
+        const singletons: WT[] = [];
+        for (const wt of allWds) {
+            const key = wt.w.consolidatedInvoiceNo;
+            if (!key) singletons.push(wt);
+            else {
+                const list = batches.get(key) || [];
+                list.push(wt);
+                batches.set(key, list);
+            }
+        }
+
+        for (const [invoiceNo, slices] of batches.entries()) {
+            const totalBags = slices.reduce((s, sl) => s + sl.w.bagsWithdrawn, 0);
+            const totalRent = slices.reduce((s, sl) => s + sl.w.rentCollected, 0);
+            const earliest = slices.reduce(
+                (min, sl) => Math.min(min, toDate(sl.w.date).getTime()),
+                Infinity
+            );
+            out.push({
+                date: new Date(earliest),
+                kind: 'outflow',
+                description: `Bulk Outflow - ${slices.length} records, ${totalBags} bags`,
+                invoiceNo,
+                bagsOut: totalBags,
+                rent: totalRent,
+                slices: slices.map(sl => ({
+                    recordNumber: sl.record.recordNumber,
+                    bagsOut: sl.w.bagsWithdrawn,
+                    rent: sl.w.rentCollected,
+                })),
+            });
+        }
+
+        for (const { record, w } of singletons) {
+            out.push({
+                date: toDate(w.date),
+                kind: 'outflow',
+                description: 'Outflow',
+                invoiceNo: record.recordNumber || record.id.substring(0, 8),
+                bagsOut: w.bagsWithdrawn,
+                rent: w.rentCollected,
+            });
+        }
+
+        // Sort chronologically (oldest first — running balance reads top-down)
+        out.sort((a, b) => a.date.getTime() - b.date.getTime());
+        return out;
+    }, [records]);
+
+    // Add running balance to each entry
+    const ledgerWithBalance = useMemo(() => {
+        let running = 0;
+        return ledger.map(entry => {
+            running += (entry.hamali || 0) + (entry.insurance || 0) + (entry.rent || 0) - (entry.credit || 0);
+            return { ...entry, balance: running };
+        });
+    }, [ledger]);
 
     return (
         <div ref={ref} className="printable-area bg-white p-4">
@@ -159,9 +268,76 @@ export const CustomerStatementReceipt = React.forwardRef<HTMLDivElement, Custome
                             </TableFooter>
                         </Table>
                     </div>
-                    
+
                     <Separator />
-            
+
+                    {/* Chronological Transactions Ledger */}
+                    {ledgerWithBalance.length > 0 && (
+                        <div>
+                            <h3 className="font-semibold text-sm mb-3">Transactions Ledger</h3>
+                            <p className="text-xs text-muted-foreground mb-2">
+                                Chronological events. Bulk outflows are shown as one bill row with the
+                                affected records listed beneath.
+                            </p>
+                            <Table>
+                                <TableHeader>
+                                    <TableRow className="bg-muted/50">
+                                        <TableHead>Date</TableHead>
+                                        <TableHead>Description</TableHead>
+                                        <TableHead>Bill / Record #</TableHead>
+                                        <TableHead className="text-right">Bags In</TableHead>
+                                        <TableHead className="text-right">Bags Out</TableHead>
+                                        <TableHead className="text-right">Rent</TableHead>
+                                        <TableHead className="text-right">Paid</TableHead>
+                                        <TableHead className="text-right">Balance</TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {ledgerWithBalance.map((e, idx) => (
+                                        <React.Fragment key={`${e.invoiceNo}-${idx}`}>
+                                            <TableRow
+                                                className={
+                                                    e.slices && e.slices.length > 0
+                                                        ? 'bg-amber-50 font-semibold'
+                                                        : e.kind === 'inflow'
+                                                            ? 'bg-emerald-50/50'
+                                                            : e.kind === 'payment'
+                                                                ? 'bg-violet-50/50'
+                                                                : ''
+                                                }
+                                            >
+                                                <TableCell className="whitespace-nowrap">{format(toDate(e.date), 'dd MMM yyyy')}</TableCell>
+                                                <TableCell>{e.description}</TableCell>
+                                                <TableCell className="font-mono text-xs">{e.invoiceNo}</TableCell>
+                                                <TableCell className="text-right">{e.bagsIn ?? ''}</TableCell>
+                                                <TableCell className="text-right">{e.bagsOut ?? ''}</TableCell>
+                                                <TableCell className="text-right">{e.rent != null ? formatCurrency(e.rent) : ''}</TableCell>
+                                                <TableCell className="text-right text-emerald-700">{e.credit != null ? formatCurrency(e.credit) : ''}</TableCell>
+                                                <TableCell className={`text-right font-medium ${(e as any).balance > 0 ? 'text-destructive' : 'text-emerald-700'}`}>
+                                                    {formatCurrency((e as any).balance)}
+                                                </TableCell>
+                                            </TableRow>
+                                            {e.slices && e.slices.length > 0 && e.slices.map((sl, sIdx) => (
+                                                <TableRow key={`${e.invoiceNo}-slice-${sIdx}`} className="text-xs text-muted-foreground italic">
+                                                    <TableCell></TableCell>
+                                                    <TableCell className="pl-8">↳ Record #{sl.recordNumber ?? '—'}</TableCell>
+                                                    <TableCell></TableCell>
+                                                    <TableCell></TableCell>
+                                                    <TableCell className="text-right">{sl.bagsOut}</TableCell>
+                                                    <TableCell className="text-right">{formatCurrency(sl.rent)}</TableCell>
+                                                    <TableCell></TableCell>
+                                                    <TableCell></TableCell>
+                                                </TableRow>
+                                            ))}
+                                        </React.Fragment>
+                                    ))}
+                                </TableBody>
+                            </Table>
+                        </div>
+                    )}
+
+                    <Separator />
+
                     <div className="mt-16 pt-8 flex justify-between text-center text-sm">
                         <div className="w-1/3">
                             <div className="border-t border-gray-400 mx-4 pt-2">Manager Signature</div>
