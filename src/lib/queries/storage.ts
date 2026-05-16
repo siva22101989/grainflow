@@ -159,6 +159,11 @@ function mapRecords(records: any[]): StorageRecord[] {
       plotBags: r.plot_bags,
       loadBags: r.load_bags,
       khataAmount: r.khata_amount,
+      // Expose updated_at so date-filtered views (customer detail, statement)
+      // can include records that were TOUCHED recently even if their
+      // storage_start/end dates are back-dated. Bulk outflow back-dating
+      // would otherwise hide a record from "this month" filters.
+      updatedAt: r.updated_at ? new Date(r.updated_at) : undefined,
     };
   });
 }

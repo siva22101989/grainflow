@@ -65,7 +65,7 @@ export function CustomerDetailsClient({ customer, initialRecords, crops }: Custo
              const recordDate = new Date(record.storageStartDate);
              // 1. Record started in range
              if (isWithinInterval(recordDate, { start, end })) return true;
-             
+
              // 2. Record ended in range (for history)
              if (record.storageEndDate) {
                  const endDate = new Date(record.storageEndDate);
@@ -73,10 +73,19 @@ export function CustomerDetailsClient({ customer, initialRecords, crops }: Custo
              }
 
              // 3. Has payment in range
-             const hasPaymentInRange = record.payments?.some(p => 
+             const hasPaymentInRange = record.payments?.some(p =>
                 isWithinInterval(new Date(p.date), { start, end })
              );
              if (hasPaymentInRange) return true;
+
+             // 4. Record was last UPDATED in range (catches activity like bulk
+             //    outflow that's back-dated to a different period — the record
+             //    was touched in the filter window even if the activity date
+             //    itself isn't).
+             if ((record as any).updatedAt) {
+                 const updated = new Date((record as any).updatedAt);
+                 if (isWithinInterval(updated, { start, end })) return true;
+             }
 
              return false;
         });
