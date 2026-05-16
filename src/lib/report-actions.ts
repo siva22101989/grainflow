@@ -35,7 +35,7 @@ import { logError } from './error-logger';
           .select(`
               *,
               payments (amount, type, payment_date, notes, deleted_at),
-              withdrawal_transactions (bags_withdrawn, withdrawal_date, rent_collected, deleted_at)
+              withdrawal_transactions (bags_withdrawn, withdrawal_date, rent_collected, deleted_at, consolidated_invoice_no, batch_id)
           `)
           .eq('customer_id', filters.customerId)
           .eq('warehouse_id', warehouseId)
@@ -145,8 +145,14 @@ import { logError } from './error-logger';
         );
   
         // BUILD STATEMENT OF ACCOUNT - Chronological Transaction Ledger
+        // Bulk-outflow withdrawals are grouped by consolidated_invoice_no:
+        // a single "Bulk Outflow #BILL — N records, X bags, ₹Y" entry
+        // replaces what would otherwise be N separate rows. Legacy single
+        // outflows (consolidated_invoice_no IS NULL) still render as one
+        // row each.
         const transactions: any[] = [];
-        
+
+        // Inflows + per-record payments — one entry each (unchanged)
         records.forEach((record: any) => {
           transactions.push({
             date: record.storage_start_date,
@@ -160,22 +166,8 @@ import { logError } from './error-logger';
             rent: null,
             credit: null
           });
-          
-          (record.withdrawal_transactions || []).filter((wt: any) => !wt.deleted_at).forEach((wt: any) => {
-            transactions.push({
-              date: wt.withdrawal_date,
-              type: 'outflow',
-              description: 'Outflow',
-              invoiceNo: record.record_number || record.id.substring(0, 8),
-              bagsIn: null,
-              bagsOut: wt.bags_withdrawn,
-              hamali: null,
-              rent: parseFloat(wt.rent_collected) || 0,
-              credit: null
-            });
-          });
-          
-          (record.payments || []).forEach((p: any) => {
+
+          (record.payments || []).filter((p: any) => !p.deleted_at).forEach((p: any) => {
             transactions.push({
               date: p.payment_date,
               type: 'payment',
@@ -189,6 +181,69 @@ import { logError } from './error-logger';
             });
           });
         });
+
+        // Withdrawals — flatten across records, then group by consolidated_invoice_no
+        type WT = { record: any; w: any };
+        const allWithdrawals: WT[] = [];
+        records.forEach((record: any) => {
+          (record.withdrawal_transactions || [])
+            .filter((wt: any) => !wt.deleted_at)
+            .forEach((w: any) => allWithdrawals.push({ record, w }));
+        });
+
+        // Group by consolidated_invoice_no (null grouping = each row stands alone)
+        const batchMap = new Map<string, WT[]>();
+        const singletonWithdrawals: WT[] = [];
+        for (const wt of allWithdrawals) {
+          const key = wt.w.consolidated_invoice_no;
+          if (!key) {
+            singletonWithdrawals.push(wt);
+          } else {
+            const list = batchMap.get(key) || [];
+            list.push(wt);
+            batchMap.set(key, list);
+          }
+        }
+
+        // One ledger entry per bulk batch
+        for (const [invoiceNo, slices] of batchMap.entries()) {
+          const totalBags = slices.reduce((s, sl) => s + (sl.w.bags_withdrawn || 0), 0);
+          const totalRent = slices.reduce((s, sl) => s + (parseFloat(sl.w.rent_collected) || 0), 0);
+          // Earliest withdrawal_date represents the batch (typically all same)
+          const earliestDate = slices
+            .map(sl => new Date(sl.w.withdrawal_date).getTime())
+            .reduce((min, t) => Math.min(min, t), Infinity);
+          const recordNumbers = slices
+            .map(sl => sl.record.record_number)
+            .filter(Boolean)
+            .sort((a: number, b: number) => a - b);
+          transactions.push({
+            date: new Date(earliestDate).toISOString(),
+            type: 'outflow',
+            description: `Bulk Outflow — ${slices.length} records, ${totalBags} bags${recordNumbers.length ? ' (#' + recordNumbers.join(', #') + ')' : ''}`,
+            invoiceNo,
+            bagsIn: null,
+            bagsOut: totalBags,
+            hamali: null,
+            rent: totalRent,
+            credit: null
+          });
+        }
+
+        // One ledger entry per legacy single outflow
+        for (const { record, w } of singletonWithdrawals) {
+          transactions.push({
+            date: w.withdrawal_date,
+            type: 'outflow',
+            description: 'Outflow',
+            invoiceNo: record.record_number || record.id.substring(0, 8),
+            bagsIn: null,
+            bagsOut: w.bags_withdrawn,
+            hamali: null,
+            rent: parseFloat(w.rent_collected) || 0,
+            credit: null
+          });
+        }
         
         transactions.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
         
@@ -769,7 +824,7 @@ import { logError } from './error-logger';
       .select(`
         *,
         customers (name, customer_number),
-        withdrawal_transactions (withdrawal_date, bags_withdrawn, rent_collected, deleted_at),
+        withdrawal_transactions (withdrawal_date, bags_withdrawn, rent_collected, deleted_at, consolidated_invoice_no, batch_id),
         payments (payment_date, amount, type, deleted_at)
       `)
       .eq('warehouse_id', warehouseId)
@@ -777,11 +832,13 @@ import { logError } from './error-logger';
       .order('created_at', { ascending: false })
       .limit(1000);
     
-    // Transform into transaction entries grouped by date
+    // Transform into transaction entries grouped by date.
+    // Bulk-outflow rows are collapsed: one entry per consolidated_invoice_no
+    // across all records in that batch. Single outflows still get one row each.
     const transactions: any[] = [];
-    
+
+    // Inflows first
     records?.forEach(r => {
-      // Inflow transaction
       transactions.push({
         date: new Date(r.storage_start_date),
         type: 'inflow',
@@ -792,22 +849,62 @@ import { logError } from './error-logger';
         amount: r.hamali_payable,
         description: `Inflow - ${r.bags_stored} bags received`
       });
-      
-      // Withdrawal transactions (skip soft-deleted)
-      r.withdrawal_transactions?.filter((w: any) => !w.deleted_at).forEach((w: any) => {
-        transactions.push({
-          date: new Date(w.withdrawal_date),
-          type: 'outflow',
-          recordNumber: r.record_number,
-          customerName: r.customers?.name,
-          commodity: r.commodity_description,
-          bags: w.bags_withdrawn,
-          amount: w.rent_collected,
-          description: `Outflow - ${w.bags_withdrawn} bags withdrawn`
-        });
-      });
+    });
 
-      // Payment transactions (skip soft-deleted)
+    // Flatten withdrawals across records, then group by consolidated_invoice_no
+    type WTRow = { r: any; w: any };
+    const allWds: WTRow[] = [];
+    records?.forEach(r => {
+      r.withdrawal_transactions?.filter((w: any) => !w.deleted_at).forEach((w: any) => {
+        allWds.push({ r, w });
+      });
+    });
+
+    const batches = new Map<string, WTRow[]>();
+    const singletons: WTRow[] = [];
+    for (const row of allWds) {
+      const key = row.w.consolidated_invoice_no;
+      if (!key) {
+        singletons.push(row);
+      } else {
+        const list = batches.get(key) || [];
+        list.push(row);
+        batches.set(key, list);
+      }
+    }
+
+    for (const [invoiceNo, slices] of batches.entries()) {
+      const totalBags = slices.reduce((s, sl) => s + (sl.w.bags_withdrawn || 0), 0);
+      const totalAmount = slices.reduce((s, sl) => s + (Number(sl.w.rent_collected) || 0), 0);
+      const earliest = slices.map(sl => new Date(sl.w.withdrawal_date).getTime()).reduce((m, t) => Math.min(m, t), Infinity);
+      const first = slices[0]!.r;
+      transactions.push({
+        date: new Date(earliest),
+        type: 'outflow',
+        recordNumber: invoiceNo,
+        customerName: first.customers?.name,
+        commodity: first.commodity_description,
+        bags: totalBags,
+        amount: totalAmount,
+        description: `Bulk Outflow - ${slices.length} records, ${totalBags} bags`,
+      });
+    }
+
+    for (const { r, w } of singletons) {
+      transactions.push({
+        date: new Date(w.withdrawal_date),
+        type: 'outflow',
+        recordNumber: r.record_number,
+        customerName: r.customers?.name,
+        commodity: r.commodity_description,
+        bags: w.bags_withdrawn,
+        amount: w.rent_collected,
+        description: `Outflow - ${w.bags_withdrawn} bags withdrawn`
+      });
+    }
+
+    // Payments per record (skip soft-deleted)
+    records?.forEach(r => {
       r.payments?.filter((p: any) => !p.deleted_at).forEach((p: any) => {
         transactions.push({
           date: new Date(p.payment_date),
