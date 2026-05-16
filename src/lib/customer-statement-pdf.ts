@@ -248,10 +248,14 @@ export async function generateCustomerStatementPdf(opts: {
     doc.setTextColor(20);
     doc.text(value, 38, boxTop + 6 + i * lineHeight);
   });
+  // Right column: label anchored further left + value right-aligned at the
+  // box edge. The previous offset (pageWidth - 52) gave the label ~38mm
+  // before the value, which wasn't enough for "Statement Date:" — the
+  // value overlapped the last few characters of the label. Bumped to 75mm.
   rightLines.forEach(({ label, value }, i) => {
     doc.setFont(font, 'normal');
     doc.setTextColor(110);
-    doc.text(`${label}:`, pageWidth - 52, boxTop + 6 + i * lineHeight);
+    doc.text(`${label}:`, pageWidth - 75, boxTop + 6 + i * lineHeight);
     doc.setFont(font, 'bold');
     doc.setTextColor(20);
     doc.text(value, pageWidth - 14, boxTop + 6 + i * lineHeight, { align: 'right' });
