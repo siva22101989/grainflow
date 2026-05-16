@@ -779,17 +779,17 @@ export const restoreStorageRecord = async (id: string): Promise<void> => {
  * @returns {Promise<string | null>} The UUID of the inserted transaction, or null.
  */
 export const saveWithdrawalTransaction = async (
-    recordId: string, 
-    bagsWithdrawn: number, 
-    date: Date | string, 
+    recordId: string,
+    bagsWithdrawn: number,
+    date: Date | string,
     rentCollected: number = 0,
     discount: number = 0,
-    options?: { batchId?: string; hamaliCharged?: number }
+    options?: { batchId?: string; hamaliCharged?: number; consolidatedInvoiceNo?: string }
 ): Promise<string | null> => {
     'use server';
     const supabase = await createClient();
     const warehouseId = await getUserWarehouse();
-    
+
     if (!warehouseId) throw new Error("No warehouse assigned");
 
     const insertData: Record<string, any> = {
@@ -806,6 +806,9 @@ export const saveWithdrawalTransaction = async (
     }
     if (options?.hamaliCharged !== undefined) {
         insertData.hamali_charged = options.hamaliCharged;
+    }
+    if (options?.consolidatedInvoiceNo) {
+        insertData.consolidated_invoice_no = options.consolidatedInvoiceNo;
     }
 
     const { data, error } = await supabase.from('withdrawal_transactions').insert(insertData).select('id').single();

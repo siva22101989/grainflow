@@ -39,7 +39,158 @@ export type BulkOutflowResult = {
     processedCount?: number;
     transactionIds?: string[];
     batchId?: string;
+    consolidatedInvoiceNo?: string;
 };
+
+export type BulkOutflowPreviewSlice = {
+    recordId: string;
+    recordNumber: number | string | null;
+    location: string | null;
+    bagsAvailable: number;
+    bagsToTake: number;
+    storageStartDate: string;
+    rent: number;
+};
+
+export type BulkOutflowPreview = {
+    success: boolean;
+    error?: string;
+    slices?: BulkOutflowPreviewSlice[];
+    totalBags?: number;
+    totalRent?: number;
+    bagsRequested?: number;
+    bagsShort?: number; // > 0 if not enough stock to fulfil the request
+};
+
+/**
+ * Read-only FIFO preview for the bulk outflow dialog.
+ *
+ * Given (customer, commodity, total bags, optional record ID subset, withdrawal
+ * date), returns the per-record allocation that processBulkOutflow WOULD make.
+ * No locks, no writes. Used by the dialog to render a live preview so the user
+ * can sanity-check before submitting.
+ *
+ * Does the same math as the real action: same FIFO order
+ * (storage_start_date ASC), same crop pricing lookup, same per-slice rent calc.
+ */
+export async function previewBulkOutflow(input: {
+    customerId: string;
+    commodity: string;
+    totalBagsToWithdraw: number;
+    withdrawalDate: string;
+    specificRecordIds?: string[];
+}): Promise<BulkOutflowPreview> {
+    try {
+        if (!input.customerId || !input.commodity || !input.totalBagsToWithdraw || input.totalBagsToWithdraw <= 0) {
+            return { success: false, error: 'Missing required preview inputs.' };
+        }
+
+        const supabase = await createClient();
+
+        // Fetch eligible active records for this commodity in FIFO order.
+        // No FOR UPDATE — this is a preview, not a reservation.
+        let recordQuery = supabase
+            .from('storage_records')
+            .select('id, record_number, location, bags_stored, storage_start_date, crop_id, hamali_payable, total_rent_billed, billing_cycle, insurance_payable, commodity_description')
+            .eq('customer_id', input.customerId)
+            .eq('commodity_description', input.commodity)
+            .is('storage_end_date', null)
+            .is('deleted_at', null)
+            .gt('bags_stored', 0)
+            .order('storage_start_date', { ascending: true });
+
+        if (input.specificRecordIds && input.specificRecordIds.length > 0) {
+            recordQuery = recordQuery.in('id', input.specificRecordIds);
+        }
+
+        const { data: rawRecords, error: queryError } = await recordQuery;
+        if (queryError) {
+            return { success: false, error: queryError.message };
+        }
+        if (!rawRecords || rawRecords.length === 0) {
+            return { success: false, error: 'No active records found for this commodity.' };
+        }
+
+        const totalAvailable = rawRecords.reduce((sum, r) => sum + (r.bags_stored || 0), 0);
+        const bagsShort = Math.max(0, input.totalBagsToWithdraw - totalAvailable);
+
+        // Load crop pricing for involved crops in one query (same as the real action)
+        const cropIds = [...new Set(rawRecords.map(r => r.crop_id).filter(Boolean))];
+        const cropPricingMap: Record<string, { price6m: number; price1y: number; pricingSlabs?: any }> = {};
+        if (cropIds.length > 0) {
+            const { data: crops } = await supabase
+                .from('crops')
+                .select('id, rent_price_6m, rent_price_1y, pricing_slabs')
+                .in('id', cropIds);
+            if (crops) {
+                for (const crop of crops) {
+                    cropPricingMap[crop.id] = {
+                        price6m: crop.rent_price_6m,
+                        price1y: crop.rent_price_1y,
+                        pricingSlabs: crop.pricing_slabs
+                    };
+                }
+            }
+        }
+
+        // FIFO walk
+        const slices: BulkOutflowPreviewSlice[] = [];
+        let bagsRemaining = input.totalBagsToWithdraw;
+        const withdrawalDateObj = new Date(input.withdrawalDate);
+
+        for (const r of rawRecords) {
+            if (bagsRemaining <= 0) break;
+            const bagsToTake = Math.min(r.bags_stored || 0, bagsRemaining);
+
+            // Build a minimal StorageRecord-shaped object for BillingService
+            const recordForCalc = {
+                id: r.id,
+                storageStartDate: new Date(r.storage_start_date),
+                billingCycle: r.billing_cycle,
+                bagsStored: r.bags_stored,
+                bagsIn: r.bags_stored, // not used in calc, just shape
+                totalRentBilled: r.total_rent_billed || 0,
+                hamaliPayable: r.hamali_payable || 0,
+                insurancePayable: r.insurance_payable || 0,
+            } as any;
+
+            const cropData = r.crop_id ? cropPricingMap[r.crop_id] : undefined;
+            const { rent } = BillingService.calculateRent(
+                recordForCalc,
+                withdrawalDateObj,
+                bagsToTake,
+                cropData ? { price6m: cropData.price6m, price1y: cropData.price1y } : undefined,
+                cropData?.pricingSlabs
+            );
+
+            slices.push({
+                recordId: r.id,
+                recordNumber: r.record_number,
+                location: r.location,
+                bagsAvailable: r.bags_stored || 0,
+                bagsToTake,
+                storageStartDate: r.storage_start_date,
+                rent: Math.round(rent * 100) / 100,
+            });
+
+            bagsRemaining -= bagsToTake;
+        }
+
+        const totalBags = slices.reduce((sum, s) => sum + s.bagsToTake, 0);
+        const totalRent = slices.reduce((sum, s) => sum + s.rent, 0);
+
+        return {
+            success: true,
+            slices,
+            totalBags,
+            totalRent: Math.round(totalRent * 100) / 100,
+            bagsRequested: input.totalBagsToWithdraw,
+            bagsShort,
+        };
+    } catch (err: any) {
+        return { success: false, error: err?.message || 'Preview failed.' };
+    }
+}
 
 /**
  * Processes a bulk outflow operation for a specific customer and commodity.
@@ -219,10 +370,16 @@ export async function processBulkOutflow(_prevState: any, formData: FormData): P
                 let processedCount = 0;
                 const transactionIds: string[] = [];
                 const withdrawalDateObj = new Date(withdrawalDate);
-                
+
                 // Generate ONE batch_id for the entire bulk operation
                 const batchId = crypto.randomUUID();
-                
+
+                // Generate ONE consolidated invoice number for the entire batch.
+                // Every withdrawal_transactions row in this batch carries this
+                // number — that's how the bill renderer + statement grouping
+                // identify which withdrawals belong to one consolidated bill.
+                const consolidatedInvoiceNo = await getNextInvoiceNumber('outflow');
+
                 const totalBatchRent = operations.reduce((sum, op) => sum + op.rent, 0);
                 let paymentRemaining = amountPaidNow || 0;
                 let discountRemaining = discount || 0;
@@ -305,23 +462,23 @@ export async function processBulkOutflow(_prevState: any, formData: FormData): P
                         }
                     }
 
-                    // Invoice Number - individual per record (Option B)
-                    if (!record.outflowInvoiceNo) {
-                        // @ts-ignore
-                        recordUpdate.outflow_invoice_no = await getNextInvoiceNumber('outflow');
-                    }
+                    // Per-record outflow_invoice_no left untouched — that's for
+                    // legacy single-outflow tracking on storage_records. The
+                    // consolidated_invoice_no on each withdrawal_transactions
+                    // row is the new source of truth for bulk-batch bills.
 
                     // Update Record
                     await updateStorageRecord(record.id, recordUpdate);
 
-                    // Save Transaction with batch_id and hamali tracking
+                    // Save Transaction with batch_id, hamali tracking, and the
+                    // shared consolidated invoice number for this batch.
                     const txId = await saveWithdrawalTransaction(
-                        record.id, 
-                        bags, 
-                        withdrawalDateObj, 
-                        rentAfterDiscount, 
+                        record.id,
+                        bags,
+                        withdrawalDateObj,
+                        rentAfterDiscount,
                         allocatedDiscount,
-                        { batchId, hamaliCharged }
+                        { batchId, hamaliCharged, consolidatedInvoiceNo }
                     );
                     if (txId) transactionIds.push(txId);
 
@@ -356,12 +513,13 @@ Thank you.`;
                 revalidatePath('/customers');
                 revalidatePath(`/customers/${customerId}`);
 
-                return { 
-                    success: true, 
-                    message: `Successfully processed outflow for ${processedCount} records (${totalBagsToWithdraw} bags).`,
+                return {
+                    success: true,
+                    message: `Successfully processed outflow for ${processedCount} records (${totalBagsToWithdraw} bags). Bill #${consolidatedInvoiceNo}.`,
                     processedCount,
                     transactionIds,
-                    batchId
+                    batchId,
+                    consolidatedInvoiceNo
                 };
 
             } catch (err: any) {
