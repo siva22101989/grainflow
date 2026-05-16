@@ -12,6 +12,7 @@
  */
 
 import type { Customer, StorageRecord } from './definitions';
+import { ensurePdfFonts } from './pdf-fonts';
 
 const HEADER_FILL: [number, number, number] = [22, 78, 99];      // teal-900
 const ZEBRA_FILL: [number, number, number] = [245, 247, 250];   // slate-50
@@ -20,6 +21,11 @@ const OUTFLOW_FILL: [number, number, number] = [255, 235, 238]; // red-50
 const BATCH_FILL: [number, number, number] = [255, 243, 224];   // amber-100
 const PAYMENT_FILL: [number, number, number] = [243, 229, 245]; // purple-50
 const SLICE_TEXT: [number, number, number] = [110, 110, 110];   // grey
+
+// Inter is embedded via ensurePdfFonts. We name the font 'Inter' throughout.
+// If the font load fails (offline / 404), we fall back to helvetica.
+const BODY_FONT = 'Inter';
+const FALLBACK_FONT = 'helvetica';
 
 export type StatementSections = {
   includeRecordsTable: boolean;
@@ -170,16 +176,21 @@ export async function generateCustomerStatementPdf(opts: {
   const pageWidth = doc.internal.pageSize.getWidth();
   let y = 15;
 
+  // Try to embed Inter TTF. If it fails (offline / asset missing), fall
+  // back to helvetica so the PDF still generates.
+  let font = BODY_FONT;
+  try {
+    await ensurePdfFonts(doc);
+  } catch {
+    font = FALLBACK_FONT;
+  }
+
   // ---- Header ----
-  // Times for the warehouse banner + statement title gives an invoice-style
-  // formal feel that helvetica alone can't deliver. Body text below stays
-  // helvetica for crispness, and rupee values use courier (monospace) so
-  // amounts align cleanly in tables.
-  doc.setFont('times', 'bold');
+  doc.setFont(font, 'bold');
   doc.setFontSize(18);
   doc.text((opts.warehouse?.name || 'WAREHOUSE').toUpperCase(), pageWidth / 2, y, { align: 'center' });
   y += 7;
-  doc.setFont('helvetica', 'normal');
+  doc.setFont(font, 'normal');
   doc.setFontSize(9.5);
   const headerLines: string[] = [];
   if (opts.warehouse?.location) headerLines.push(opts.warehouse.location);
@@ -195,14 +206,14 @@ export async function generateCustomerStatementPdf(opts: {
   doc.setLineWidth(0.3);
   doc.line(10, y, pageWidth - 10, y);
   y += 5;
-  doc.setFont('times', 'bold');
-  doc.setFontSize(14);
+  doc.setFont(font, 'bold');
+  doc.setFontSize(13);
   doc.text('CUSTOMER STATEMENT', pageWidth / 2, y, { align: 'center' });
   y += 7;
 
   // ---- Customer details box ----
   doc.setFontSize(9.5);
-  doc.setFont('helvetica', 'normal');
+  doc.setFont(font, 'normal');
   const customerLines: { label: string; value: string }[] = [
     { label: 'Name', value: opts.customer.name },
     ...(opts.customer.fatherName ? [{ label: 'S/o', value: opts.customer.fatherName }] : []),
@@ -230,18 +241,18 @@ export async function generateCustomerStatementPdf(opts: {
   doc.roundedRect(10, boxTop, pageWidth - 20, boxHeight, 2, 2, 'FD');
 
   customerLines.forEach(({ label, value }, i) => {
-    doc.setFont('helvetica', 'normal');
+    doc.setFont(font, 'normal');
     doc.setTextColor(110);
     doc.text(`${label}:`, 14, boxTop + 6 + i * lineHeight);
-    doc.setFont('helvetica', 'bold');
+    doc.setFont(font, 'bold');
     doc.setTextColor(20);
     doc.text(value, 38, boxTop + 6 + i * lineHeight);
   });
   rightLines.forEach(({ label, value }, i) => {
-    doc.setFont('helvetica', 'normal');
+    doc.setFont(font, 'normal');
     doc.setTextColor(110);
     doc.text(`${label}:`, pageWidth - 52, boxTop + 6 + i * lineHeight);
-    doc.setFont('helvetica', 'bold');
+    doc.setFont(font, 'bold');
     doc.setTextColor(20);
     doc.text(value, pageWidth - 14, boxTop + 6 + i * lineHeight, { align: 'right' });
   });
@@ -261,17 +272,17 @@ export async function generateCustomerStatementPdf(opts: {
 
   autoTable(doc, {
     startY: y,
-    head: [['Total Rent', 'Total Hamali', 'Total Insurance', 'Total Paid', 'Balance Due']],
+    head: [['Total Rent (₹)', 'Total Hamali (₹)', 'Total Insurance (₹)', 'Total Paid (₹)', 'Balance Due (₹)']],
     body: [[
-      `Rs. ${fmtINR(totalRent)}`,
-      `Rs. ${fmtINR(totalHamali)}`,
-      `Rs. ${fmtINR(totalInsurance)}`,
-      `Rs. ${fmtINR(totalPaid)}`,
-      `Rs. ${fmtINR(balanceDue)}`,
+      fmtINR(totalRent),
+      fmtINR(totalHamali),
+      fmtINR(totalInsurance),
+      fmtINR(totalPaid),
+      fmtINR(balanceDue),
     ]],
     theme: 'grid',
-    headStyles: { fillColor: HEADER_FILL, fontStyle: 'bold', fontSize: 9.5, halign: 'center', font: 'helvetica' },
-    bodyStyles: { fontSize: 11.5, fontStyle: 'bold', halign: 'center', cellPadding: 3.5, font: 'courier' },
+    headStyles: { fillColor: HEADER_FILL, fontStyle: 'bold', fontSize: 9, halign: 'center', font, textColor: [255, 255, 255] },
+    bodyStyles: { fontSize: 12, fontStyle: 'bold', halign: 'center', cellPadding: 4, font },
     columnStyles: { 4: { textColor: balanceDue > 0 ? [200, 35, 35] : [40, 130, 60] } },
     margin: { left: 10, right: 10 },
   });
@@ -279,40 +290,52 @@ export async function generateCustomerStatementPdf(opts: {
 
   // ---- Optional: Records Summary table ----
   if (opts.sections.includeRecordsTable) {
-    doc.setFont('helvetica', 'bold');
+    doc.setFont(font, 'bold');
     doc.setFontSize(11.5);
     doc.setTextColor(40);
     doc.text('Detailed Stock Register', 10, y);
     doc.setTextColor(0);
     y += 3;
 
+    // Page width minus left+right margin (10+10) = 190mm usable.
+    // Distribute deliberately so amounts (which can be 5-7 digits with
+    // commas like 1,00,000) have room without truncating.
     autoTable(doc, {
       startY: y + 2,
-      head: [['Record #', 'Date In', 'Commodity', 'Bags', 'Billed', 'Paid', 'Balance']],
+      head: [['Rec #', 'Date In', 'Commodity', 'Bags', 'Billed (₹)', 'Paid (₹)', 'Balance (₹)']],
       body: opts.records.map(r => {
         const billed = (r.totalRentBilled || 0) + (r.hamaliPayable || 0) + ((r as any).insurancePayable || 0);
         const paid = (r.payments || []).reduce((s, p) => s + p.amount, 0);
         const bal = billed - paid;
         return [
-          { content: r.recordNumber || r.id.substring(0, 8), styles: { font: 'courier', fontStyle: 'bold' } },
+          { content: r.recordNumber || r.id.substring(0, 8), styles: { fontStyle: 'bold' } },
           fmtDate(r.storageStartDate),
           r.commodityDescription || '-',
-          { content: r.bagsStored, styles: { font: 'courier', halign: 'right' } },
-          { content: fmtINR(billed), styles: { font: 'courier', halign: 'right' } },
-          { content: fmtINR(paid), styles: { font: 'courier', halign: 'right' } },
-          { content: fmtINR(bal), styles: { font: 'courier', halign: 'right', fontStyle: 'bold', textColor: bal > 0 ? [200, 35, 35] : [40, 130, 60] } },
+          { content: r.bagsStored, styles: { halign: 'right' } },
+          { content: fmtINR(billed), styles: { halign: 'right' } },
+          { content: fmtINR(paid), styles: { halign: 'right' } },
+          { content: fmtINR(bal), styles: { halign: 'right', fontStyle: 'bold', textColor: bal > 0 ? [200, 35, 35] : [40, 130, 60] } },
         ] as any;
       }),
       foot: [[
-        { content: 'Totals', colSpan: 4, styles: { halign: 'right', fontStyle: 'bold', font: 'helvetica' } },
-        { content: fmtINR(totalBilled), styles: { fontStyle: 'bold', font: 'courier', halign: 'right' } },
-        { content: fmtINR(totalPaid), styles: { fontStyle: 'bold', font: 'courier', halign: 'right' } },
-        { content: fmtINR(balanceDue), styles: { fontStyle: 'bold', font: 'courier', halign: 'right', textColor: balanceDue > 0 ? [200, 35, 35] : [40, 130, 60] } },
+        { content: 'Totals', colSpan: 4, styles: { halign: 'right', fontStyle: 'bold' } },
+        { content: fmtINR(totalBilled), styles: { fontStyle: 'bold', halign: 'right' } },
+        { content: fmtINR(totalPaid), styles: { fontStyle: 'bold', halign: 'right' } },
+        { content: fmtINR(balanceDue), styles: { fontStyle: 'bold', halign: 'right', textColor: balanceDue > 0 ? [200, 35, 35] : [40, 130, 60] } },
       ]],
       theme: 'striped',
-      headStyles: { fillColor: HEADER_FILL, fontSize: 9.5, halign: 'center', font: 'helvetica' },
-      bodyStyles: { fontSize: 9, cellPadding: 2.5, font: 'helvetica' },
-      footStyles: { fillColor: ZEBRA_FILL, textColor: [0, 0, 0], fontSize: 9.5 },
+      headStyles: { fillColor: HEADER_FILL, fontSize: 9.5, halign: 'center', font, textColor: [255, 255, 255] },
+      bodyStyles: { fontSize: 9, cellPadding: 2.5, font },
+      footStyles: { fillColor: ZEBRA_FILL, textColor: [0, 0, 0], fontSize: 9.5, font },
+      columnStyles: {
+        0: { cellWidth: 18, halign: 'left' },   // Rec #
+        1: { cellWidth: 22, halign: 'left' },   // Date In
+        2: { cellWidth: 30, halign: 'left' },   // Commodity
+        3: { cellWidth: 16, halign: 'right' },  // Bags
+        4: { cellWidth: 32, halign: 'right' },  // Billed
+        5: { cellWidth: 32, halign: 'right' },  // Paid
+        6: { cellWidth: 40, halign: 'right' },  // Balance — generous
+      },
       margin: { left: 10, right: 10 },
     });
     y = (doc as any).lastAutoTable.finalY + 9;
@@ -321,13 +344,13 @@ export async function generateCustomerStatementPdf(opts: {
   // ---- Optional: Transactions Ledger ----
   if (opts.sections.includeLedger) {
     if (y > 240) { doc.addPage(); y = 15; }
-    doc.setFont('helvetica', 'bold');
+    doc.setFont(font, 'bold');
     doc.setFontSize(11.5);
     doc.setTextColor(40);
     doc.text('Transactions Ledger', 10, y);
     doc.setTextColor(0);
     y += 1;
-    doc.setFont('helvetica', 'normal');
+    doc.setFont(font, 'normal');
     doc.setFontSize(8.5);
     doc.setTextColor(110);
     doc.text('Chronological events. Bulk outflows show as one bill row with the affected records listed beneath.', 10, y + 4.5);
@@ -348,12 +371,12 @@ export async function generateCustomerStatementPdf(opts: {
       body.push([
         { content: fmtDate(e.date), styles: { ...rowStyle, fontStyle: e.isBulkBatch ? 'bold' : 'normal' } },
         { content: e.description, styles: { ...rowStyle, fontStyle: e.isBulkBatch ? 'bold' : 'normal' } },
-        { content: e.invoiceNo, styles: { ...rowStyle, fontStyle: 'bold', font: 'courier' } },
-        { content: e.bagsIn ?? '', styles: { ...rowStyle, halign: 'right', font: 'courier' } },
-        { content: e.bagsOut ?? '', styles: { ...rowStyle, halign: 'right', font: 'courier' } },
-        { content: e.rent != null ? fmtINR(e.rent) : '', styles: { ...rowStyle, halign: 'right', font: 'courier' } },
-        { content: e.credit != null ? fmtINR(e.credit) : '', styles: { ...rowStyle, halign: 'right', font: 'courier', textColor: [40, 130, 60] } },
-        { content: fmtINR(e.balance), styles: { ...rowStyle, halign: 'right', font: 'courier', fontStyle: 'bold', textColor: e.balance > 0 ? [200, 35, 35] : [40, 130, 60] } },
+        { content: e.invoiceNo, styles: { ...rowStyle, fontStyle: 'bold' } },
+        { content: e.bagsIn ?? '', styles: { ...rowStyle, halign: 'right' } },
+        { content: e.bagsOut ?? '', styles: { ...rowStyle, halign: 'right' } },
+        { content: e.rent != null ? fmtINR(e.rent) : '', styles: { ...rowStyle, halign: 'right' } },
+        { content: e.credit != null ? fmtINR(e.credit) : '', styles: { ...rowStyle, halign: 'right', textColor: [40, 130, 60] } },
+        { content: fmtINR(e.balance), styles: { ...rowStyle, halign: 'right', fontStyle: 'bold', textColor: e.balance > 0 ? [200, 35, 35] : [40, 130, 60] } },
       ]);
 
       // Bulk batch detail rows — soft amber tint, italic, indented
@@ -365,8 +388,8 @@ export async function generateCustomerStatementPdf(opts: {
             { content: `    Record #${sl.recordNumber ?? '-'}`, styles: { ...sliceStyle, textColor: SLICE_TEXT, fontStyle: 'italic' } },
             { content: '', styles: sliceStyle },
             { content: '', styles: sliceStyle },
-            { content: sl.bagsOut, styles: { ...sliceStyle, halign: 'right', textColor: SLICE_TEXT, font: 'courier' } },
-            { content: fmtINR(sl.rent), styles: { ...sliceStyle, halign: 'right', textColor: SLICE_TEXT, font: 'courier' } },
+            { content: sl.bagsOut, styles: { ...sliceStyle, halign: 'right', textColor: SLICE_TEXT } },
+            { content: fmtINR(sl.rent), styles: { ...sliceStyle, halign: 'right', textColor: SLICE_TEXT } },
             { content: '', styles: sliceStyle },
             { content: '', styles: sliceStyle },
           ]);
@@ -374,21 +397,23 @@ export async function generateCustomerStatementPdf(opts: {
       }
     });
 
+    // Distribute 190mm across 8 columns. Money columns wider; bag count narrow.
     autoTable(doc, {
       startY: y,
-      head: [['Date', 'Description', 'Bill / Record #', 'In', 'Out', 'Rent', 'Paid', 'Balance']],
+      head: [['Date', 'Description', 'Bill / Rec #', 'In', 'Out', 'Rent (₹)', 'Paid (₹)', 'Balance (₹)']],
       body,
       theme: 'grid',
-      headStyles: { fillColor: HEADER_FILL, fontSize: 9, halign: 'center', font: 'helvetica' },
-      bodyStyles: { fontSize: 8.5, cellPadding: 2, font: 'helvetica' },
+      headStyles: { fillColor: HEADER_FILL, fontSize: 8.5, halign: 'center', font, textColor: [255, 255, 255] },
+      bodyStyles: { fontSize: 8.5, cellPadding: 2, font },
       columnStyles: {
-        0: { cellWidth: 22 },
-        2: { cellWidth: 30 },
-        3: { halign: 'right', cellWidth: 12 },
-        4: { halign: 'right', cellWidth: 12 },
-        5: { halign: 'right', cellWidth: 22 },
-        6: { halign: 'right', cellWidth: 22 },
-        7: { halign: 'right', cellWidth: 25 },
+        0: { cellWidth: 20 },  // Date
+        1: { cellWidth: 50 },  // Description (longest)
+        2: { cellWidth: 24 },  // Bill / Rec #
+        3: { cellWidth: 10, halign: 'right' },  // In
+        4: { cellWidth: 10, halign: 'right' },  // Out
+        5: { cellWidth: 22, halign: 'right' },  // Rent
+        6: { cellWidth: 22, halign: 'right' },  // Paid
+        7: { cellWidth: 32, halign: 'right' },  // Balance
       },
       margin: { left: 10, right: 10 },
     });
@@ -403,7 +428,7 @@ export async function generateCustomerStatementPdf(opts: {
     doc.setDrawColor(220);
     doc.setLineWidth(0.2);
     doc.line(10, 285, pageWidth - 10, 285);
-    doc.setFont('helvetica', 'normal');
+    doc.setFont(font, 'normal');
     doc.setFontSize(8);
     doc.setTextColor(130);
     doc.text(`Page ${i} of ${pageCount}`, pageWidth - 10, 290, { align: 'right' });
