@@ -171,52 +171,82 @@ export async function generateCustomerStatementPdf(opts: {
   let y = 15;
 
   // ---- Header ----
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(16);
+  // Times for the warehouse banner + statement title gives an invoice-style
+  // formal feel that helvetica alone can't deliver. Body text below stays
+  // helvetica for crispness, and rupee values use courier (monospace) so
+  // amounts align cleanly in tables.
+  doc.setFont('times', 'bold');
+  doc.setFontSize(18);
   doc.text((opts.warehouse?.name || 'WAREHOUSE').toUpperCase(), pageWidth / 2, y, { align: 'center' });
-  y += 6;
+  y += 7;
   doc.setFont('helvetica', 'normal');
-  doc.setFontSize(9);
+  doc.setFontSize(9.5);
   const headerLines: string[] = [];
   if (opts.warehouse?.location) headerLines.push(opts.warehouse.location);
   if (opts.warehouse?.phone) headerLines.push(`Phone: ${opts.warehouse.phone}`);
   if (opts.warehouse?.gst_number) headerLines.push(`GST: ${opts.warehouse.gst_number}`);
   headerLines.forEach(line => {
     doc.text(line, pageWidth / 2, y, { align: 'center' });
-    y += 4;
+    y += 4.5;
   });
-  y += 1;
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(12);
+  y += 2;
+  // Subtle divider line under the warehouse header
+  doc.setDrawColor(180);
+  doc.setLineWidth(0.3);
+  doc.line(10, y, pageWidth - 10, y);
+  y += 5;
+  doc.setFont('times', 'bold');
+  doc.setFontSize(14);
   doc.text('CUSTOMER STATEMENT', pageWidth / 2, y, { align: 'center' });
-  y += 6;
+  y += 7;
 
   // ---- Customer details box ----
-  doc.setFontSize(9);
+  doc.setFontSize(9.5);
   doc.setFont('helvetica', 'normal');
-  const customerLines: string[] = [
-    `Name: ${opts.customer.name}`,
-    opts.customer.fatherName ? `S/o: ${opts.customer.fatherName}` : '',
-    opts.customer.village ? `Village: ${opts.customer.village}` : (opts.customer.address || ''),
-    opts.customer.phone ? `Phone: ${opts.customer.phone}` : '',
-    opts.customer.customerNumber != null ? `Customer ID: ${opts.customer.customerNumber}` : '',
-  ].filter(Boolean);
+  const customerLines: { label: string; value: string }[] = [
+    { label: 'Name', value: opts.customer.name },
+    ...(opts.customer.fatherName ? [{ label: 'S/o', value: opts.customer.fatherName }] : []),
+    { label: 'Village', value: opts.customer.village || opts.customer.address || '-' },
+    ...(opts.customer.phone ? [{ label: 'Phone', value: opts.customer.phone }] : []),
+    ...(opts.customer.customerNumber != null ? [{ label: 'Customer ID', value: String(opts.customer.customerNumber) }] : []),
+  ];
 
-  const rightLines: string[] = [
-    `Statement Date: ${fmtDate(new Date())}`,
-    `Total Records: ${opts.records.length}`,
+  const rightLines: { label: string; value: string }[] = [
+    { label: 'Statement Date', value: fmtDate(new Date()) },
+    { label: 'Total Records', value: String(opts.records.length) },
   ];
   if (opts.dateRange?.from) {
-    rightLines.push(`Period: ${fmtDate(opts.dateRange.from)} - ${opts.dateRange.to ? fmtDate(opts.dateRange.to) : '...'}`);
+    rightLines.push({
+      label: 'Period',
+      value: `${fmtDate(opts.dateRange.from)} - ${opts.dateRange.to ? fmtDate(opts.dateRange.to) : '...'}`,
+    });
   }
 
   const boxTop = y;
-  const boxHeight = Math.max(customerLines.length, rightLines.length) * 4.5 + 4;
-  doc.setDrawColor(220);
-  doc.roundedRect(10, boxTop, pageWidth - 20, boxHeight, 2, 2);
-  customerLines.forEach((line, i) => doc.text(line, 13, boxTop + 5 + i * 4.5));
-  rightLines.forEach((line, i) => doc.text(line, pageWidth - 13, boxTop + 5 + i * 4.5, { align: 'right' }));
-  y = boxTop + boxHeight + 6;
+  const lineHeight = 5;
+  const boxHeight = Math.max(customerLines.length, rightLines.length) * lineHeight + 5;
+  doc.setDrawColor(200);
+  doc.setFillColor(250, 250, 252);
+  doc.roundedRect(10, boxTop, pageWidth - 20, boxHeight, 2, 2, 'FD');
+
+  customerLines.forEach(({ label, value }, i) => {
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(110);
+    doc.text(`${label}:`, 14, boxTop + 6 + i * lineHeight);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(20);
+    doc.text(value, 38, boxTop + 6 + i * lineHeight);
+  });
+  rightLines.forEach(({ label, value }, i) => {
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(110);
+    doc.text(`${label}:`, pageWidth - 52, boxTop + 6 + i * lineHeight);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(20);
+    doc.text(value, pageWidth - 14, boxTop + 6 + i * lineHeight, { align: 'right' });
+  });
+  doc.setTextColor(0);
+  y = boxTop + boxHeight + 7;
 
   // ---- Totals summary ----
   let totalRent = 0, totalHamali = 0, totalInsurance = 0, totalPaid = 0;
@@ -233,25 +263,27 @@ export async function generateCustomerStatementPdf(opts: {
     startY: y,
     head: [['Total Rent', 'Total Hamali', 'Total Insurance', 'Total Paid', 'Balance Due']],
     body: [[
-      `₹${fmtINR(totalRent)}`,
-      `₹${fmtINR(totalHamali)}`,
-      `₹${fmtINR(totalInsurance)}`,
-      `₹${fmtINR(totalPaid)}`,
-      `₹${fmtINR(balanceDue)}`,
+      `Rs. ${fmtINR(totalRent)}`,
+      `Rs. ${fmtINR(totalHamali)}`,
+      `Rs. ${fmtINR(totalInsurance)}`,
+      `Rs. ${fmtINR(totalPaid)}`,
+      `Rs. ${fmtINR(balanceDue)}`,
     ]],
     theme: 'grid',
-    headStyles: { fillColor: HEADER_FILL, fontStyle: 'bold', fontSize: 9, halign: 'center' },
-    bodyStyles: { fontSize: 11, fontStyle: 'bold', halign: 'center', cellPadding: 3 },
+    headStyles: { fillColor: HEADER_FILL, fontStyle: 'bold', fontSize: 9.5, halign: 'center', font: 'helvetica' },
+    bodyStyles: { fontSize: 11.5, fontStyle: 'bold', halign: 'center', cellPadding: 3.5, font: 'courier' },
     columnStyles: { 4: { textColor: balanceDue > 0 ? [200, 35, 35] : [40, 130, 60] } },
     margin: { left: 10, right: 10 },
   });
-  y = (doc as any).lastAutoTable.finalY + 8;
+  y = (doc as any).lastAutoTable.finalY + 9;
 
   // ---- Optional: Records Summary table ----
   if (opts.sections.includeRecordsTable) {
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(11);
+    doc.setFontSize(11.5);
+    doc.setTextColor(40);
     doc.text('Detailed Stock Register', 10, y);
+    doc.setTextColor(0);
     y += 3;
 
     autoTable(doc, {
@@ -262,50 +294,45 @@ export async function generateCustomerStatementPdf(opts: {
         const paid = (r.payments || []).reduce((s, p) => s + p.amount, 0);
         const bal = billed - paid;
         return [
-          r.recordNumber || r.id.substring(0, 8),
+          { content: r.recordNumber || r.id.substring(0, 8), styles: { font: 'courier', fontStyle: 'bold' } },
           fmtDate(r.storageStartDate),
           r.commodityDescription || '-',
-          r.bagsStored,
-          `₹${fmtINR(billed)}`,
-          `₹${fmtINR(paid)}`,
-          { content: `₹${fmtINR(bal)}`, styles: { textColor: bal > 0 ? [200, 35, 35] : [40, 130, 60], fontStyle: 'bold' } },
+          { content: r.bagsStored, styles: { font: 'courier', halign: 'right' } },
+          { content: fmtINR(billed), styles: { font: 'courier', halign: 'right' } },
+          { content: fmtINR(paid), styles: { font: 'courier', halign: 'right' } },
+          { content: fmtINR(bal), styles: { font: 'courier', halign: 'right', fontStyle: 'bold', textColor: bal > 0 ? [200, 35, 35] : [40, 130, 60] } },
         ] as any;
       }),
       foot: [[
-        { content: 'Totals', colSpan: 4, styles: { halign: 'right', fontStyle: 'bold' } },
-        { content: `₹${fmtINR(totalBilled)}`, styles: { fontStyle: 'bold' } },
-        { content: `₹${fmtINR(totalPaid)}`, styles: { fontStyle: 'bold' } },
-        { content: `₹${fmtINR(balanceDue)}`, styles: { fontStyle: 'bold', textColor: balanceDue > 0 ? [200, 35, 35] : [40, 130, 60] } },
+        { content: 'Totals', colSpan: 4, styles: { halign: 'right', fontStyle: 'bold', font: 'helvetica' } },
+        { content: fmtINR(totalBilled), styles: { fontStyle: 'bold', font: 'courier', halign: 'right' } },
+        { content: fmtINR(totalPaid), styles: { fontStyle: 'bold', font: 'courier', halign: 'right' } },
+        { content: fmtINR(balanceDue), styles: { fontStyle: 'bold', font: 'courier', halign: 'right', textColor: balanceDue > 0 ? [200, 35, 35] : [40, 130, 60] } },
       ]],
       theme: 'striped',
-      headStyles: { fillColor: HEADER_FILL, fontSize: 9, halign: 'center' },
-      bodyStyles: { fontSize: 8.5 },
-      footStyles: { fillColor: ZEBRA_FILL, textColor: [0, 0, 0] },
-      columnStyles: {
-        0: { halign: 'left', fontStyle: 'bold' },
-        3: { halign: 'right' },
-        4: { halign: 'right' },
-        5: { halign: 'right' },
-        6: { halign: 'right' },
-      },
+      headStyles: { fillColor: HEADER_FILL, fontSize: 9.5, halign: 'center', font: 'helvetica' },
+      bodyStyles: { fontSize: 9, cellPadding: 2.5, font: 'helvetica' },
+      footStyles: { fillColor: ZEBRA_FILL, textColor: [0, 0, 0], fontSize: 9.5 },
       margin: { left: 10, right: 10 },
     });
-    y = (doc as any).lastAutoTable.finalY + 8;
+    y = (doc as any).lastAutoTable.finalY + 9;
   }
 
   // ---- Optional: Transactions Ledger ----
   if (opts.sections.includeLedger) {
     if (y > 240) { doc.addPage(); y = 15; }
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(11);
+    doc.setFontSize(11.5);
+    doc.setTextColor(40);
     doc.text('Transactions Ledger', 10, y);
+    doc.setTextColor(0);
     y += 1;
     doc.setFont('helvetica', 'normal');
-    doc.setFontSize(8);
+    doc.setFontSize(8.5);
     doc.setTextColor(110);
-    doc.text('Chronological events. Bulk outflows show as one bill row with the affected records listed beneath.', 10, y + 4);
+    doc.text('Chronological events. Bulk outflows show as one bill row with the affected records listed beneath.', 10, y + 4.5);
     doc.setTextColor(0);
-    y += 7;
+    y += 8;
 
     const ledger = buildLedger(opts.records);
 
@@ -317,29 +344,31 @@ export async function generateCustomerStatementPdf(opts: {
         e.kind === 'outflow' ? OUTFLOW_FILL :
         e.kind === 'payment' ? PAYMENT_FILL : undefined;
 
+      const rowStyle: any = tint ? { fillColor: tint } : {};
       body.push([
-        { content: fmtDate(e.date), styles: tint ? { fillColor: tint, fontStyle: e.isBulkBatch ? 'bold' : 'normal' } : {} },
-        { content: e.description, styles: tint ? { fillColor: tint, fontStyle: e.isBulkBatch ? 'bold' : 'normal' } : {} },
-        { content: e.invoiceNo, styles: tint ? { fillColor: tint, fontStyle: 'bold' } : { fontStyle: 'bold' } },
-        { content: e.bagsIn ?? '', styles: { halign: 'right', ...(tint ? { fillColor: tint } : {}) } },
-        { content: e.bagsOut ?? '', styles: { halign: 'right', ...(tint ? { fillColor: tint } : {}) } },
-        { content: e.rent != null ? `₹${fmtINR(e.rent)}` : '', styles: { halign: 'right', ...(tint ? { fillColor: tint } : {}) } },
-        { content: e.credit != null ? `₹${fmtINR(e.credit)}` : '', styles: { halign: 'right', textColor: [40, 130, 60], ...(tint ? { fillColor: tint } : {}) } },
-        { content: `₹${fmtINR(e.balance)}`, styles: { halign: 'right', fontStyle: 'bold', textColor: e.balance > 0 ? [200, 35, 35] : [40, 130, 60], ...(tint ? { fillColor: tint } : {}) } },
+        { content: fmtDate(e.date), styles: { ...rowStyle, fontStyle: e.isBulkBatch ? 'bold' : 'normal' } },
+        { content: e.description, styles: { ...rowStyle, fontStyle: e.isBulkBatch ? 'bold' : 'normal' } },
+        { content: e.invoiceNo, styles: { ...rowStyle, fontStyle: 'bold', font: 'courier' } },
+        { content: e.bagsIn ?? '', styles: { ...rowStyle, halign: 'right', font: 'courier' } },
+        { content: e.bagsOut ?? '', styles: { ...rowStyle, halign: 'right', font: 'courier' } },
+        { content: e.rent != null ? fmtINR(e.rent) : '', styles: { ...rowStyle, halign: 'right', font: 'courier' } },
+        { content: e.credit != null ? fmtINR(e.credit) : '', styles: { ...rowStyle, halign: 'right', font: 'courier', textColor: [40, 130, 60] } },
+        { content: fmtINR(e.balance), styles: { ...rowStyle, halign: 'right', font: 'courier', fontStyle: 'bold', textColor: e.balance > 0 ? [200, 35, 35] : [40, 130, 60] } },
       ]);
 
-      // Bulk batch detail rows
+      // Bulk batch detail rows — soft amber tint, italic, indented
       if (e.isBulkBatch && e.slices) {
         e.slices.forEach(sl => {
+          const sliceStyle = { fillColor: [253, 250, 240] as [number, number, number] };
           body.push([
-            { content: '', styles: { fillColor: [253, 250, 240] } },
-            { content: `    ↳ Record #${sl.recordNumber ?? '-'}`, styles: { textColor: SLICE_TEXT, fontStyle: 'italic', fillColor: [253, 250, 240] } },
-            { content: '', styles: { fillColor: [253, 250, 240] } },
-            { content: '', styles: { fillColor: [253, 250, 240] } },
-            { content: sl.bagsOut, styles: { halign: 'right', textColor: SLICE_TEXT, fillColor: [253, 250, 240] } },
-            { content: `₹${fmtINR(sl.rent)}`, styles: { halign: 'right', textColor: SLICE_TEXT, fillColor: [253, 250, 240] } },
-            { content: '', styles: { fillColor: [253, 250, 240] } },
-            { content: '', styles: { fillColor: [253, 250, 240] } },
+            { content: '', styles: sliceStyle },
+            { content: `    Record #${sl.recordNumber ?? '-'}`, styles: { ...sliceStyle, textColor: SLICE_TEXT, fontStyle: 'italic' } },
+            { content: '', styles: sliceStyle },
+            { content: '', styles: sliceStyle },
+            { content: sl.bagsOut, styles: { ...sliceStyle, halign: 'right', textColor: SLICE_TEXT, font: 'courier' } },
+            { content: fmtINR(sl.rent), styles: { ...sliceStyle, halign: 'right', textColor: SLICE_TEXT, font: 'courier' } },
+            { content: '', styles: sliceStyle },
+            { content: '', styles: sliceStyle },
           ]);
         });
       }
@@ -347,19 +376,19 @@ export async function generateCustomerStatementPdf(opts: {
 
     autoTable(doc, {
       startY: y,
-      head: [['Date', 'Description', 'Bill / Record #', 'Bags In', 'Bags Out', 'Rent', 'Paid', 'Balance']],
+      head: [['Date', 'Description', 'Bill / Record #', 'In', 'Out', 'Rent', 'Paid', 'Balance']],
       body,
       theme: 'grid',
-      headStyles: { fillColor: HEADER_FILL, fontSize: 8.5, halign: 'center' },
-      bodyStyles: { fontSize: 8 },
+      headStyles: { fillColor: HEADER_FILL, fontSize: 9, halign: 'center', font: 'helvetica' },
+      bodyStyles: { fontSize: 8.5, cellPadding: 2, font: 'helvetica' },
       columnStyles: {
         0: { cellWidth: 22 },
-        2: { cellWidth: 28 },
-        3: { halign: 'right', cellWidth: 14 },
-        4: { halign: 'right', cellWidth: 14 },
+        2: { cellWidth: 30 },
+        3: { halign: 'right', cellWidth: 12 },
+        4: { halign: 'right', cellWidth: 12 },
         5: { halign: 'right', cellWidth: 22 },
         6: { halign: 'right', cellWidth: 22 },
-        7: { halign: 'right', cellWidth: 24 },
+        7: { halign: 'right', cellWidth: 25 },
       },
       margin: { left: 10, right: 10 },
     });
@@ -370,9 +399,13 @@ export async function generateCustomerStatementPdf(opts: {
   const pageCount = (doc as any).internal.getNumberOfPages();
   for (let i = 1; i <= pageCount; i++) {
     doc.setPage(i);
+    // Thin separator line above footer
+    doc.setDrawColor(220);
+    doc.setLineWidth(0.2);
+    doc.line(10, 285, pageWidth - 10, 285);
     doc.setFont('helvetica', 'normal');
-    doc.setFontSize(7.5);
-    doc.setTextColor(120);
+    doc.setFontSize(8);
+    doc.setTextColor(130);
     doc.text(`Page ${i} of ${pageCount}`, pageWidth - 10, 290, { align: 'right' });
     doc.text(`${opts.customer.name}  |  Generated ${fmtDate(new Date())}  |  Computer-generated statement`, 10, 290);
     doc.setTextColor(0);
