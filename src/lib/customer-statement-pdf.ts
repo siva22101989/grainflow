@@ -263,17 +263,39 @@ export async function generateCustomerStatementPdf(opts: {
   doc.setTextColor(0);
   y = boxTop + boxHeight + 7;
 
-  // ---- Totals summary ----
+  // ---- Totals summary (bags + money, two strips) ----
   let totalRent = 0, totalHamali = 0, totalInsurance = 0, totalPaid = 0;
+  let totalBagsIn = 0, totalBagsOut = 0, balanceStock = 0;
   opts.records.forEach(r => {
     totalRent += r.totalRentBilled || 0;
     totalHamali += r.hamaliPayable || 0;
     totalInsurance += (r as any).insurancePayable || 0;
     totalPaid += (r.payments || []).reduce((s, p) => s + p.amount, 0);
+    totalBagsIn += r.bagsIn || 0;
+    totalBagsOut += r.bagsOut || 0;
+    balanceStock += r.bagsStored || 0;
   });
   const totalBilled = totalRent + totalHamali + totalInsurance;
   const balanceDue = totalBilled - totalPaid;
 
+  // Strip 1: Bag totals (In / Out / Stock) — restored from the legacy
+  // statement; useful for the customer to see physical movement at a glance.
+  autoTable(doc, {
+    startY: y,
+    head: [['Total Bags In', 'Total Bags Out', 'Balance Stock']],
+    body: [[
+      totalBagsIn.toLocaleString('en-IN'),
+      totalBagsOut.toLocaleString('en-IN'),
+      balanceStock.toLocaleString('en-IN'),
+    ]],
+    theme: 'grid',
+    headStyles: { fillColor: HEADER_FILL, fontStyle: 'bold', fontSize: 9, halign: 'center', font, textColor: [255, 255, 255] },
+    bodyStyles: { fontSize: 12, fontStyle: 'bold', halign: 'center', cellPadding: 4, font },
+    margin: { left: 10, right: 10 },
+  });
+  y = (doc as any).lastAutoTable.finalY + 3;
+
+  // Strip 2: Money totals (Rent / Hamali / Insurance / Paid / Balance Due)
   autoTable(doc, {
     startY: y,
     head: [['Total Rent (₹)', 'Total Hamali (₹)', 'Total Insurance (₹)', 'Total Paid (₹)', 'Balance Due (₹)']],

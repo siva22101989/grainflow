@@ -27,6 +27,9 @@ export const CustomerStatementReceipt = React.forwardRef<HTMLDivElement, Custome
       billed: 0,
       paid: 0,
       balance: 0,
+      bagsIn: 0,
+      bagsOut: 0,
+      balanceStock: 0,
     });
 
     useEffect(() => {
@@ -36,6 +39,7 @@ export const CustomerStatementReceipt = React.forwardRef<HTMLDivElement, Custome
         let totalHamali = 0;
         let totalInsurance = 0;
         let totalPaid = 0;
+        let bagsIn = 0, bagsOut = 0, balanceStock = 0;
 
         records.forEach(r => {
             totalRent += r.totalRentBilled || 0;
@@ -43,6 +47,9 @@ export const CustomerStatementReceipt = React.forwardRef<HTMLDivElement, Custome
             totalInsurance += (r as any).insurancePayable || 0;
             const payments = r.payments || [];
             totalPaid += payments.reduce((sum, p) => sum + p.amount, 0);
+            bagsIn += r.bagsIn || 0;
+            bagsOut += r.bagsOut || 0;
+            balanceStock += r.bagsStored || 0;
         });
 
         const totalBilled = totalRent + totalHamali + totalInsurance;
@@ -53,7 +60,10 @@ export const CustomerStatementReceipt = React.forwardRef<HTMLDivElement, Custome
             insurance: totalInsurance,
             billed: totalBilled,
             paid: totalPaid,
-            balance: totalBilled - totalPaid
+            balance: totalBilled - totalPaid,
+            bagsIn,
+            bagsOut,
+            balanceStock,
         });
 
     }, [records]);
@@ -198,7 +208,23 @@ export const CustomerStatementReceipt = React.forwardRef<HTMLDivElement, Custome
 
                     <Separator />
 
-                    {/* Summary Box */}
+                    {/* Bags Summary — physical stock movement at a glance */}
+                    <div className="grid grid-cols-3 gap-4 bg-blue-50/40 dark:bg-blue-950/20 p-4 rounded-lg border">
+                        <div className="text-center">
+                            <p className="text-xs font-medium text-muted-foreground uppercase">Total Bags In</p>
+                            <p className="text-lg font-bold">{totals.bagsIn.toLocaleString('en-IN')}</p>
+                        </div>
+                        <div className="text-center">
+                            <p className="text-xs font-medium text-muted-foreground uppercase">Total Bags Out</p>
+                            <p className="text-lg font-bold">{totals.bagsOut.toLocaleString('en-IN')}</p>
+                        </div>
+                        <div className="text-center">
+                            <p className="text-xs font-medium text-muted-foreground uppercase">Balance Stock</p>
+                            <p className="text-lg font-bold">{totals.balanceStock.toLocaleString('en-IN')}</p>
+                        </div>
+                    </div>
+
+                    {/* Money Summary */}
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 bg-muted/30 p-4 rounded-lg border">
                         <div className="text-center">
                             <p className="text-xs font-medium text-muted-foreground uppercase">Total Rent</p>
