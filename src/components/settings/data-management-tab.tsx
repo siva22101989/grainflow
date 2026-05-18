@@ -63,40 +63,43 @@ export function DataManagementTab({ userRole }: DataManagementTabProps) {
          { data: customers },
          { data: storage_records },
          { data: withdrawal_transactions },
+         { data: unloading_records },
+         { data: stock_movements },
          { data: payments },
          { data: expenses },
          { data: crops },
          { data: lots },
          { data: sequences },
-         { data: audit_logs },
          { data: notifications }
       ] = await Promise.all([
          supabase.from('warehouses').select('*').single(),
          supabase.from('customers').select('*'),
          supabase.from('storage_records').select('*'),
          supabase.from('withdrawal_transactions').select('*'),
+         supabase.from('unloading_records').select('*'),
+         supabase.from('stock_movements').select('*'),
          supabase.from('payments').select('*'),
          supabase.from('expenses').select('*'),
          supabase.from('crops').select('*'),
          supabase.from('warehouse_lots').select('*'),
          supabase.from('sequences').select('*'),
-         supabase.from('audit_logs').select('*').limit(1000),
          supabase.from('notifications').select('*').limit(1000)
       ]);
 
       return {
           timestamp: new Date().toISOString(),
-          version: '1.1',
+          version: '1.2',
           warehouse: warehouse || {},
           sequences: sequences || [],
           customers: customers || [],
           storage_records: storage_records || [],
           withdrawal_transactions: withdrawal_transactions || [],
+          unloading_records: unloading_records || [],
+          stock_movements: stock_movements || [],
           payments: payments || [],
           expenses: expenses || [],
           crops: crops || [],
           lots: lots || [],
-          audit_logs: audit_logs || [],
           notifications: notifications || []
       };
   };

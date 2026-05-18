@@ -34,11 +34,12 @@ export interface FullBackupData {
     customers: any[];
     storage_records: any[];
     withdrawal_transactions: any[];
+    unloading_records: any[];
+    stock_movements: any[];
     payments: any[];
     expenses: any[];
     crops: any[];
     lots: any[];
-    audit_logs: any[];
     notifications: any[];
 }
 
@@ -68,12 +69,13 @@ export async function exportFullBackupToExcel(backup: FullBackupData) {
         ['Customers', backup.customers.length],
         ['Storage Records', backup.storage_records.length],
         ['Withdrawals', backup.withdrawal_transactions.length],
+        ['Unloading Records', backup.unloading_records.length],
+        ['Stock Movements', backup.stock_movements.length],
         ['Payments', backup.payments.length],
         ['Expenses', backup.expenses.length],
         ['Crops', backup.crops.length],
         ['Lots', backup.lots.length],
         ['Sequences', backup.sequences.length],
-        ['Audit Logs (last 1000)', backup.audit_logs.length],
         ['Notifications (last 1000)', backup.notifications.length],
     ];
     counts.forEach((row) => summary.addRow(row));
@@ -103,12 +105,13 @@ export async function exportFullBackupToExcel(backup: FullBackupData) {
     addTableSheet('Customers', backup.customers);
     addTableSheet('Storage Records', backup.storage_records);
     addTableSheet('Withdrawals', backup.withdrawal_transactions);
+    addTableSheet('Unloading Records', backup.unloading_records);
+    addTableSheet('Stock Movements', backup.stock_movements);
     addTableSheet('Payments', backup.payments);
     addTableSheet('Expenses', backup.expenses);
     addTableSheet('Crops', backup.crops);
     addTableSheet('Lots', backup.lots);
     addTableSheet('Sequences', backup.sequences);
-    addTableSheet('Audit Logs', backup.audit_logs);
     addTableSheet('Notifications', backup.notifications);
 
     const buffer = await workbook.xlsx.writeBuffer();
