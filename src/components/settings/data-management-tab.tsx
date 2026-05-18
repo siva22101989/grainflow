@@ -10,7 +10,7 @@ import { useCustomers } from "@/contexts/customer-context";
 import { useTeamMembers } from "@/hooks/use-team-members";
 import { useStaticData } from "@/hooks/use-static-data";
 import { toast } from "@/hooks/use-toast";
-import { exportFullBackupToExcel, type FullBackupData } from "@/lib/export-utils";
+import { exportFullBackupToExcel, exportSimpleLedgerToExcel, type FullBackupData } from "@/lib/export-utils";
 
 interface DataManagementTabProps {
     userRole?: string;
@@ -104,14 +104,21 @@ export function DataManagementTab({ userRole }: DataManagementTabProps) {
       };
   };
 
-  const handleExport = async (format: 'json' | 'excel' = 'json') => {
-      setLoading(format === 'excel' ? 'export-excel' : 'export');
+  const handleExport = async (format: 'json' | 'excel' | 'statement' = 'json') => {
+      const loadingKey =
+          format === 'excel' ? 'export-excel' :
+          format === 'statement' ? 'export-statement' :
+          'export';
+      setLoading(loadingKey);
       try {
           const backupData = await fetchBackupData();
 
           if (format === 'excel') {
               await exportFullBackupToExcel(backupData);
               toast({ title: "Excel Export Successful", description: "Multi-sheet workbook downloaded. Note: this file is view-only — use JSON to restore." });
+          } else if (format === 'statement') {
+              await exportSimpleLedgerToExcel(backupData);
+              toast({ title: "Statement Exported", description: "Simple Inflow/Outflow statement downloaded." });
           } else {
               const blob = new Blob([JSON.stringify(backupData, null, 2)], { type: 'application/json' });
               const url = URL.createObjectURL(blob);
@@ -258,7 +265,7 @@ export function DataManagementTab({ userRole }: DataManagementTabProps) {
                             </div>
                             <div>
                                 <p className="font-medium">Export / Import Data</p>
-                                <p className="text-sm text-muted-foreground">Download as JSON (restorable) or Excel (view-only), or restore from a JSON file.</p>
+                                <p className="text-sm text-muted-foreground">JSON (full, restorable), Excel (full, view-only), or Statement (simple Inflow/Outflow only).</p>
                             </div>
                         </div>
                         <div className="flex flex-col sm:flex-row items-stretch gap-2 w-full sm:w-auto">
@@ -269,6 +276,10 @@ export function DataManagementTab({ userRole }: DataManagementTabProps) {
                             <Button variant="outline" size="sm" onClick={() => handleExport('excel')} disabled={!!loading} className="flex-1">
                                 {loading === 'export-excel' ? <RefreshCw className="w-4 h-4 animate-spin mr-2"/> : <FileSpreadsheet className="w-4 h-4 mr-2"/>}
                                 Export Excel
+                            </Button>
+                            <Button variant="outline" size="sm" onClick={() => handleExport('statement')} disabled={!!loading} className="flex-1">
+                                {loading === 'export-statement' ? <RefreshCw className="w-4 h-4 animate-spin mr-2"/> : <FileSpreadsheet className="w-4 h-4 mr-2"/>}
+                                Export Statement
                             </Button>
                             <Button variant="outline" size="sm" onClick={handleImportClick} disabled={!!loading} className="flex-1">
                                 {loading === 'import' ? <RefreshCw className="w-4 h-4 animate-spin mr-2"/> : <Upload className="w-4 h-4 mr-2"/>}

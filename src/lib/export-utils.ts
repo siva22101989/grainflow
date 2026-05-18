@@ -127,6 +127,159 @@ export async function exportFullBackupToExcel(backup: FullBackupData) {
 }
 
 /**
+ * Simple warehouse-wide statement-style Excel: one Inflows sheet, one
+ * Outflows sheet, plus a Summary. Each row carries customer name & phone
+ * resolved client-side from the customers table, so the spreadsheet is
+ * readable without joining UUIDs.
+ *
+ * Soft-deleted rows (deleted_at IS NOT NULL) are excluded — this view
+ * matches what the Customer Statement shows on screen.
+ */
+export async function exportSimpleLedgerToExcel(backup: FullBackupData) {
+    const ExcelJS = await import('exceljs');
+    const workbook = new ExcelJS.Workbook();
+
+    const fmtDate = (v: any) => {
+        if (!v) return '';
+        const d = new Date(v);
+        return Number.isNaN(d.getTime()) ? '' : format(d, 'dd MMM yyyy');
+    };
+    const num = (v: any) => (v === null || v === undefined ? 0 : Number(v));
+
+    // customer_id -> {name, phone, customer_number}
+    const customerById = new Map<string, any>();
+    for (const c of backup.customers || []) customerById.set(c.id, c);
+
+    // storage_record_id -> storage_record (for outflows to read commodity/customer)
+    const storageById = new Map<string, any>();
+    for (const r of backup.storage_records || []) storageById.set(r.id, r);
+
+    const inflows = (backup.storage_records || [])
+        .filter((r: any) => !r.deleted_at)
+        .map((r: any) => {
+            const c = customerById.get(r.customer_id) || {};
+            return {
+                date: r.storage_start_date,
+                billNo: r.record_number || '',
+                customer: c.name || '',
+                phone: c.phone || '',
+                commodity: r.commodity_description || '',
+                bagsIn: num(r.bags_in),
+                bagsStored: num(r.bags_stored),
+                rentBilled: num(r.total_rent_billed),
+                hamali: num(r.hamali_payable),
+                insurance: num(r.insurance_payable),
+                location: r.location || '',
+                lorryNo: r.lorry_tractor_no || '',
+                notes: r.notes || '',
+            };
+        })
+        .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+    const outflows = (backup.withdrawal_transactions || [])
+        .filter((w: any) => !w.deleted_at)
+        .map((w: any) => {
+            const sr = storageById.get(w.storage_record_id) || {};
+            const c = customerById.get(sr.customer_id) || {};
+            return {
+                date: w.withdrawal_date,
+                invoiceNo: w.consolidated_invoice_no || w.withdrawal_number || '',
+                customer: c.name || '',
+                phone: c.phone || '',
+                commodity: sr.commodity_description || '',
+                bagsOut: num(w.bags_withdrawn),
+                rent: num(w.rent_collected),
+                hamali: num(w.hamali_charged),
+                discount: num(w.discount),
+                linkedBillNo: sr.record_number || '',
+            };
+        })
+        .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+    // Totals
+    const totalBagsIn = inflows.reduce((s, r) => s + r.bagsIn, 0);
+    const totalBagsOut = outflows.reduce((s, r) => s + r.bagsOut, 0);
+    const balanceStock = inflows.reduce((s, r) => s + r.bagsStored, 0);
+    const totalRentBilled = inflows.reduce((s, r) => s + r.rentBilled, 0);
+    const totalHamali = inflows.reduce((s, r) => s + r.hamali, 0);
+    const totalInsurance = inflows.reduce((s, r) => s + r.insurance, 0);
+    const totalPaid = (backup.payments || []).reduce((s, p: any) => s + num(p.amount), 0);
+
+    // Summary sheet
+    const summary = workbook.addWorksheet('Summary');
+    summary.addRow(['GrainFlow — Inflow / Outflow Statement']);
+    summary.addRow(['Warehouse', backup.warehouse?.name || 'N/A']);
+    summary.addRow(['Generated', new Date(backup.timestamp).toLocaleString()]);
+    summary.addRow([]);
+    summary.addRow(['Bags Summary']);
+    summary.addRow(['Total Inflows (records)', inflows.length]);
+    summary.addRow(['Total Outflows (records)', outflows.length]);
+    summary.addRow(['Total Bags In', totalBagsIn]);
+    summary.addRow(['Total Bags Out', totalBagsOut]);
+    summary.addRow(['Balance Stock', balanceStock]);
+    summary.addRow([]);
+    summary.addRow(['Money Summary']);
+    summary.addRow(['Total Rent Billed', totalRentBilled]);
+    summary.addRow(['Total Hamali', totalHamali]);
+    summary.addRow(['Total Insurance', totalInsurance]);
+    summary.addRow(['Total Paid', totalPaid]);
+    summary.addRow(['Balance Due', totalRentBilled + totalHamali + totalInsurance - totalPaid]);
+    summary.getColumn(1).width = 28;
+    summary.getColumn(2).width = 22;
+    summary.getRow(1).font = { bold: true, size: 14 };
+    summary.getRow(5).font = { bold: true };
+    summary.getRow(12).font = { bold: true };
+
+    // Inflows sheet
+    const inSheet = workbook.addWorksheet('Inflows');
+    inSheet.columns = [
+        { header: 'Date', key: 'date', width: 14 },
+        { header: 'Bill No', key: 'billNo', width: 12 },
+        { header: 'Customer', key: 'customer', width: 24 },
+        { header: 'Phone', key: 'phone', width: 14 },
+        { header: 'Commodity', key: 'commodity', width: 18 },
+        { header: 'Bags In', key: 'bagsIn', width: 10 },
+        { header: 'Bags Stored', key: 'bagsStored', width: 12 },
+        { header: 'Rent Billed', key: 'rentBilled', width: 14 },
+        { header: 'Hamali', key: 'hamali', width: 12 },
+        { header: 'Insurance', key: 'insurance', width: 12 },
+        { header: 'Location', key: 'location', width: 12 },
+        { header: 'Lorry No', key: 'lorryNo', width: 14 },
+        { header: 'Notes', key: 'notes', width: 24 },
+    ];
+    inSheet.getRow(1).font = { bold: true };
+    inflows.forEach(r => inSheet.addRow({ ...r, date: fmtDate(r.date) }));
+
+    // Outflows sheet
+    const outSheet = workbook.addWorksheet('Outflows');
+    outSheet.columns = [
+        { header: 'Date', key: 'date', width: 14 },
+        { header: 'Invoice No', key: 'invoiceNo', width: 14 },
+        { header: 'Customer', key: 'customer', width: 24 },
+        { header: 'Phone', key: 'phone', width: 14 },
+        { header: 'Commodity', key: 'commodity', width: 18 },
+        { header: 'Bags Out', key: 'bagsOut', width: 10 },
+        { header: 'Rent Collected', key: 'rent', width: 14 },
+        { header: 'Hamali', key: 'hamali', width: 12 },
+        { header: 'Discount', key: 'discount', width: 12 },
+        { header: 'Linked Bill No', key: 'linkedBillNo', width: 14 },
+    ];
+    outSheet.getRow(1).font = { bold: true };
+    outflows.forEach(r => outSheet.addRow({ ...r, date: fmtDate(r.date) }));
+
+    const buffer = await workbook.xlsx.writeBuffer();
+    const blob = new Blob([buffer], {
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    });
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `grainflow-statement-${new Date().toISOString().split('T')[0]}.xlsx`;
+    link.click();
+    window.URL.revokeObjectURL(url);
+}
+
+/**
  * Generate Customer Statement using browser print dialog
  * This opens a new window with a printable statement that can be saved as PDF
  */
