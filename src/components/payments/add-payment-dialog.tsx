@@ -34,7 +34,7 @@ export function AddPaymentDialog({ record, onClose, autoOpen = false }: {
 }) {
   const router = useRouter();
   const [isOpen, setIsOpen] = useState(autoOpen);
-  const [paymentType, setPaymentType] = useState<'rent' | 'hamali'>('rent');
+  const [paymentType, setPaymentType] = useState<'rent' | 'hamali' | 'waiver'>('rent');
   
   const { runAction, isPending } = useServerAction();
   
@@ -48,10 +48,16 @@ export function AddPaymentDialog({ record, onClose, autoOpen = false }: {
   };
   
   const recordDisplay = record.recordNumber || `REC-${record.id.substring(0, 8)}`;
-  const title = paymentType === 'hamali' ? 'Add Extra Hamali Charges' : 'Record Payment';
+  const title = paymentType === 'hamali'
+    ? 'Add Extra Hamali Charges'
+    : paymentType === 'waiver'
+      ? 'Apply Discount / Waiver'
+      : 'Record Payment';
   const description = paymentType === 'hamali'
     ? `Add an additional hamali charge to ${recordDisplay}.`
-    : `Record a payment for ${recordDisplay}. Balance Due: ${formatCurrency(record.balanceDue)}`;
+    : paymentType === 'waiver'
+      ? `Waive part of the balance for ${recordDisplay}. This reduces what's owed but is not counted as cash received. Balance Due: ${formatCurrency(record.balanceDue)}`
+      : `Record a payment for ${recordDisplay}. Balance Due: ${formatCurrency(record.balanceDue)}`;
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => {
@@ -99,7 +105,7 @@ export function AddPaymentDialog({ record, onClose, autoOpen = false }: {
                         name="paymentType"
                         className="flex gap-4"
                         value={paymentType}
-                        onValueChange={(value: 'rent' | 'hamali') => setPaymentType(value)}
+                        onValueChange={(value: 'rent' | 'hamali' | 'waiver') => setPaymentType(value)}
                         disabled={isPending}
                     >
                         <div className="flex items-center space-x-2">
@@ -110,27 +116,31 @@ export function AddPaymentDialog({ record, onClose, autoOpen = false }: {
                             <RadioGroupItem value="hamali" id="r2" />
                             <Label htmlFor="r2">Hamali Charge</Label>
                         </div>
+                        <div className="flex items-center space-x-2">
+                            <RadioGroupItem value="waiver" id="r3" />
+                            <Label htmlFor="r3">Discount / Waiver</Label>
+                        </div>
                     </RadioGroup>
                 </div>
                 <div className="grid gap-2">
                   <Label htmlFor="paymentAmount">
-                    Amount
+                    {paymentType === 'waiver' ? 'Amount to Waive' : 'Amount'}
                   </Label>
-                  <Input 
-                    id="paymentAmount" 
-                    name="paymentAmount" 
+                  <Input
+                    id="paymentAmount"
+                    name="paymentAmount"
                     type="number"
                     step="0.01"
                     min="0.01"
-                    max={paymentType === 'rent' ? record.balanceDue : undefined}
-                    placeholder={paymentType === 'rent' ? `Max: ${formatCurrency(record.balanceDue)}` : "Enter amount"}
+                    max={paymentType === 'hamali' ? undefined : record.balanceDue}
+                    placeholder={paymentType === 'hamali' ? "Enter amount" : `Max: ${formatCurrency(record.balanceDue)}`}
                     onFocus={(e) => e.target.select()}
                     onWheel={(e) => e.currentTarget.blur()}
-                    required 
+                    required
                   />
-                  {paymentType === 'rent' && (
+                  {paymentType !== 'hamali' && (
                       <p className="text-xs text-muted-foreground mt-1">
-                          Max available: {formatCurrency(record.balanceDue)}
+                          {paymentType === 'waiver' ? 'Max waivable' : 'Max available'}: {formatCurrency(record.balanceDue)}
                       </p>
                   )}
                 </div>

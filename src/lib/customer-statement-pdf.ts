@@ -13,6 +13,7 @@
 
 import type { Customer, StorageRecord } from './definitions';
 import { ensurePdfFonts } from './pdf-fonts';
+import { summarizePayments, isWaiver } from './payment-summary';
 
 const HEADER_FILL: [number, number, number] = [22, 78, 99];      // teal-900
 const ZEBRA_FILL: [number, number, number] = [245, 247, 250];   // slate-50
@@ -98,7 +99,7 @@ function buildLedger(records: StorageRecord[]): (LedgerRow & { balance: number }
       out.push({
         date: p.date instanceof Date ? p.date : new Date(p.date),
         kind: 'payment',
-        description: `Payment - ${p.type || 'general'}`,
+        description: isWaiver(p.type) ? 'Discount / Waiver' : `Payment - ${p.type || 'general'}`,
         invoiceNo: r.recordNumber || r.id.substring(0, 8),
         credit: p.amount,
       });
@@ -264,19 +265,22 @@ export async function generateCustomerStatementPdf(opts: {
   y = boxTop + boxHeight + 7;
 
   // ---- Totals summary (bags + money, two strips) ----
-  let totalRent = 0, totalHamali = 0, totalInsurance = 0, totalPaid = 0;
+  let totalRent = 0, totalHamali = 0, totalInsurance = 0, totalPaid = 0, totalWaived = 0;
   let totalBagsIn = 0, totalBagsOut = 0, balanceStock = 0;
   opts.records.forEach(r => {
     totalRent += r.totalRentBilled || 0;
     totalHamali += r.hamaliPayable || 0;
     totalInsurance += (r as any).insurancePayable || 0;
-    totalPaid += (r.payments || []).reduce((s, p) => s + p.amount, 0);
+    const { cashPaid, waived } = summarizePayments(r.payments || []);
+    totalPaid += cashPaid;
+    totalWaived += waived;
     totalBagsIn += r.bagsIn || 0;
     totalBagsOut += r.bagsOut || 0;
     balanceStock += r.bagsStored || 0;
   });
   const totalBilled = totalRent + totalHamali + totalInsurance;
-  const balanceDue = totalBilled - totalPaid;
+  const totalCredit = totalPaid + totalWaived;
+  const balanceDue = totalBilled - totalCredit;
 
   // Strip 1: Bag totals (In / Out / Stock) — restored from the legacy
   // statement; useful for the customer to see physical movement at a glance.
@@ -295,21 +299,27 @@ export async function generateCustomerStatementPdf(opts: {
   });
   y = (doc as any).lastAutoTable.finalY + 3;
 
-  // Strip 2: Money totals (Rent / Hamali / Insurance / Paid / Balance Due)
+  // Strip 2: Money totals (Rent / Hamali / Insurance / Paid / [Discount] / Balance Due)
+  // The Discount column only appears when a waiver exists, so plain statements
+  // keep their original 5-column layout.
+  const moneyHead = totalWaived > 0
+    ? ['Total Rent (₹)', 'Total Hamali (₹)', 'Total Insurance (₹)', 'Total Paid (₹)', 'Discount (₹)', 'Balance Due (₹)']
+    : ['Total Rent (₹)', 'Total Hamali (₹)', 'Total Insurance (₹)', 'Total Paid (₹)', 'Balance Due (₹)'];
+  const moneyBody = totalWaived > 0
+    ? [fmtINR(totalRent), fmtINR(totalHamali), fmtINR(totalInsurance), fmtINR(totalPaid), fmtINR(totalWaived), fmtINR(balanceDue)]
+    : [fmtINR(totalRent), fmtINR(totalHamali), fmtINR(totalInsurance), fmtINR(totalPaid), fmtINR(balanceDue)];
+  const balanceColIdx = totalWaived > 0 ? 5 : 4;
   autoTable(doc, {
     startY: y,
-    head: [['Total Rent (₹)', 'Total Hamali (₹)', 'Total Insurance (₹)', 'Total Paid (₹)', 'Balance Due (₹)']],
-    body: [[
-      fmtINR(totalRent),
-      fmtINR(totalHamali),
-      fmtINR(totalInsurance),
-      fmtINR(totalPaid),
-      fmtINR(balanceDue),
-    ]],
+    head: [moneyHead],
+    body: [moneyBody],
     theme: 'grid',
     headStyles: { fillColor: HEADER_FILL, fontStyle: 'bold', fontSize: 9, halign: 'center', font, textColor: [255, 255, 255] },
     bodyStyles: { fontSize: 12, fontStyle: 'bold', halign: 'center', cellPadding: 4, font },
-    columnStyles: { 4: { textColor: balanceDue > 0 ? [200, 35, 35] : [40, 130, 60] } },
+    columnStyles: {
+      [balanceColIdx]: { textColor: balanceDue > 0 ? [200, 35, 35] : [40, 130, 60] },
+      ...(totalWaived > 0 ? { 4: { textColor: [217, 119, 6] } } : {}),
+    },
     margin: { left: 10, right: 10 },
   });
   y = (doc as any).lastAutoTable.finalY + 9;
@@ -346,7 +356,7 @@ export async function generateCustomerStatementPdf(opts: {
       foot: [[
         { content: 'Totals', colSpan: 4, styles: { halign: 'right', fontStyle: 'bold' } },
         { content: fmtINR(totalBilled), styles: { fontStyle: 'bold', halign: 'right' } },
-        { content: fmtINR(totalPaid), styles: { fontStyle: 'bold', halign: 'right' } },
+        { content: fmtINR(totalCredit), styles: { fontStyle: 'bold', halign: 'right' } },
         { content: fmtINR(balanceDue), styles: { fontStyle: 'bold', halign: 'right', textColor: balanceDue > 0 ? [200, 35, 35] : [40, 130, 60] } },
       ]],
       theme: 'striped',

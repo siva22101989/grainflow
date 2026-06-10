@@ -25,7 +25,7 @@ export type Commodity = {
 };
 
 // Database Enums
-export type PaymentType = 'rent' | 'hamali' | 'insurance' | 'advance' | 'security_deposit' | 'other';
+export type PaymentType = 'rent' | 'hamali' | 'insurance' | 'advance' | 'security_deposit' | 'other' | 'waiver';
 export type BillingCycle = '6m' | '1y';
 export type InflowType = 'purchase' | 'transfer_in' | 'return' | 'other';
 

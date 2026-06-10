@@ -24,13 +24,22 @@ export class PaymentService {
     try {
       const customer = await getCustomer(record.customerId);
       if (customer) {
-        const paymentTypeLabel = payment.type === 'hamali' ? 'Hamali' : 'Rent/Storage';
-        await createNotification(
-          'Payment Received',
-          `Payment of ₹${payment.amount} received from ${customer.name} for ${paymentTypeLabel}`,
-          'info',
-          'payment'
-        );
+        if (payment.type === 'waiver') {
+          await createNotification(
+            'Discount Applied',
+            `Discount / waiver of ₹${payment.amount} applied to ${customer.name}'s balance`,
+            'info',
+            'payment'
+          );
+        } else {
+          const paymentTypeLabel = payment.type === 'hamali' ? 'Hamali' : 'Rent/Storage';
+          await createNotification(
+            'Payment Received',
+            `Payment of ₹${payment.amount} received from ${customer.name} for ${paymentTypeLabel}`,
+            'info',
+            'payment'
+          );
+        }
       }
     } catch (e) {
       console.error('Failed to send payment notification', e);
@@ -129,11 +138,12 @@ export class PaymentService {
    * Process Bulk Payment using Atomic RPC
    */
   static async processBulk(
-      customerId: string, 
-      totalAmount: number, 
+      customerId: string,
+      totalAmount: number,
       paymentDate: string,
-      strategy: 'fifo' | 'manual', 
-      manualAllocations?: { recordId: string; amount: number }[]
+      strategy: 'fifo' | 'manual',
+      manualAllocations?: { recordId: string; amount: number }[],
+      paymentType: 'rent' | 'waiver' = 'rent'
   ) {
       const pendingRecords = await PaymentService.getPendingRecords(customerId);
 
@@ -177,17 +187,20 @@ export class PaymentService {
           p_customer_id: customerId,
           p_payment_date: paymentDate,
           p_warehouse_id: warehouseId,
-          p_allocations: allocations,
+          // Tag every allocation with the payment type so the RPC records cash
+          // vs. waiver correctly. Defaults to 'rent' (cash) for the normal flow.
+          p_allocations: allocations.map(a => ({ ...a, type: paymentType })),
       });
 
       if (rpcError) throw rpcError;
       if (!rpcData?.success) throw new Error(rpcData?.message || 'Bulk payment failed');
-      
-      return { 
-          success: true, 
+
+      const verb = paymentType === 'waiver' ? 'Discounted' : 'Processed';
+      return {
+          success: true,
           allocations,
           recordsUpdated: allocations.length,
-          message: `Successfully processed ₹${totalAmount} across ${allocations.length} record(s).`
+          message: `${verb} ₹${totalAmount} across ${allocations.length} record(s).`
       };
   }
 }

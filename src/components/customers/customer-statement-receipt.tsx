@@ -7,6 +7,7 @@ import { Separator } from '@/components/ui/separator';
 import type { Customer, StorageRecord } from '@/lib/definitions';
 import { format } from 'date-fns';
 import { formatCurrency, toDate } from '@/lib/utils';
+import { summarizePayments, isWaiver } from '@/lib/payment-summary';
 import { Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
 import { DateRange } from 'react-day-picker';
@@ -26,6 +27,8 @@ export const CustomerStatementReceipt = React.forwardRef<HTMLDivElement, Custome
       insurance: 0,
       billed: 0,
       paid: 0,
+      waived: 0,
+      credit: 0,
       balance: 0,
       bagsIn: 0,
       bagsOut: 0,
@@ -39,20 +42,23 @@ export const CustomerStatementReceipt = React.forwardRef<HTMLDivElement, Custome
         let totalHamali = 0;
         let totalInsurance = 0;
         let totalPaid = 0;
+        let totalWaived = 0;
         let bagsIn = 0, bagsOut = 0, balanceStock = 0;
 
         records.forEach(r => {
             totalRent += r.totalRentBilled || 0;
             totalHamali += r.hamaliPayable || 0;
             totalInsurance += (r as any).insurancePayable || 0;
-            const payments = r.payments || [];
-            totalPaid += payments.reduce((sum, p) => sum + p.amount, 0);
+            const { cashPaid, waived } = summarizePayments(r.payments || []);
+            totalPaid += cashPaid;
+            totalWaived += waived;
             bagsIn += r.bagsIn || 0;
             bagsOut += r.bagsOut || 0;
             balanceStock += r.bagsStored || 0;
         });
 
         const totalBilled = totalRent + totalHamali + totalInsurance;
+        const totalCredit = totalPaid + totalWaived;
 
         setTotals({
             rent: totalRent,
@@ -60,7 +66,9 @@ export const CustomerStatementReceipt = React.forwardRef<HTMLDivElement, Custome
             insurance: totalInsurance,
             billed: totalBilled,
             paid: totalPaid,
-            balance: totalBilled - totalPaid,
+            waived: totalWaived,
+            credit: totalCredit,
+            balance: totalBilled - totalCredit,
             bagsIn,
             bagsOut,
             balanceStock,
@@ -104,7 +112,7 @@ export const CustomerStatementReceipt = React.forwardRef<HTMLDivElement, Custome
                 out.push({
                     date: toDate(p.date),
                     kind: 'payment',
-                    description: `Payment - ${p.type || 'general'}`,
+                    description: isWaiver(p.type) ? 'Discount / Waiver' : `Payment - ${p.type || 'general'}`,
                     invoiceNo: r.recordNumber || r.id.substring(0, 8),
                     credit: p.amount,
                 });
@@ -225,7 +233,7 @@ export const CustomerStatementReceipt = React.forwardRef<HTMLDivElement, Custome
                     </div>
 
                     {/* Money Summary */}
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 bg-muted/30 p-4 rounded-lg border">
+                    <div className={`grid grid-cols-2 ${totals.waived > 0 ? 'sm:grid-cols-5' : 'sm:grid-cols-4'} gap-4 bg-muted/30 p-4 rounded-lg border`}>
                         <div className="text-center">
                             <p className="text-xs font-medium text-muted-foreground uppercase">Total Rent</p>
                             <p className="text-lg font-bold">{formatCurrency(totals.rent)}</p>
@@ -238,6 +246,12 @@ export const CustomerStatementReceipt = React.forwardRef<HTMLDivElement, Custome
                             <p className="text-xs font-medium text-muted-foreground uppercase">Total Paid</p>
                             <p className="text-lg font-bold text-green-600">{formatCurrency(totals.paid)}</p>
                         </div>
+                        {totals.waived > 0 && (
+                            <div className="text-center">
+                                <p className="text-xs font-medium text-muted-foreground uppercase">Discount</p>
+                                <p className="text-lg font-bold text-amber-600">{formatCurrency(totals.waived)}</p>
+                            </div>
+                        )}
                         <div className="text-center">
                             <p className="text-xs font-medium text-muted-foreground uppercase">Balance Due</p>
                             <p className={`text-lg font-bold ${totals.balance > 0 ? 'text-destructive' : 'text-green-600'}`}>
@@ -288,7 +302,7 @@ export const CustomerStatementReceipt = React.forwardRef<HTMLDivElement, Custome
                                 <TableRow>
                                     <TableCell colSpan={4} className="text-right font-bold">Totals</TableCell>
                                     <TableCell className="text-right font-bold hover:bg-muted/50">{formatCurrency(totals.billed)}</TableCell>
-                                    <TableCell className="text-right font-bold hover:bg-muted/50">{formatCurrency(totals.paid)}</TableCell>
+                                    <TableCell className="text-right font-bold hover:bg-muted/50">{formatCurrency(totals.credit)}</TableCell>
                                     <TableCell className="text-right font-bold hover:bg-muted/50">{formatCurrency(totals.balance)}</TableCell>
                                 </TableRow>
                             </TableFooter>

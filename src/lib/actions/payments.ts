@@ -19,7 +19,7 @@ const PaymentSchema = z.object({
   paymentAmount: z.coerce.number().positive('Payment amount must be a positive number.'),
   paymentDate: z.string().refine(val => !isNaN(Date.parse(val)), { message: "Invalid date format" }),
   // Accept both UI legacy values and new DB Enum values
-  paymentType: z.enum(['Rent/Other', 'Hamali', 'rent', 'hamali', 'insurance', 'advance', 'security_deposit', 'other']),
+  paymentType: z.enum(['Rent/Other', 'Hamali', 'rent', 'hamali', 'insurance', 'advance', 'security_deposit', 'other', 'waiver']),
 });
 
 export type PaymentFormState = {
@@ -70,7 +70,10 @@ export async function addPayment(_prevState: PaymentFormState, formData: FormDat
 
                 // Map legacy/UI types to DB Enum
                 // DB: 'rent' | 'hamali' | 'advance' | 'security_deposit' | 'other'
-                if (paymentType === 'Hamali' || paymentType === 'hamali') {
+                if (paymentType === 'waiver') {
+                    type = 'waiver';
+                    notes = 'Discount / Waiver';
+                } else if (paymentType === 'Hamali' || paymentType === 'hamali') {
                     type = 'hamali';
                     notes = 'Hamali Payment';
                 } else if (paymentType === 'Rent/Other' || paymentType === 'rent') {
@@ -111,7 +114,8 @@ export async function addPayment(_prevState: PaymentFormState, formData: FormDat
 
                 // Fire-and-forget payment confirmation SMS (respects user's
                 // enable_payment_confirmation setting; no-op if disabled).
-                if (result.customerId) {
+                // Waivers are not cash received, so never SMS them as a payment.
+                if (result.customerId && type !== 'waiver') {
                     try {
                         const { sendPaymentConfirmationSMS } = await import('@/lib/sms-event-actions');
                         void sendPaymentConfirmationSMS(result.customerId, paymentAmount, paymentDate);
@@ -219,6 +223,7 @@ export async function processBulkPayment(
             const paymentDate = formData.get('paymentDate') as string;
             const strategy = formData.get('strategy') as 'fifo' | 'manual';
             const manualAllocationsJSON = formData.get('manualAllocations') as string;
+            const paymentType = formData.get('paymentType') === 'waiver' ? 'waiver' : 'rent';
 
             span.setAttribute("customerId", customerId);
             span.setAttribute("totalAmount", totalAmount);
@@ -238,7 +243,8 @@ export async function processBulkPayment(
                     totalAmount,
                     paymentDate,
                     strategy,
-                    manualAllocations
+                    manualAllocations,
+                    paymentType
                 );
 
                 if (!result.success) {

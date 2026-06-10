@@ -16,6 +16,7 @@ export const getFinancialStats = cache(async () => {
             .from('payments')
             .select(`
                 amount,
+                type,
                 storage_record:storage_records!inner(warehouse_id)
             `)
             .eq('storage_record.warehouse_id', warehouseId)
@@ -27,7 +28,11 @@ export const getFinancialStats = cache(async () => {
             .is('deleted_at', null)
     ]);
 
-    const totalIncome = (payments || []).reduce((sum, p) => sum + (p.amount || 0), 0);
+    // Waivers/discounts are stored as payment rows so they reduce balances, but
+    // they are forgiven money — never count them as income.
+    const totalIncome = (payments || [])
+        .filter((p: any) => p.type !== 'waiver')
+        .reduce((sum: number, p: any) => sum + (p.amount || 0), 0);
     const totalExpenses = (expenses || []).reduce((sum, e) => sum + (e.amount || 0), 0);
 
     return {

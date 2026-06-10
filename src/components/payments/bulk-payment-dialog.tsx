@@ -46,7 +46,9 @@ export function BulkPaymentDialog({ customer, onClose, autoOpen = false }: BulkP
     const { success: toastSuccess, error: toastError } = useUnifiedToast();
     const router = useRouter();
     const [isOpen, setIsOpen] = useState(autoOpen);
+    const [mode, setMode] = useState<'cash' | 'waiver'>('cash');
     const [strategy, setStrategy] = useState<'fifo' | 'manual'>('fifo');
+    const isWaiver = mode === 'waiver';
     const [totalAmount, setTotalAmount] = useState(0);
     const [manualAllocations, setManualAllocations] = useState<Record<string, number>>({});
     const [preview, setPreview] = useState<any[]>([]);
@@ -118,6 +120,7 @@ export function BulkPaymentDialog({ customer, onClose, autoOpen = false }: BulkP
         formData.append('customerId', customer.id);
         formData.append('totalAmount', totalAmount.toString());
         formData.append('strategy', strategy);
+        formData.append('paymentType', isWaiver ? 'waiver' : 'rent');
         
         if (strategy === 'manual') {
             const allocationsArray = customer.records.map(record => ({
@@ -145,9 +148,11 @@ export function BulkPaymentDialog({ customer, onClose, autoOpen = false }: BulkP
             <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
                 <form action={handleSubmit}>
                     <DialogHeader>
-                        <DialogTitle>Record Bulk Payment</DialogTitle>
+                        <DialogTitle>{isWaiver ? 'Apply Bulk Discount / Waiver' : 'Record Bulk Payment'}</DialogTitle>
                         <DialogDescription>
-                            Process payment across multiple records for <strong>{customer.name}</strong>
+                            {isWaiver
+                                ? <>Waive part of the outstanding balance across multiple records for <strong>{customer.name}</strong>. This reduces what's owed but is not counted as cash received.</>
+                                : <>Process payment across multiple records for <strong>{customer.name}</strong></>}
                         </DialogDescription>
                     </DialogHeader>
 
@@ -160,9 +165,32 @@ export function BulkPaymentDialog({ customer, onClose, autoOpen = false }: BulkP
                             </Badge>
                         </div>
 
+                        {/* Mode: Cash Payment vs Discount/Waiver */}
+                        <div className="grid gap-2">
+                            <Label>Transaction Type</Label>
+                            <RadioGroup
+                                value={mode}
+                                onValueChange={(value: 'cash' | 'waiver') => setMode(value)}
+                                className="flex gap-4"
+                            >
+                                <div className="flex items-center space-x-2">
+                                    <RadioGroupItem value="cash" id="mode-cash" />
+                                    <Label htmlFor="mode-cash" className="font-normal cursor-pointer">
+                                        Cash Payment
+                                    </Label>
+                                </div>
+                                <div className="flex items-center space-x-2">
+                                    <RadioGroupItem value="waiver" id="mode-waiver" />
+                                    <Label htmlFor="mode-waiver" className="font-normal cursor-pointer">
+                                        Discount / Waiver
+                                    </Label>
+                                </div>
+                            </RadioGroup>
+                        </div>
+
                         {/* Payment Amount */}
                         <div className="grid gap-2">
-                            <Label htmlFor="totalAmount">Payment Amount</Label>
+                            <Label htmlFor="totalAmount">{isWaiver ? 'Discount Amount' : 'Payment Amount'}</Label>
                             <Input
                                 id="totalAmount"
                                 type="number"
@@ -318,7 +346,7 @@ export function BulkPaymentDialog({ customer, onClose, autoOpen = false }: BulkP
                             Cancel
                         </Button>
                         <SubmitButton disabled={sumMismatch || totalAmount <= 0 || totalAmount > customer.totalDues}>
-                            Process Payment
+                            {isWaiver ? 'Apply Discount' : 'Process Payment'}
                         </SubmitButton>
                     </DialogFooter>
                 </form>
