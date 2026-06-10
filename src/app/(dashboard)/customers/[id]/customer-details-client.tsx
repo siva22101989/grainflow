@@ -17,7 +17,8 @@ import {
     User,
     ArrowDownToDot,
     ArrowUpFromDot,
-    PlusCircle
+    PlusCircle,
+    Printer
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
@@ -39,6 +40,21 @@ interface CustomerDetailsClientProps {
     customer: Customer;
     initialRecords: StorageRecord[];
     crops?: any[];
+}
+
+/**
+ * Distinct consolidated-bill invoice numbers a withdrawn record belongs to.
+ * A bulk outflow shares one invoice number across all its records, so this
+ * lets each history row link straight to its printable consolidated bill.
+ */
+function batchBillNumbers(record: StorageRecord): string[] {
+    return Array.from(
+        new Set(
+            (record.withdrawals || [])
+                .map((w) => w.consolidatedInvoiceNo)
+                .filter((n): n is string => !!n)
+        )
+    );
 }
 
 export function CustomerDetailsClient({ customer, initialRecords, crops }: CustomerDetailsClientProps) {
@@ -486,6 +502,21 @@ export function CustomerDetailsClient({ customer, initialRecords, crops }: Custo
                                 <span className="text-sm text-muted-foreground">Bags Out</span>
                                 <span className="font-bold">{r.bagsOut}</span>
                             </div>
+                            {batchBillNumbers(r).length > 0 && (
+                                <div className="flex flex-wrap justify-end gap-2 pt-2 border-t">
+                                    {batchBillNumbers(r).map((billNo) => (
+                                        <Button key={billNo} asChild variant="outline" size="sm" className="h-8">
+                                            <Link
+                                                href={`/outflow/batch/${encodeURIComponent(billNo)}`}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                            >
+                                                <Printer className="mr-2 h-4 w-4" /> Print Bill
+                                            </Link>
+                                        </Button>
+                                    ))}
+                                </div>
+                            )}
                         </div>
                     ))}
                     {historyRecords.length === 0 && (
@@ -523,10 +554,13 @@ export function CustomerDetailsClient({ customer, initialRecords, crops }: Custo
                                 <th className="p-3 font-medium">Date Out</th>
                                 <th className="p-3 font-medium">Item</th>
                                 <th className="p-3 text-right font-medium">Bags Out</th>
+                                <th className="p-3 text-right font-medium">Bill</th>
                             </tr>
                         </thead>
                         <tbody>
-                            {paginatedHistoryRecords.map((r) => (
+                            {paginatedHistoryRecords.map((r) => {
+                                const billNos = batchBillNumbers(r);
+                                return (
                                 <tr key={r.id} className="border-b last:border-0 hover:bg-muted/50">
                                     <td className="p-3 font-mono">#{r.recordNumber}</td>
                                     <td className="p-3">{new Date(r.storageStartDate).toLocaleDateString()}</td>
@@ -535,11 +569,27 @@ export function CustomerDetailsClient({ customer, initialRecords, crops }: Custo
                                     </td>
                                     <td className="p-3">{r.commodityDescription}</td>
                                     <td className="p-3 text-right font-mono">{r.bagsOut}</td>
+                                    <td className="p-3">
+                                        <div className="flex justify-end gap-1">
+                                            {billNos.map((billNo) => (
+                                                <Button key={billNo} asChild variant="ghost" size="sm" className="h-8" title={`Consolidated bill ${billNo}`}>
+                                                    <Link
+                                                        href={`/outflow/batch/${encodeURIComponent(billNo)}`}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                    >
+                                                        <Printer className="mr-2 h-4 w-4" /> Print Bill
+                                                    </Link>
+                                                </Button>
+                                            ))}
+                                        </div>
+                                    </td>
                                 </tr>
-                            ))}
+                                );
+                            })}
                             {historyRecords.length === 0 && (
                                  <tr>
-                                    <td colSpan={5} className="p-8 text-center text-muted-foreground">No history in this period.</td>
+                                    <td colSpan={6} className="p-8 text-center text-muted-foreground">No history in this period.</td>
                                 </tr>
                             )}
                         </tbody>
