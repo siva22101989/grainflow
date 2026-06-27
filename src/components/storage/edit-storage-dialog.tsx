@@ -77,6 +77,9 @@ export function EditStorageDialog({
 
     const [bags, setBags] = useState<string | number>(initialBags);
     const [hamali, setHamali] = useState<string | number>(initialHamali);
+    // Location is the printed "LOT NO." When the admin picks a Lot from the
+    // dropdown, keep this in sync so the user sees the new lot number before saving.
+    const [location, setLocation] = useState<string>(record.location || '');
 
     const handleBagsChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const newBags = e.target.value;
@@ -208,7 +211,10 @@ export function EditStorageDialog({
                                     </div>
                                     <div className="grid gap-2">
                                         <Label htmlFor="lotId">Lot</Label>
-                                        <Select name="lotId" defaultValue={record.lotId}>
+                                        <Select name="lotId" defaultValue={record.lotId} onValueChange={(lotId) => {
+                                            const lot = lots.find(l => l.id === lotId);
+                                            if (lot) setLocation(lot.name);
+                                        }}>
                                             <SelectTrigger>
                                                 <SelectValue placeholder="Select Lot" />
                                             </SelectTrigger>
@@ -261,7 +267,8 @@ export function EditStorageDialog({
                             <Input
                                 id="location"
                                 name="location"
-                                defaultValue={record.location}
+                                value={location}
+                                onChange={(e) => setLocation(e.target.value)}
                                 required
                             />
                         </div>

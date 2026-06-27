@@ -9,6 +9,7 @@ import { getPaginatedStorageRecords, getStorageRecord, searchActiveStorageRecord
 import { updateStorageRecord, deleteStorageRecord, restoreStorageRecord } from '@/lib/data';
 import { detectStorageAnomalies as detectStorageAnomaliesFlow } from '@/ai/flows/anomaly-detection';
 import { logError, formatActionError } from '@/lib/error-logger';
+import { resolveInflowLotLocation } from '@/lib/storage-location';
 import { FormState } from '../common';
 import type { StorageRecord } from '@/lib/definitions';
 
@@ -195,6 +196,10 @@ export async function updateStorageRecordSimple(recordId: string, formData: {
 
     // Capacity Check
     const targetLotId = formData.lotId || record.lot_id;
+    // When a structured Lot is assigned it is the source of truth for the
+    // printed "LOT NO." (the `location` column). Capture its name here so we
+    // keep `location` in sync with the chosen lot.
+    let resolvedLotName: string | null = null;
     if (targetLotId) {
         const { data: lot } = await supabase
             .from('warehouse_lots')
@@ -203,6 +208,7 @@ export async function updateStorageRecordSimple(recordId: string, formData: {
             .single();
 
         if (lot) {
+            resolvedLotName = lot.name ?? null;
             const capacity = lot.capacity || 1000;
             const currentStock = lot.current_stock || 0;
             
@@ -230,26 +236,15 @@ export async function updateStorageRecordSimple(recordId: string, formData: {
 
     // Auto-populate from IDs if descriptions are missing
     let finalCommodityDescription = formData.commodityDescription;
-    let finalLocation = formData.location;
+    // A linked Lot is the source of truth for the printed LOT NO. (`location`);
+    // otherwise the free-text location is used. See resolveInflowLotLocation.
+    const finalLocation = resolveInflowLotLocation(formData.location, resolvedLotName);
 
-    // Fetch details if we need to fill in missing data OR for capacity check
+    // Backfill commodity description from the crop when it's missing.
     const targetCropId = formData.cropId || record?.crop_id;
-    // targetLotId is already defined above at line 197, reused here.
-    
-    // Only fetch if we are actually missing data
-    const needsCropName = !finalCommodityDescription && targetCropId;
-    const needsLotName = !finalLocation && targetLotId;
-
-    if (needsCropName || needsLotName) {
-         if (needsCropName) {
-            const { data: crop } = await supabase.from('crops').select('name').eq('id', targetCropId).single();
-            if (crop) finalCommodityDescription = crop.name;
-         }
-         // Note: Lot name might be fetched below in capacity check too, optimization possible but keeping simple for now
-         if (needsLotName) {
-             const { data: lot } = await supabase.from('warehouse_lots').select('name').eq('id', targetLotId).single();
-             if (lot) finalLocation = lot.name;
-         }
+    if (!finalCommodityDescription && targetCropId) {
+        const { data: crop } = await supabase.from('crops').select('name').eq('id', targetCropId).single();
+        if (crop) finalCommodityDescription = crop.name;
     }
 
     // Transform to database column names
