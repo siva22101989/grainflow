@@ -76,7 +76,7 @@ export function OutflowForm({
             const totalBilledSoFar =
                 selectedRecord.hamaliPayable +
                 (selectedRecord.totalRentBilled || 0) +
-                ((selectedRecord as any).insurancePayable || 0);
+                (selectedRecord.insurancePayable || 0);
             const pending = totalBilledSoFar - amountPaid;
             
             if (pending > 0) {

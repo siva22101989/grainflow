@@ -113,7 +113,7 @@ export const getDashboardMetrics = cache(async () => {
  * @param {any[]} records - Raw database records.
  * @returns {StorageRecord[]} Array of mapped storage records.
  */
-function mapRecords(records: any[]): StorageRecord[] {
+export function mapRecords(records: any[]): StorageRecord[] {
   return records.map((r: any) => {
     // Calculate total withdrawn bags from withdrawal transactions
     const withdrawals = r.withdrawal_transactions || [];
@@ -152,6 +152,7 @@ function mapRecords(records: any[]): StorageRecord[] {
         paymentNumber: p.payment_number
       })),
       hamaliPayable: r.hamali_payable,
+      insurancePayable: r.insurance_payable ?? 0,
       totalRentBilled: r.total_rent_billed,
       outflowInvoiceNo: r.outflow_invoice_no,
       lorryTractorNo: r.lorry_tractor_no,
