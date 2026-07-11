@@ -444,7 +444,7 @@ export async function processBulkOutflow(_prevState: any, formData: FormData): P
                             .filter(p => p.type === 'hamali')
                             .reduce((sum, p) => sum + p.amount, 0);
                         const hamaliDue = Math.max(0, record.hamaliPayable - hamaliPaid);
-                        
+
                         if (hamaliDue > 0) {
                             // Generate separate hamali payment entry (Option B)
                             await addPaymentToRecord(record.id, {
@@ -454,10 +454,36 @@ export async function processBulkOutflow(_prevState: any, formData: FormData): P
                                 notes: `Hamali auto-settled on record closure (Batch: ${batchId.slice(0, 8)})`
                             });
                             hamaliCharged = hamaliDue;
-                            logger.info("Hamali auto-settled during bulk outflow", { 
-                                recordId: record.id, 
-                                hamaliDue, 
-                                batchId 
+                            logger.info("Hamali auto-settled during bulk outflow", {
+                                recordId: record.id,
+                                hamaliDue,
+                                batchId
+                            });
+                        }
+                    }
+
+                    // --- STEP 5b: Auto-settle insurance on fully closed records ---
+                    // Mirrors hamali: on full closure, collect the outstanding
+                    // insurance and record it so the consolidated bill shows it.
+                    let insuranceCharged = 0;
+                    if (isClosed && record.insurancePayable && record.insurancePayable > 0) {
+                        const insurancePaid = (record.payments || [])
+                            .filter(p => p.type === 'insurance')
+                            .reduce((sum, p) => sum + p.amount, 0);
+                        const insuranceDue = Math.max(0, record.insurancePayable - insurancePaid);
+
+                        if (insuranceDue > 0) {
+                            await addPaymentToRecord(record.id, {
+                                amount: insuranceDue,
+                                date: withdrawalDateObj,
+                                type: 'insurance',
+                                notes: `Insurance auto-settled on record closure (Batch: ${batchId.slice(0, 8)})`
+                            });
+                            insuranceCharged = insuranceDue;
+                            logger.info("Insurance auto-settled during bulk outflow", {
+                                recordId: record.id,
+                                insuranceDue,
+                                batchId
                             });
                         }
                     }
@@ -478,7 +504,7 @@ export async function processBulkOutflow(_prevState: any, formData: FormData): P
                         withdrawalDateObj,
                         rentAfterDiscount,
                         allocatedDiscount,
-                        { batchId, hamaliCharged, consolidatedInvoiceNo }
+                        { batchId, hamaliCharged, insuranceCharged, consolidatedInvoiceNo }
                     );
                     if (txId) transactionIds.push(txId);
 

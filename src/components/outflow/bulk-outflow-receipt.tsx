@@ -129,6 +129,13 @@ export function BulkOutflowReceipt({ batch }: Props) {
                             </>
                         )}
 
+                        {batch.totals.totalInsurance > 0 && (
+                            <>
+                                <div>Insurance (auto-settled on closed)</div>
+                                <div className="text-right font-medium">{formatCurrency(batch.totals.totalInsurance)}</div>
+                            </>
+                        )}
+
                         {batch.totals.totalDiscount > 0 && (
                             <>
                                 <div className="text-muted-foreground">Discount applied</div>

@@ -23,6 +23,7 @@ export type BulkOutflowBatchSlice = {
     rentCollected: number;
     discount: number;
     hamaliCharged: number;
+    insuranceCharged: number;
     isClosed: boolean;
 };
 
@@ -52,7 +53,8 @@ export type BulkOutflowBatchData = {
         totalRent: number;
         totalDiscount: number;
         totalHamali: number;
-        totalBilled: number; // rent + hamali (discount is already subtracted in rent_collected for batch rows)
+        totalInsurance: number;
+        totalBilled: number; // rent + hamali + insurance (discount is already subtracted in rent_collected for batch rows)
         totalPaidOnDate: number; // payments made on the same date (proxy for "paid now during this batch")
         balance: number;
     };
@@ -77,6 +79,7 @@ export async function getBulkOutflowBatch(invoiceNo: string): Promise<BulkOutflo
             rent_collected,
             discount,
             hamali_charged,
+            insurance_charged,
             batch_id,
             consolidated_invoice_no,
             storage_records!inner (
@@ -117,6 +120,7 @@ export async function getBulkOutflowBatch(invoiceNo: string): Promise<BulkOutflo
         rentCollected: Number(w.rent_collected || 0),
         discount: Number(w.discount || 0),
         hamaliCharged: Number(w.hamali_charged || 0),
+        insuranceCharged: Number(w.insurance_charged || 0),
         isClosed: !!w.storage_records.storage_end_date,
     }));
 
@@ -131,6 +135,7 @@ export async function getBulkOutflowBatch(invoiceNo: string): Promise<BulkOutflo
     const totalRent = slices.reduce((s, x) => s + x.rentCollected, 0); // already net of per-slice discount
     const totalDiscount = slices.reduce((s, x) => s + x.discount, 0);
     const totalHamali = slices.reduce((s, x) => s + x.hamaliCharged, 0);
+    const totalInsurance = slices.reduce((s, x) => s + x.insuranceCharged, 0);
 
     // 4. Look up payments on the same withdrawal_date (proxy for "paid now during this batch")
     const withdrawalDate = new Date(first.withdrawal_date);
@@ -162,7 +167,7 @@ export async function getBulkOutflowBatch(invoiceNo: string): Promise<BulkOutflo
         }
     }
 
-    const totalBilled = totalRent + totalHamali; // discount already netted into rent_collected
+    const totalBilled = totalRent + totalHamali + totalInsurance; // discount already netted into rent_collected
     const balance = Math.max(0, totalBilled - totalPaidOnDate);
 
     // 5. Warehouse for header
@@ -198,6 +203,7 @@ export async function getBulkOutflowBatch(invoiceNo: string): Promise<BulkOutflo
             totalRent,
             totalDiscount,
             totalHamali,
+            totalInsurance,
             totalBilled,
             totalPaidOnDate,
             balance,

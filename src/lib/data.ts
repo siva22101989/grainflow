@@ -784,7 +784,7 @@ export const saveWithdrawalTransaction = async (
     date: Date | string,
     rentCollected: number = 0,
     discount: number = 0,
-    options?: { batchId?: string; hamaliCharged?: number; consolidatedInvoiceNo?: string }
+    options?: { batchId?: string; hamaliCharged?: number; insuranceCharged?: number; consolidatedInvoiceNo?: string }
 ): Promise<string | null> => {
     'use server';
     const supabase = await createClient();
@@ -806,6 +806,9 @@ export const saveWithdrawalTransaction = async (
     }
     if (options?.hamaliCharged !== undefined) {
         insertData.hamali_charged = options.hamaliCharged;
+    }
+    if (options?.insuranceCharged !== undefined) {
+        insertData.insurance_charged = options.insuranceCharged;
     }
     if (options?.consolidatedInvoiceNo) {
         insertData.consolidated_invoice_no = options.consolidatedInvoiceNo;

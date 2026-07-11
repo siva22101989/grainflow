@@ -120,6 +120,7 @@ export function buildWithdrawalTransaction(overrides: Record<string, any> = {}) 
     discount: 0,
     batch_id: null,
     hamali_charged: 0,
+    insurance_charged: 0,
     ...overrides,
   };
 }

@@ -28,6 +28,7 @@ type MockRecord = {
   bagsStored: number;
   rent: number;
   hamaliPayable?: number;
+  insurancePayable?: number;
   payments?: { type: string; amount: number }[];
 };
 
@@ -72,6 +73,14 @@ function calculateHamaliDue(record: MockRecord): number {
     .filter(p => p.type === 'hamali')
     .reduce((sum, p) => sum + p.amount, 0);
   return Math.max(0, (record.hamaliPayable || 0) - hamaliPaid);
+}
+
+// Mirrors STEP 5b: outstanding insurance auto-settled on record closure.
+function calculateInsuranceDue(record: MockRecord): number {
+  const insurancePaid = (record.payments || [])
+    .filter(p => p.type === 'insurance')
+    .reduce((sum, p) => sum + p.amount, 0);
+  return Math.max(0, (record.insurancePayable || 0) - insurancePaid);
 }
 
 describe('Bulk Outflow Actions', () => {
@@ -344,6 +353,82 @@ describe('Bulk Outflow Actions', () => {
         ],
       };
       expect(calculateHamaliDue(record)).toBe(0);
+    });
+  });
+
+  describe('Insurance auto-settlement', () => {
+    it('calculates outstanding insurance correctly', () => {
+      const record: MockRecord = {
+        id: 'rec-1',
+        bagsStored: 0,
+        rent: 0,
+        insurancePayable: 1698,
+        payments: [
+          { type: 'insurance', amount: 25 },
+        ],
+      };
+      expect(calculateInsuranceDue(record)).toBe(1673);
+    });
+
+    it('returns zero when insurance fully paid', () => {
+      const record: MockRecord = {
+        id: 'rec-1',
+        bagsStored: 0,
+        rent: 0,
+        insurancePayable: 1698,
+        payments: [
+          { type: 'insurance', amount: 1698 },
+        ],
+      };
+      expect(calculateInsuranceDue(record)).toBe(0);
+    });
+
+    it('returns zero when no insurance payable', () => {
+      const record: MockRecord = {
+        id: 'rec-1',
+        bagsStored: 0,
+        rent: 0,
+        insurancePayable: 0,
+        payments: [],
+      };
+      expect(calculateInsuranceDue(record)).toBe(0);
+    });
+
+    it('ignores non-insurance payments (hamali payment does not settle insurance)', () => {
+      const record: MockRecord = {
+        id: 'rec-1',
+        bagsStored: 0,
+        rent: 0,
+        insurancePayable: 1698,
+        payments: [
+          { type: 'hamali', amount: 7075 },
+          { type: 'insurance', amount: 100 },
+        ],
+      };
+      expect(calculateInsuranceDue(record)).toBe(1598);
+    });
+
+    it('handles missing payments array', () => {
+      const record: MockRecord = {
+        id: 'rec-1',
+        bagsStored: 0,
+        rent: 0,
+        insurancePayable: 1698,
+      };
+      expect(calculateInsuranceDue(record)).toBe(1698);
+    });
+
+    it('never returns negative insurance due', () => {
+      const record: MockRecord = {
+        id: 'rec-1',
+        bagsStored: 0,
+        rent: 0,
+        insurancePayable: 200,
+        payments: [
+          { type: 'insurance', amount: 500 }, // overpaid
+        ],
+      };
+      expect(calculateInsuranceDue(record)).toBe(0);
     });
   });
 
