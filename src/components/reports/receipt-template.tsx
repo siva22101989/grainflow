@@ -90,6 +90,14 @@ export const ReceiptTemplate = forwardRef<HTMLDivElement, ReceiptTemplateProps>(
                                 <td className="py-3 border-b border-gray-100 text-right">-</td>
                                 <td className="py-3 border-b border-gray-100 text-right">₹{data.hamaliPayable}</td>
                             </tr>
+                            {((data as any).insurancePayable || 0) > 0 && (
+                             <tr>
+                                <td className="py-3 border-b border-gray-100">Insurance Charges</td>
+                                <td className="py-3 border-b border-gray-100 text-right">-</td>
+                                <td className="py-3 border-b border-gray-100 text-right">-</td>
+                                <td className="py-3 border-b border-gray-100 text-right">₹{(data as any).insurancePayable}</td>
+                            </tr>
+                            )}
                         </>
                     )}
 

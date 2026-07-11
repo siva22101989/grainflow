@@ -249,8 +249,9 @@ function WarehouseList({ portfolio, type, currentDate }: { portfolio: PortfolioI
                                                     bagsIn: record.bags_stored,         
                                                     bagsStored: record.bags_stored,     
                                                     lotId: record.lot_name,             
-                                                    totalRentBilled: record.total_rent_billed, 
+                                                    totalRentBilled: record.total_rent_billed,
                                                     hamaliPayable: record.hamali_payable,
+                                                    insurancePayable: record.insurance_payable,
                                                     // Warehouse Info from PortfolioItem
                                                     warehouseName: wh.warehouseName,
                                                     warehouseAddress: wh.warehouseLocation,

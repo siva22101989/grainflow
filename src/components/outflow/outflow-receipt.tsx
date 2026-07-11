@@ -82,6 +82,15 @@ export function OutflowReceipt({ record, customer, withdrawnBags, finalRent, pai
     const totalPayable = Math.max(0, finalRent + hamaliPending - advanceAmount);
     const balanceDue = Math.max(0, totalPayable - paidNow);
 
+    // Breakdown of the prior charges that make up "Previous Balance", so
+    // insurance is visible on the bill instead of hidden in one lump number.
+    // priorHamali + priorInsurance + priorRent - priorPaid === hamaliPending
+    // whenever hamaliPending > 0.
+    const priorHamali = Number(record.hamaliPayable || 0);
+    const priorInsurance = Number(record.insurancePayable || 0);
+    const priorRent = Math.max(0, (record.totalRentBilled || 0) - finalRent);
+    const priorPaid = Math.max(0, (record.payments || []).reduce((acc, p) => acc + p.amount, 0) - paidNow);
+
     const handlePrint = () => {
         const warehouseName = warehouse?.name || 'Srilakshmi Warehouse';
         const warehouseAddress = warehouse?.location || 'Your Company Address, City, State, ZIP';
@@ -256,12 +265,36 @@ export function OutflowReceipt({ record, customer, withdrawnBags, finalRent, pai
                             <td>${formatCurrency(rentBreakdown.rentPerBag)} / bag</td>
                             <td style="text-align: right;">${formatCurrency(finalRent)}</td>
                         </tr>
+                        ${hamaliPending > 0 ? `
                         <tr>
-                            <td>Previous Balance (Hamali & Past Rent)</td>
+                            <td style="padding-left: 16px;">Previous Balance - Hamali</td>
                             <td>-</td>
                             <td>-</td>
-                            <td style="text-align: right;">${formatCurrency(hamaliPending)}</td>
+                            <td style="text-align: right;">${formatCurrency(priorHamali)}</td>
                         </tr>
+                        ${priorInsurance > 0 ? `
+                        <tr>
+                            <td style="padding-left: 16px;">Previous Balance - Insurance</td>
+                            <td>-</td>
+                            <td>-</td>
+                            <td style="text-align: right;">${formatCurrency(priorInsurance)}</td>
+                        </tr>
+                        ` : ''}
+                        ${priorRent > 0 ? `
+                        <tr>
+                            <td style="padding-left: 16px;">Previous Balance - Past Rent</td>
+                            <td>-</td>
+                            <td>-</td>
+                            <td style="text-align: right;">${formatCurrency(priorRent)}</td>
+                        </tr>
+                        ` : ''}
+                        <tr>
+                            <td style="padding-left: 16px;">Previous Balance - Already Paid</td>
+                            <td>-</td>
+                            <td>-</td>
+                            <td style="text-align: right;">- ${formatCurrency(priorPaid)}</td>
+                        </tr>
+                        ` : ''}
                         ${advanceAmount > 0 ? `
                         <tr>
                             <td>Prior Credit / Advance</td>
@@ -380,12 +413,31 @@ export function OutflowReceipt({ record, customer, withdrawnBags, finalRent, pai
                         <div className="text-right">
                             <div className="font-medium">{formatCurrency(finalRent)}</div>
                         </div>
-                        <div>
-                            <div className="text-muted-foreground">Previous Balance</div>
-                        </div>
-                        <div className="text-right">
-                            <div className="font-medium">{formatCurrency(hamaliPending)}</div>
-                        </div>
+                        {hamaliPending > 0 ? (
+                            <>
+                                <div><div className="text-muted-foreground">Previous Balance - Hamali</div></div>
+                                <div className="text-right"><div className="font-medium">{formatCurrency(priorHamali)}</div></div>
+                                {priorInsurance > 0 && (
+                                    <>
+                                        <div><div className="text-muted-foreground">Previous Balance - Insurance</div></div>
+                                        <div className="text-right"><div className="font-medium">{formatCurrency(priorInsurance)}</div></div>
+                                    </>
+                                )}
+                                {priorRent > 0 && (
+                                    <>
+                                        <div><div className="text-muted-foreground">Previous Balance - Past Rent</div></div>
+                                        <div className="text-right"><div className="font-medium">{formatCurrency(priorRent)}</div></div>
+                                    </>
+                                )}
+                                <div><div className="text-muted-foreground">Previous Balance - Already Paid</div></div>
+                                <div className="text-right"><div className="font-medium">- {formatCurrency(priorPaid)}</div></div>
+                            </>
+                        ) : (
+                            <>
+                                <div><div className="text-muted-foreground">Previous Balance</div></div>
+                                <div className="text-right"><div className="font-medium">{formatCurrency(hamaliPending)}</div></div>
+                            </>
+                        )}
                         {advanceAmount > 0 && (
                             <>
                                 <div>

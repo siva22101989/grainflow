@@ -94,9 +94,17 @@ export const BillReceipt = React.forwardRef<HTMLDivElement, BillReceiptProps>(
                                 <TableCell className="text-right">-</TableCell>
                                 <TableCell className="text-right">{formatCurrency(record.hamaliPayable)}</TableCell>
                             </TableRow>
-                             {record.totalRentBilled > 0 && (
+                             {(record.insurancePayable || 0) > 0 && (
                                 <TableRow>
                                     <TableCell>3</TableCell>
+                                    <TableCell>Insurance Charges</TableCell>
+                                    <TableCell className="text-right">-</TableCell>
+                                    <TableCell className="text-right">{formatCurrency(record.insurancePayable || 0)}</TableCell>
+                                </TableRow>
+                            )}
+                             {record.totalRentBilled > 0 && (
+                                <TableRow>
+                                    <TableCell>{(record.insurancePayable || 0) > 0 ? 4 : 3}</TableCell>
                                     <TableCell>Rent Charges</TableCell>
                                     <TableCell className="text-right">-</TableCell>
                                     <TableCell className="text-right">{formatCurrency(record.totalRentBilled)}</TableCell>
@@ -106,7 +114,7 @@ export const BillReceipt = React.forwardRef<HTMLDivElement, BillReceiptProps>(
                         <TableFooter>
                             <TableRow>
                                 <TableCell colSpan={3} className="text-right font-bold">Total Billed</TableCell>
-                                <TableCell className="text-right font-bold">{formatCurrency(record.hamaliPayable + (record.totalRentBilled || 0) + (((record as any).insurancePayable) || 0))}</TableCell>
+                                <TableCell className="text-right font-bold">{formatCurrency(record.hamaliPayable + (record.totalRentBilled || 0) + (record.insurancePayable || 0))}</TableCell>
                             </TableRow>
                         </TableFooter>
                     </Table>

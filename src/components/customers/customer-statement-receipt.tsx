@@ -233,7 +233,10 @@ export const CustomerStatementReceipt = React.forwardRef<HTMLDivElement, Custome
                     </div>
 
                     {/* Money Summary */}
-                    <div className={`grid grid-cols-2 ${totals.waived > 0 ? 'sm:grid-cols-5' : 'sm:grid-cols-4'} gap-4 bg-muted/30 p-4 rounded-lg border`}>
+                    <div className={`grid grid-cols-2 ${(() => {
+                        const cols = 4 + (totals.waived > 0 ? 1 : 0) + (totals.insurance > 0 ? 1 : 0);
+                        return cols >= 6 ? 'sm:grid-cols-6' : cols === 5 ? 'sm:grid-cols-5' : 'sm:grid-cols-4';
+                    })()} gap-4 bg-muted/30 p-4 rounded-lg border`}>
                         <div className="text-center">
                             <p className="text-xs font-medium text-muted-foreground uppercase">Total Rent</p>
                             <p className="text-lg font-bold">{formatCurrency(totals.rent)}</p>
@@ -242,6 +245,12 @@ export const CustomerStatementReceipt = React.forwardRef<HTMLDivElement, Custome
                             <p className="text-xs font-medium text-muted-foreground uppercase">Total Hamali</p>
                             <p className="text-lg font-bold">{formatCurrency(totals.hamali)}</p>
                         </div>
+                        {totals.insurance > 0 && (
+                            <div className="text-center">
+                                <p className="text-xs font-medium text-muted-foreground uppercase">Total Insurance</p>
+                                <p className="text-lg font-bold">{formatCurrency(totals.insurance)}</p>
+                            </div>
+                        )}
                         <div className="text-center">
                             <p className="text-xs font-medium text-muted-foreground uppercase">Total Paid</p>
                             <p className="text-lg font-bold text-green-600">{formatCurrency(totals.paid)}</p>

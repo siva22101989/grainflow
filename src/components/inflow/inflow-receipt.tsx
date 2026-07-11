@@ -119,6 +119,12 @@ export function InflowReceipt({ record, customer, warehouse }: InflowReceiptProp
                             </>
                         );
                     })()}
+                    {Number(record.insurancePayable || 0) > 0 && (
+                        <div className="flex">
+                            <span className="w-1/3 font-bold">INSURANCE PAYABLE</span>
+                            <span>: ₹{Number(record.insurancePayable || 0)}</span>
+                        </div>
+                    )}
                     {record.notes && (
                         <div className="flex">
                             <span className="w-1/3 font-bold">NOTES</span>
