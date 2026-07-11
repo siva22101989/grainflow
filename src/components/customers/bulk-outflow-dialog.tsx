@@ -123,6 +123,13 @@ export function BulkOutflowDialog({ customer, records, crops, onOpenChange: _onO
         const plan = [];
         let totalHamaliPending = 0;
         let totalAdvanceAmount = 0;
+        // Breakdown of the prior charges behind "Previous Balance" (only records
+        // that actually owe), so insurance is visible. These reconcile:
+        // priorHamali + priorInsurance + priorRent - priorPaid === totalHamaliPending
+        let totalPriorHamali = 0;
+        let totalPriorInsurance = 0;
+        let totalPriorRent = 0;
+        let totalPriorPaid = 0;
 
         for (const r of activeRecords) {
             let take: number;
@@ -149,6 +156,10 @@ export function BulkOutflowDialog({ customer, records, crops, onOpenChange: _onO
 
             if (pending > 0) {
                 totalHamaliPending += pending;
+                totalPriorHamali += r.hamaliPayable;
+                totalPriorInsurance += (r.insurancePayable || 0);
+                totalPriorRent += (r.totalRentBilled || 0);
+                totalPriorPaid += amountPaid;
             } else {
                 totalAdvanceAmount += Math.abs(pending);
             }
@@ -168,6 +179,10 @@ export function BulkOutflowDialog({ customer, records, crops, onOpenChange: _onO
             totalRent: plan.reduce((sum, p) => sum + p.rent, 0),
             totalHamaliPending,
             totalAdvanceAmount,
+            totalPriorHamali,
+            totalPriorInsurance,
+            totalPriorRent,
+            totalPriorPaid,
             impossible: hasOverrides ? totalAllocated > targetBags : remaining > 0,
             activeRecordCount: activeRecords.length,
             totalAllocated
@@ -363,9 +378,32 @@ export function BulkOutflowDialog({ customer, records, crops, onOpenChange: _onO
                                                 <span className="text-muted-foreground">Standard Rent: {formatCurrency(previewPlan.totalRent || 0)}</span>
                                             </div>
                                             {(previewPlan.totalHamaliPending > 0) && (
-                                                <div className="flex justify-between text-sm">
-                                                    <span>Previous Balance:</span>
-                                                    <span>{formatCurrency(previewPlan.totalHamaliPending)}</span>
+                                                <div className="border-t border-border/50 pt-1 mt-1 space-y-0.5">
+                                                    <div className="text-xs font-medium">Previous Balance</div>
+                                                    <div className="flex justify-between text-xs pl-3">
+                                                        <span>Prior Hamali</span>
+                                                        <span>{formatCurrency(previewPlan.totalPriorHamali)}</span>
+                                                    </div>
+                                                    {previewPlan.totalPriorInsurance > 0 && (
+                                                        <div className="flex justify-between text-xs pl-3">
+                                                            <span>Prior Insurance</span>
+                                                            <span>{formatCurrency(previewPlan.totalPriorInsurance)}</span>
+                                                        </div>
+                                                    )}
+                                                    {previewPlan.totalPriorRent > 0 && (
+                                                        <div className="flex justify-between text-xs pl-3">
+                                                            <span>Prior Rent</span>
+                                                            <span>{formatCurrency(previewPlan.totalPriorRent)}</span>
+                                                        </div>
+                                                    )}
+                                                    <div className="flex justify-between text-xs pl-3">
+                                                        <span>Already Paid</span>
+                                                        <span>- {formatCurrency(previewPlan.totalPriorPaid)}</span>
+                                                    </div>
+                                                    <div className="flex justify-between text-sm font-medium pl-3">
+                                                        <span>Balance</span>
+                                                        <span>{formatCurrency(previewPlan.totalHamaliPending)}</span>
+                                                    </div>
                                                 </div>
                                             )}
                                             {(previewPlan.totalAdvanceAmount > 0) && (
