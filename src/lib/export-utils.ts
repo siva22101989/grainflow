@@ -190,6 +190,7 @@ export async function exportSimpleLedgerToExcel(backup: FullBackupData) {
                 bagsOut: num(w.bags_withdrawn),
                 rent: num(w.rent_collected),
                 hamali: num(w.hamali_charged),
+                insurance: num(w.insurance_charged),
                 discount: num(w.discount),
                 linkedBillNo: sr.record_number || '',
             };
@@ -261,6 +262,7 @@ export async function exportSimpleLedgerToExcel(backup: FullBackupData) {
         { header: 'Bags Out', key: 'bagsOut', width: 10 },
         { header: 'Rent Collected', key: 'rent', width: 14 },
         { header: 'Hamali', key: 'hamali', width: 12 },
+        { header: 'Insurance', key: 'insurance', width: 12 },
         { header: 'Discount', key: 'discount', width: 12 },
         { header: 'Linked Bill No', key: 'linkedBillNo', width: 14 },
     ];
@@ -1051,6 +1053,7 @@ export function generateCustomReportPDF(
                <td style="padding: 6px 8px; border-bottom: 1px solid #eee; text-align: right;">${t.bagsIn || ''}</td>
                <td style="padding: 6px 8px; border-bottom: 1px solid #eee; text-align: right;">${t.bagsOut || ''}</td>
                <td style="padding: 6px 8px; border-bottom: 1px solid #eee; text-align: right;">${t.hamali !== null && t.hamali !== undefined ? formatCurrency(t.hamali) : ''}</td>
+               <td style="padding: 6px 8px; border-bottom: 1px solid #eee; text-align: right;">${t.insurance !== null && t.insurance !== undefined ? formatCurrency(t.insurance) : ''}</td>
                <td style="padding: 6px 8px; border-bottom: 1px solid #eee; text-align: right;">${t.rent !== null && t.rent !== undefined ? formatCurrency(t.rent) : ''}</td>
                <td style="padding: 6px 8px; border-bottom: 1px solid #eee; text-align: right;">${t.credit !== null && t.credit !== undefined ? formatCurrency(t.credit) : ''}</td>
                <td style="padding: 6px 8px; border-bottom: 1px solid #eee; text-align: right; font-weight: bold;">${formatCurrency(t.balance)}</td>
@@ -1069,6 +1072,7 @@ export function generateCustomReportPDF(
                <div style="background: #f8f9fa; padding: 15px; border-radius: 5px;">
                  <table style="width: 100%; font-size: 12px;">
                    <tr><td><strong>Total Hamali:</strong></td><td style="text-align: right;">₹${formatCurrency(summary.totalHamali)}</td></tr>
+                   ${summary.totalInsurance > 0 ? `<tr><td><strong>Total Insurance:</strong></td><td style="text-align: right;">₹${formatCurrency(summary.totalInsurance)}</td></tr>` : ''}
                    <tr><td><strong>Total Rent:</strong></td><td style="text-align: right;">₹${formatCurrency(summary.totalRent)}</td></tr>
                    <tr><td><strong>Total Paid:</strong></td><td style="text-align: right;">₹${formatCurrency(summary.totalPaid)}</td></tr>
                    <tr><td><strong>Balance Due:</strong></td><td style="text-align: right; font-weight: bold; color: #e74c3c;">₹${formatCurrency(summary.balanceDue)}</td></tr>
@@ -1085,6 +1089,7 @@ export function generateCustomReportPDF(
                    <th style="padding: 10px 8px; text-align: right; border: 1px solid #2c3e50; width: 80px;">Bags In</th>
                    <th style="padding: 10px 8px; text-align: right; border: 1px solid #2c3e50; width: 80px;">Bags Out</th>
                    <th style="padding: 10px 8px; text-align: right; border: 1px solid #2c3e50; width: 100px;">Hamali</th>
+                   <th style="padding: 10px 8px; text-align: right; border: 1px solid #2c3e50; width: 100px;">Insurance</th>
                    <th style="padding: 10px 8px; text-align: right; border: 1px solid #2c3e50; width: 100px;">Rent</th>
                    <th style="padding: 10px 8px; text-align: right; border: 1px solid #2c3e50; width: 100px;">Credit</th>
                    <th style="padding: 10px 8px; text-align: right; border: 1px solid #2c3e50; width: 100px;">Balance</th>
@@ -1097,6 +1102,7 @@ export function generateCustomReportPDF(
                    <td style="padding: 10px 8px; text-align: right; border-top: 2px solid #34495e;">${summary.totalBagsIn}</td>
                    <td style="padding: 10px 8px; text-align: right; border-top: 2px solid #34495e;">${summary.totalBagsOut}</td>
                    <td style="padding: 10px 8px; text-align: right; border-top: 2px solid #34495e;">₹${formatCurrency(summary.totalHamali)}</td>
+                   <td style="padding: 10px 8px; text-align: right; border-top: 2px solid #34495e;">₹${formatCurrency(summary.totalInsurance)}</td>
                    <td style="padding: 10px 8px; text-align: right; border-top: 2px solid #34495e;">₹${formatCurrency(summary.totalRent)}</td>
                    <td style="padding: 10px 8px; text-align: right; border-top: 2px solid #34495e;">₹${formatCurrency(summary.totalPaid)}</td>
                    <td style="padding: 10px 8px; text-align: right; border-top: 2px solid #34495e;">₹${formatCurrency(summary.balanceDue)}</td>
@@ -1881,6 +1887,7 @@ async function exportCustomerDuesMultiSheet(opts: {
         { header: 'Bags In', key: 'bagsIn', width: 10 },
         { header: 'Bags Out', key: 'bagsOut', width: 10 },
         { header: 'Hamali (₹)', key: 'hamali', width: 14 },
+        { header: 'Insurance (₹)', key: 'insurance', width: 14 },
         { header: 'Rent (₹)', key: 'rent', width: 14 },
         { header: 'Paid (₹)', key: 'credit', width: 14 },
         { header: 'Balance (₹)', key: 'balance', width: 14 },
@@ -1904,6 +1911,7 @@ async function exportCustomerDuesMultiSheet(opts: {
             bagsIn: t.bagsIn ?? '',
             bagsOut: t.bagsOut ?? '',
             hamali: t.hamali ?? '',
+            insurance: t.insurance ?? '',
             rent: t.rent ?? '',
             credit: t.credit ?? '',
             balance: t.balance ?? '',
@@ -1924,6 +1932,7 @@ async function exportCustomerDuesMultiSheet(opts: {
                     bagsIn: '',
                     bagsOut: sl.bagsOut,
                     hamali: '',
+                    insurance: '',
                     rent: sl.rent,
                     credit: '',
                     balance: '',
@@ -1951,6 +1960,7 @@ async function exportCustomerDuesMultiSheet(opts: {
             bagsIn: opts.summary.totalBagsIn,
             bagsOut: opts.summary.totalBagsOut,
             hamali: opts.summary.totalHamali,
+            insurance: opts.summary.totalInsurance,
             rent: opts.summary.totalRent,
             credit: opts.summary.totalPaid,
             balance: opts.summary.balanceDue,

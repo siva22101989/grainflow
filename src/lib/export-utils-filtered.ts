@@ -95,6 +95,7 @@ export function exportStorageRecordsWithFilters(
     'Location': r.location || '-',
     'Bags Stored': r.bagsStored,
     'Hamali Payable': r.hamaliPayable || 0,
+    'Insurance Payable': r.insurancePayable || 0,
     'Rent Billed': r.totalRentBilled || 0,
     'Status': r.storageEndDate ? 'Completed' : 'Active',
     'End Date': r.storageEndDate ? new Date(r.storageEndDate).toLocaleDateString() : '-'
