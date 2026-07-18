@@ -258,7 +258,7 @@ export function OutflowForm({
                                         <span className="font-mono">{storageMonths} months</span>
                                     </div>
                                     <div className="flex justify-between items-center text-sm">
-                                        <span className="text-muted-foreground">Standard Rent</span>
+                                        <span className="text-muted-foreground">Rent</span>
                                         <span className="font-mono">₹{standardRent.toFixed(2)}</span>
                                     </div>
                                     
@@ -277,26 +277,26 @@ export function OutflowForm({
                                     </div>
 
                                     <div className="flex justify-between items-center text-sm font-medium">
-                                        <span className="text-muted-foreground">Net Rent Due</span>
+                                        <span className="text-muted-foreground">Rent Due</span>
                                         <span className="font-mono" data-testid="calculated-rent">₹{netRent.toFixed(2)}</span>
                                     </div>
 
                                     {hamaliPending > 0 ? (
                                         <div className="space-y-1 border-t pt-2">
-                                            <span className="text-xs font-medium text-muted-foreground">Previous Balance</span>
+                                            <span className="text-xs font-medium text-muted-foreground">Old Balance</span>
                                             <div className="flex justify-between items-center text-xs pl-3">
-                                                <span className="text-muted-foreground">Prior Hamali</span>
+                                                <span className="text-muted-foreground">Old Hamali</span>
                                                 <span className="font-mono">₹{priorHamali.toFixed(2)}</span>
                                             </div>
                                             {priorInsurance > 0 && (
                                                 <div className="flex justify-between items-center text-xs pl-3">
-                                                    <span className="text-muted-foreground">Prior Insurance</span>
+                                                    <span className="text-muted-foreground">Old Insurance</span>
                                                     <span className="font-mono">₹{priorInsurance.toFixed(2)}</span>
                                                 </div>
                                             )}
                                             {priorRent > 0 && (
                                                 <div className="flex justify-between items-center text-xs pl-3">
-                                                    <span className="text-muted-foreground">Prior Rent</span>
+                                                    <span className="text-muted-foreground">Old Rent</span>
                                                     <span className="font-mono">₹{priorRent.toFixed(2)}</span>
                                                 </div>
                                             )}
@@ -311,21 +311,21 @@ export function OutflowForm({
                                         </div>
                                     ) : (
                                         <div className="flex justify-between items-center text-sm">
-                                            <span className="text-muted-foreground">Previous Balance</span>
+                                            <span className="text-muted-foreground">Old Balance</span>
                                             <span className="font-mono">₹{hamaliPending.toFixed(2)}</span>
                                         </div>
                                     )}
 
                                     {advanceAmount > 0 && (
                                         <div className="flex justify-between items-center text-sm font-medium text-emerald-600 dark:text-emerald-500">
-                                            <span>Prior Credit / Advance</span>
+                                            <span>Advance Paid</span>
                                             <span className="font-mono">- ₹{advanceAmount.toFixed(2)}</span>
                                         </div>
                                     )}
 
                                     <Separator />
                                     <div className="flex justify-between items-center font-semibold text-lg">
-                                        <span className="text-foreground">Total Payable</span>
+                                        <span className="text-foreground">To Pay Now</span>
                                         <span className="font-mono" data-testid="total-payable">₹{totalPayable.toFixed(2)}</span>
                                     </div>
                                     <div className="space-y-2">

@@ -82,7 +82,7 @@ export function OutflowReceipt({ record, customer, withdrawnBags, finalRent, pai
     const totalPayable = Math.max(0, finalRent + hamaliPending - advanceAmount);
     const balanceDue = Math.max(0, totalPayable - paidNow);
 
-    // Breakdown of the prior charges that make up "Previous Balance", so
+    // Breakdown of the prior charges that make up "Old Balance", so
     // insurance is visible on the bill instead of hidden in one lump number.
     // priorHamali + priorInsurance + priorRent - priorPaid === hamaliPending
     // whenever hamaliPending > 0.
@@ -267,14 +267,14 @@ export function OutflowReceipt({ record, customer, withdrawnBags, finalRent, pai
                         </tr>
                         ${hamaliPending > 0 ? `
                         <tr>
-                            <td style="padding-left: 16px;">Previous Balance - Hamali</td>
+                            <td style="padding-left: 16px;">Old Balance - Hamali</td>
                             <td>-</td>
                             <td>-</td>
                             <td style="text-align: right;">${formatCurrency(priorHamali)}</td>
                         </tr>
                         ${priorInsurance > 0 ? `
                         <tr>
-                            <td style="padding-left: 16px;">Previous Balance - Insurance</td>
+                            <td style="padding-left: 16px;">Old Balance - Insurance</td>
                             <td>-</td>
                             <td>-</td>
                             <td style="text-align: right;">${formatCurrency(priorInsurance)}</td>
@@ -282,14 +282,14 @@ export function OutflowReceipt({ record, customer, withdrawnBags, finalRent, pai
                         ` : ''}
                         ${priorRent > 0 ? `
                         <tr>
-                            <td style="padding-left: 16px;">Previous Balance - Past Rent</td>
+                            <td style="padding-left: 16px;">Old Balance - Old Rent</td>
                             <td>-</td>
                             <td>-</td>
                             <td style="text-align: right;">${formatCurrency(priorRent)}</td>
                         </tr>
                         ` : ''}
                         <tr>
-                            <td style="padding-left: 16px;">Previous Balance - Already Paid</td>
+                            <td style="padding-left: 16px;">Old Balance - Already Paid</td>
                             <td>-</td>
                             <td>-</td>
                             <td style="text-align: right;">- ${formatCurrency(priorPaid)}</td>
@@ -297,7 +297,7 @@ export function OutflowReceipt({ record, customer, withdrawnBags, finalRent, pai
                         ` : ''}
                         ${advanceAmount > 0 ? `
                         <tr>
-                            <td>Prior Credit / Advance</td>
+                            <td>Advance Paid</td>
                             <td>-</td>
                             <td>-</td>
                             <td style="text-align: right; color: #059669;">- ${formatCurrency(advanceAmount)}</td>
@@ -415,33 +415,33 @@ export function OutflowReceipt({ record, customer, withdrawnBags, finalRent, pai
                         </div>
                         {hamaliPending > 0 ? (
                             <>
-                                <div><div className="text-muted-foreground">Previous Balance - Hamali</div></div>
+                                <div><div className="text-muted-foreground">Old Balance - Hamali</div></div>
                                 <div className="text-right"><div className="font-medium">{formatCurrency(priorHamali)}</div></div>
                                 {priorInsurance > 0 && (
                                     <>
-                                        <div><div className="text-muted-foreground">Previous Balance - Insurance</div></div>
+                                        <div><div className="text-muted-foreground">Old Balance - Insurance</div></div>
                                         <div className="text-right"><div className="font-medium">{formatCurrency(priorInsurance)}</div></div>
                                     </>
                                 )}
                                 {priorRent > 0 && (
                                     <>
-                                        <div><div className="text-muted-foreground">Previous Balance - Past Rent</div></div>
+                                        <div><div className="text-muted-foreground">Old Balance - Old Rent</div></div>
                                         <div className="text-right"><div className="font-medium">{formatCurrency(priorRent)}</div></div>
                                     </>
                                 )}
-                                <div><div className="text-muted-foreground">Previous Balance - Already Paid</div></div>
+                                <div><div className="text-muted-foreground">Old Balance - Already Paid</div></div>
                                 <div className="text-right"><div className="font-medium">- {formatCurrency(priorPaid)}</div></div>
                             </>
                         ) : (
                             <>
-                                <div><div className="text-muted-foreground">Previous Balance</div></div>
+                                <div><div className="text-muted-foreground">Old Balance</div></div>
                                 <div className="text-right"><div className="font-medium">{formatCurrency(hamaliPending)}</div></div>
                             </>
                         )}
                         {advanceAmount > 0 && (
                             <>
                                 <div>
-                                    <div className="text-muted-foreground text-emerald-600 dark:text-emerald-500">Prior Credit</div>
+                                    <div className="text-muted-foreground text-emerald-600 dark:text-emerald-500">Advance Paid</div>
                                 </div>
                                 <div className="text-right">
                                     <div className="font-medium text-emerald-600 dark:text-emerald-500">- {formatCurrency(advanceAmount)}</div>
