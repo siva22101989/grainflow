@@ -461,7 +461,10 @@ export const updateStorageRecord = async (id: string, data: Partial<StorageRecor
     if (data.bagsIn !== undefined) dbData.bags_in = data.bagsIn;
     if (data.bagsOut !== undefined) dbData.bags_out = data.bagsOut;
     if (data.storageStartDate) dbData.storage_start_date = data.storageStartDate instanceof Date ? data.storageStartDate.toISOString() : data.storageStartDate;
-    if (data.storageEndDate) dbData.storage_end_date = data.storageEndDate instanceof Date ? data.storageEndDate.toISOString() : data.storageEndDate;
+    // Use !== undefined so an explicit null CLEARS storage_end_date (reopening a
+    // record). The old truthy check silently ignored null, leaving reverted
+    // records stuck "closed" and hidden from active stock.
+    if (data.storageEndDate !== undefined) dbData.storage_end_date = data.storageEndDate ? (data.storageEndDate instanceof Date ? data.storageEndDate.toISOString() : data.storageEndDate) : null;
     if (data.billingCycle) dbData.billing_cycle = data.billingCycle;
     if (data.hamaliPayable !== undefined) dbData.hamali_payable = data.hamaliPayable;
     if (data.insurancePayable !== undefined) dbData.insurance_payable = data.insurancePayable;
