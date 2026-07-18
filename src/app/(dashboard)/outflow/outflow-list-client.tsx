@@ -3,11 +3,12 @@
 import { useState, useMemo, useRef } from 'react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { EmptyState } from "@/components/ui/empty-state";
-import { ArrowUpToLine, Trash2, MoreHorizontal, ReceiptText } from "lucide-react";
+import { ArrowUpToLine, Trash2, MoreHorizontal, ReceiptText, Pencil } from "lucide-react";
 import Link from "next/link";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
 import { DeleteOutflowDialog } from "@/components/outflow/delete-outflow-dialog";
+import { EditOutflowDialog } from "@/components/outflow/edit-outflow-dialog";
 import { MobileCard } from "@/components/ui/mobile-card";
 import { PrintButton } from "@/components/common/print-button";
 import { SearchBar } from "@/components/ui/search-bar";
@@ -264,6 +265,12 @@ export function OutflowListClient({ outflows }: OutflowListClientProps) {
                                             </Link>
                                         </DropdownMenuItem>
                                     )}
+                                    <EditOutflowDialog transaction={{ id: record.id, bags: record.bags, date: record.date, rentCollected: (record as any).rentCollected ?? 0, maxEditableBags: (record as any).maxEditableBags ?? record.bags }}>
+                                        <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+                                            <Pencil className="mr-2 h-4 w-4" />
+                                            Edit Outflow
+                                        </DropdownMenuItem>
+                                    </EditOutflowDialog>
                                     <DeleteOutflowDialog transactionId={record.id} bags={record.bags}>
                                         <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="text-destructive focus:text-destructive">
                                             <Trash2 className="mr-2 h-4 w-4" />
@@ -344,6 +351,12 @@ export function OutflowListClient({ outflows }: OutflowListClientProps) {
                                                         className="w-full justify-start cursor-pointer"
                                                     />
                                                 </DropdownMenuItem>
+                                                <EditOutflowDialog transaction={{ id: record.id, bags: record.bags, date: record.date, rentCollected: (record as any).rentCollected ?? 0, maxEditableBags: (record as any).maxEditableBags ?? record.bags }}>
+                                                    <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+                                                        <Pencil className="mr-2 h-4 w-4" />
+                                                        Edit Outflow
+                                                    </DropdownMenuItem>
+                                                </EditOutflowDialog>
                                                 <DeleteOutflowDialog transactionId={record.id} bags={record.bags}>
                                                     <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="text-destructive focus:text-destructive">
                                                         <Trash2 className="mr-2 h-4 w-4" />

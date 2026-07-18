@@ -25,10 +25,11 @@ interface EditOutflowDialogProps {
         date: Date;
         rentCollected: number;
         maxEditableBags: number; // Current stock + bags withdrawn in this tx
-    }
+    };
+    children?: React.ReactNode; // optional custom trigger (e.g. a dropdown item)
 }
 
-export function EditOutflowDialog({ transaction }: EditOutflowDialogProps) {
+export function EditOutflowDialog({ transaction, children }: EditOutflowDialogProps) {
   const [open, setOpen] = useState(false);
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
@@ -76,14 +77,15 @@ export function EditOutflowDialog({ transaction }: EditOutflowDialogProps) {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-primary">
-          <Pencil className="h-4 w-4" />
-        </Button>
+        {children ?? (
+          <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-primary">
+            <Pencil className="h-4 w-4" />
+          </Button>
+        )}
       </DialogTrigger>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
-          <DialogTitle>Edit Inflow</DialogTitle> 
-          {/* Note: In UI we might call this Withdrawal or Outflow transaction, but User calls it "Outflow" */}
+          <DialogTitle>Edit Outflow</DialogTitle>
           <DialogDescription>
             Modify the withdrawal details. This will adjust the stock and calculated rent.
           </DialogDescription>

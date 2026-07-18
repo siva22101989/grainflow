@@ -311,7 +311,9 @@ export async function updateOutflow(transactionId: string, formData: FormData) {
     const record = await getStorageRecord(storageRecordId);
     if (!record) return { success: false, message: 'Storage record not found' };
 
-    // 2. Calculate Updates via Service
+    // 2. Compute the new record state (calculateUpdateImpact validates stock and
+    //    handles the open<->closed transition), then any auto-settle change the
+    //    closure flip implies, then apply EVERYTHING in one atomic RPC.
     try {
         const { updates } = BillingService.calculateUpdateImpact(
             record,
@@ -319,17 +321,63 @@ export async function updateOutflow(transactionId: string, formData: FormData) {
             { bags: bags, rent: rent, date: new Date(date) }
         );
 
-        // 4. Apply Updates
-        await updateStorageRecord(record.id, updates);
+        const wasClosed = record.storageEndDate != null;
+        const nowClosed = updates.bagsStored === 0;
+        const reopening = wasClosed && !nowClosed;
+        const closing = !wasClosed && nowClosed;
+        const isBulk = !!transaction.batch_id;
 
-        // C. Update Transaction Log
-        const { error: txUpdateError } = await supabase.from('withdrawal_transactions').update({
-            bags_withdrawn: bags,
-            rent_collected: rent,
-            withdrawal_date: new Date(date)
-        }).eq('id', transactionId);
+        // Keep the withdrawal's existing auto-settle charges unless the edit flips
+        // the record's closure state.
+        let newHamaliCharged = Number(transaction.hamali_charged || 0);
+        let newInsuranceCharged = Number(transaction.insurance_charged || 0);
+        let reverseAutosettle = false;
+        const addPayments: { amount: number; type: 'hamali' | 'insurance'; notes: string }[] = [];
 
-        if (txUpdateError) return { success: false, message: 'Failed to update transaction' };
+        if (isBulk && reopening) {
+            // No longer closed → its auto-settled hamali/insurance must be reversed.
+            reverseAutosettle = true;
+            newHamaliCharged = 0;
+            newInsuranceCharged = 0;
+        } else if (isBulk && closing) {
+            // Now closes → auto-settle outstanding hamali/insurance (mirrors bulk outflow).
+            const prefix = String(transaction.batch_id).slice(0, 8);
+            const hamaliPaid = (record.payments || []).filter(p => p.type === 'hamali').reduce((s, p) => s + p.amount, 0);
+            const hamaliDue = Math.max(0, (record.hamaliPayable || 0) - hamaliPaid);
+            if (hamaliDue > 0) {
+                newHamaliCharged = hamaliDue;
+                addPayments.push({ amount: hamaliDue, type: 'hamali', notes: `Hamali auto-settled on record closure (Batch: ${prefix})` });
+            }
+            const insurancePaid = (record.payments || []).filter(p => p.type === 'insurance').reduce((s, p) => s + p.amount, 0);
+            const insuranceDue = Math.max(0, ((record as any).insurancePayable || 0) - insurancePaid);
+            if (insuranceDue > 0) {
+                newInsuranceCharged = insuranceDue;
+                addPayments.push({ amount: insuranceDue, type: 'insurance', notes: `Insurance auto-settled on record closure (Batch: ${prefix})` });
+            }
+        }
+
+        const finalStorageEndDate = nowClosed ? new Date(date).toISOString() : null;
+
+        const { data: rpcResult, error: rpcError } = await supabase.rpc('update_outflow_atomic', {
+            p_transaction_id: transactionId,
+            p_new_bags: bags,
+            p_new_rent: rent,
+            p_new_date: date,
+            p_new_bags_stored: updates.bagsStored ?? record.bagsStored,
+            p_new_bags_out: updates.bagsOut ?? 0,
+            p_new_total_rent_billed: updates.totalRentBilled ?? 0,
+            p_new_storage_end_date: finalStorageEndDate,
+            p_reset_billing_cycle: reopening,
+            p_reverse_autosettle: reverseAutosettle,
+            p_new_hamali_charged: newHamaliCharged,
+            p_new_insurance_charged: newInsuranceCharged,
+            p_add_payments: addPayments,
+        });
+
+        if (rpcError || !rpcResult?.success) {
+            logError(rpcError || new Error(rpcResult?.error || 'update failed'), { operation: 'updateOutflow', metadata: { transactionId } });
+            return { success: false, message: `Failed to update outflow: ${rpcError?.message || rpcResult?.error || 'unknown error'}` };
+        }
 
         revalidatePath('/outflow');
         revalidatePath('/storage');
