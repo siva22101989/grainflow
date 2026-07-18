@@ -10,9 +10,8 @@ import { checkRateLimit } from '@/lib/rate-limit';
 import { getNextInvoiceNumber } from '@/lib/sequence-utils';
 import { logError } from '@/lib/error-logger';
 import { BillingService } from '@/lib/billing';
-import { updateStorageRecord, addPaymentToRecord, saveWithdrawalTransaction } from '@/lib/data';
 import type { StorageRecord } from '@/lib/definitions';
-import { getStorageRecord, getCustomer } from '@/lib/queries';
+import { getStorageRecord, getCustomer, getUserWarehouse } from '@/lib/queries';
 import { isSMSMasterEnabled } from '@/lib/sms-settings-actions';
 
 const { logger } = Sentry;
@@ -261,6 +260,10 @@ export async function processBulkOutflow(_prevState: any, formData: FormData): P
             }
 
             const supabase = await createClient();
+            const warehouseId = await getUserWarehouse();
+            if (!warehouseId) {
+                return { success: false, message: 'No warehouse found for user.' };
+            }
 
             // --- STEP 1: Atomic stock reservation via RPC (row-level locking) ---
             let specificIds: string[] | null = null;
@@ -368,12 +371,11 @@ export async function processBulkOutflow(_prevState: any, formData: FormData): P
                 }
 
                 // --- STEP 4: Execute Operations ---
-                let processedCount = 0;
-                const transactionIds: string[] = [];
                 const withdrawalDateObj = new Date(withdrawalDate);
 
                 // Generate ONE batch_id for the entire bulk operation
                 const batchId = crypto.randomUUID();
+                const batchPrefix = batchId.slice(0, 8);
 
                 // Generate ONE consolidated invoice number for the entire batch.
                 // Every withdrawal_transactions row in this batch carries this
@@ -385,132 +387,103 @@ export async function processBulkOutflow(_prevState: any, formData: FormData): P
                 let paymentRemaining = amountPaidNow || 0;
                 let discountRemaining = discount || 0;
 
-                for (const op of operations) {
+                // Build the full per-record plan here in JS (all billing math stays
+                // where it is unit-tested), then hand the whole plan to ONE atomic
+                // RPC that performs every write in a single transaction. This makes
+                // bulk outflow all-or-nothing: no more partial saves / orphaned
+                // auto-settle payments if something fails mid-batch.
+                type OpPayment = { amount: number; type: 'rent' | 'hamali' | 'insurance'; notes: string };
+                const batchOperations = operations.map((op, idx) => {
                     const { record, bags, rent } = op;
-                    
-                    // 1. Allocate Discount proportionally
+                    const isLast = idx === operations.length - 1;
+
+                    // 1. Allocate discount proportionally
                     let allocatedDiscount = 0;
                     if (totalBatchRent > 0 && discountRemaining > 0) {
-                         allocatedDiscount = (rent / totalBatchRent) * (discount || 0);
-                         allocatedDiscount = Math.round(allocatedDiscount * 100) / 100;
-                         if (allocatedDiscount > discountRemaining || op === operations[operations.length - 1]) {
-                             allocatedDiscount = discountRemaining;
-                         }
-                         discountRemaining -= allocatedDiscount;
+                        allocatedDiscount = Math.round((rent / totalBatchRent) * (discount || 0) * 100) / 100;
+                        if (allocatedDiscount > discountRemaining || isLast) allocatedDiscount = discountRemaining;
+                        discountRemaining -= allocatedDiscount;
                     } else if (discountRemaining > 0 && totalBatchRent === 0) {
                         allocatedDiscount = discountRemaining;
                         discountRemaining = 0;
                     }
-
                     const rentAfterDiscount = Math.max(0, rent - allocatedDiscount);
 
-                    // 2. Allocate Payment proportionally
+                    // 2. Allocate payment proportionally
                     let allocatedPayment = 0;
                     if (totalBatchRent > 0 && paymentRemaining > 0) {
-                         allocatedPayment = (rent / totalBatchRent) * (amountPaidNow || 0);
-                         allocatedPayment = Math.round(allocatedPayment * 100) / 100;
-                         if (allocatedPayment > paymentRemaining || op === operations[operations.length - 1]) {
-                             allocatedPayment = paymentRemaining;
-                         }
-                         paymentRemaining -= allocatedPayment;
+                        allocatedPayment = Math.round((rent / totalBatchRent) * (amountPaidNow || 0) * 100) / 100;
+                        if (allocatedPayment > paymentRemaining || isLast) allocatedPayment = paymentRemaining;
+                        paymentRemaining -= allocatedPayment;
                     } else if (paymentRemaining > 0 && totalBatchRent === 0) {
                         allocatedPayment = paymentRemaining;
                         paymentRemaining = 0;
                     }
 
-                    // Calculate impact
+                    // 3. Record impact (new bag counts / closure)
                     const { updates: recordUpdate, isClosed } = BillingService.calculateOutflowImpact(
-                        record,
-                        bags,
-                        rentAfterDiscount,
-                        withdrawalDateObj
+                        record, bags, rentAfterDiscount, withdrawalDateObj
                     );
 
-                    // Apply Rent Payment
+                    const opPayments: OpPayment[] = [];
                     if (allocatedPayment > 0) {
-                        await addPaymentToRecord(record.id, {
-                            amount: allocatedPayment,
-                            date: withdrawalDateObj,
-                            type: 'rent',
-                            notes: `Bulk Outflow Payment (Batch: ${batchId.slice(0, 8)})`
-                        });
-                        logger.info("Payment added during bulk outflow", { recordId: record.id, amount: allocatedPayment, batchId });
+                        opPayments.push({ amount: allocatedPayment, type: 'rent', notes: `Bulk Outflow Payment (Batch: ${batchPrefix})` });
                     }
 
-                    // --- STEP 5: Auto-settle hamali on fully closed records ---
+                    // 4. Auto-settle outstanding hamali on full closure
                     let hamaliCharged = 0;
                     if (isClosed && record.hamaliPayable && record.hamaliPayable > 0) {
-                        // Calculate outstanding hamali
-                        const hamaliPaid = (record.payments || [])
-                            .filter(p => p.type === 'hamali')
-                            .reduce((sum, p) => sum + p.amount, 0);
+                        const hamaliPaid = (record.payments || []).filter(p => p.type === 'hamali').reduce((s, p) => s + p.amount, 0);
                         const hamaliDue = Math.max(0, record.hamaliPayable - hamaliPaid);
-
                         if (hamaliDue > 0) {
-                            // Generate separate hamali payment entry (Option B)
-                            await addPaymentToRecord(record.id, {
-                                amount: hamaliDue,
-                                date: withdrawalDateObj,
-                                type: 'hamali',
-                                notes: `Hamali auto-settled on record closure (Batch: ${batchId.slice(0, 8)})`
-                            });
                             hamaliCharged = hamaliDue;
-                            logger.info("Hamali auto-settled during bulk outflow", {
-                                recordId: record.id,
-                                hamaliDue,
-                                batchId
-                            });
+                            opPayments.push({ amount: hamaliDue, type: 'hamali', notes: `Hamali auto-settled on record closure (Batch: ${batchPrefix})` });
                         }
                     }
 
-                    // --- STEP 5b: Auto-settle insurance on fully closed records ---
-                    // Mirrors hamali: on full closure, collect the outstanding
-                    // insurance and record it so the consolidated bill shows it.
+                    // 4b. Auto-settle outstanding insurance on full closure (mirrors hamali)
                     let insuranceCharged = 0;
                     if (isClosed && record.insurancePayable && record.insurancePayable > 0) {
-                        const insurancePaid = (record.payments || [])
-                            .filter(p => p.type === 'insurance')
-                            .reduce((sum, p) => sum + p.amount, 0);
+                        const insurancePaid = (record.payments || []).filter(p => p.type === 'insurance').reduce((s, p) => s + p.amount, 0);
                         const insuranceDue = Math.max(0, record.insurancePayable - insurancePaid);
-
                         if (insuranceDue > 0) {
-                            await addPaymentToRecord(record.id, {
-                                amount: insuranceDue,
-                                date: withdrawalDateObj,
-                                type: 'insurance',
-                                notes: `Insurance auto-settled on record closure (Batch: ${batchId.slice(0, 8)})`
-                            });
                             insuranceCharged = insuranceDue;
-                            logger.info("Insurance auto-settled during bulk outflow", {
-                                recordId: record.id,
-                                insuranceDue,
-                                batchId
-                            });
+                            opPayments.push({ amount: insuranceDue, type: 'insurance', notes: `Insurance auto-settled on record closure (Batch: ${batchPrefix})` });
                         }
                     }
 
-                    // Per-record outflow_invoice_no left untouched — that's for
-                    // legacy single-outflow tracking on storage_records. The
-                    // consolidated_invoice_no on each withdrawal_transactions
-                    // row is the new source of truth for bulk-batch bills.
+                    return {
+                        record_id: record.id,
+                        bags_withdrawn: bags,
+                        rent_collected: rentAfterDiscount,
+                        discount: allocatedDiscount,
+                        hamali_charged: hamaliCharged,
+                        insurance_charged: insuranceCharged,
+                        new_bags_stored: recordUpdate.bagsStored ?? 0,
+                        new_bags_out: recordUpdate.bagsOut ?? 0,
+                        new_total_rent_billed: recordUpdate.totalRentBilled ?? 0,
+                        storage_end_date: recordUpdate.storageEndDate
+                            ? new Date(recordUpdate.storageEndDate).toISOString()
+                            : null,
+                        payments: opPayments,
+                    };
+                });
 
-                    // Update Record
-                    await updateStorageRecord(record.id, recordUpdate);
-
-                    // Save Transaction with batch_id, hamali tracking, and the
-                    // shared consolidated invoice number for this batch.
-                    const txId = await saveWithdrawalTransaction(
-                        record.id,
-                        bags,
-                        withdrawalDateObj,
-                        rentAfterDiscount,
-                        allocatedDiscount,
-                        { batchId, hamaliCharged, insuranceCharged, consolidatedInvoiceNo }
-                    );
-                    if (txId) transactionIds.push(txId);
-
-                    processedCount++;
+                // --- STEP 4: Execute EVERY write atomically (all-or-nothing) ---
+                const { data: rpcResult, error: rpcError } = await supabase.rpc('process_bulk_outflow_atomic', {
+                    p_warehouse_id: warehouseId,
+                    p_batch_id: batchId,
+                    p_consolidated_invoice_no: consolidatedInvoiceNo,
+                    p_withdrawal_date: withdrawalDate,
+                    p_operations: batchOperations,
+                });
+                if (rpcError) throw rpcError;
+                if (!rpcResult?.success) {
+                    throw new Error(rpcResult?.error || rpcResult?.message || 'Bulk outflow write failed');
                 }
+                const transactionIds: string[] = rpcResult.transaction_ids || [];
+                const processedCount: number = rpcResult.processed_count || 0;
+                logger.info("Bulk outflow committed atomically", { batchId, processedCount, consolidatedInvoiceNo });
 
                 // --- STEP 6: SMS Notification ---
                 // Records are already withdrawn and saved above. SMS is a
