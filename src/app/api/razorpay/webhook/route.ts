@@ -125,11 +125,23 @@ async function handlePaymentCaptured(payment: any) {
     try {
       const { data: customer } = await supabase
         .from('customers')
-        .select('name, phone')
+        .select('name, phone, warehouse_id')
         .eq('id', result.customerId)
         .single();
 
-      if (customer && customer.phone) {
+      // Master SMS switch. The webhook has no user session, so resolve the
+      // warehouse from the customer and read its sms_settings directly.
+      let smsMasterOn = false;
+      if (customer?.warehouse_id) {
+        const { data: smsCfg } = await supabase
+          .from('sms_settings')
+          .select('enable_sms')
+          .eq('warehouse_id', customer.warehouse_id)
+          .single();
+        smsMasterOn = !!smsCfg?.enable_sms;
+      }
+
+      if (customer && customer.phone && smsMasterOn) {
         const businessName = process.env.RAZORPAY_BUSINESS_NAME || 'GrainFlow';
         const smsMessage = `Dear ${customer.name},\nPayment of ₹${result.amount?.toLocaleString('en-IN')} received successfully.\nThank you!\n- ${businessName}`;
 

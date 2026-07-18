@@ -28,6 +28,7 @@ export async function getSMSSettings() {
             .from('sms_settings')
             .insert({
                 warehouse_id: warehouseId,
+                enable_sms: false,
                 enable_payment_reminders: true,
                 enable_inflow_welcome: false,
                 enable_outflow_confirmation: false,
@@ -46,6 +47,7 @@ export async function getSMSSettings() {
  * Update SMS settings
  */
 export async function updateSMSSettings(settings: {
+    enable_sms?: boolean;
     enable_payment_reminders?: boolean;
     enable_inflow_welcome?: boolean;
     enable_outflow_confirmation?: boolean;
@@ -88,13 +90,24 @@ export async function updateSMSSettings(settings: {
 }
 
 /**
- * Check if a specific SMS type is enabled
+ * Master SMS switch for the current warehouse. When false, NO SMS should be
+ * sent by ANY path (including callers that bypass per-event settings).
+ */
+export async function isSMSMasterEnabled(): Promise<boolean> {
+    const settings = await getSMSSettings();
+    return !!settings?.enable_sms;
+}
+
+/**
+ * Check if a specific SMS type is enabled. The master switch gates everything:
+ * if SMS is turned off globally, every type reports disabled.
  */
 export async function isSMSEnabled(type: 'payment_reminders' | 'inflow_welcome' | 'outflow_confirmation' | 'payment_confirmation'): Promise<boolean> {
     const settings = await getSMSSettings();
-    
+
     if (!settings) return false;
-    
+    if (!settings.enable_sms) return false; // master switch off → nothing sends
+
     switch (type) {
         case 'payment_reminders':
             return settings.enable_payment_reminders ?? true;

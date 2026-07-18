@@ -11,6 +11,7 @@ import { useToast } from '@/hooks/use-toast';
 
 export function SMSSettingsCard() {
     const [settings, setSettings] = useState({
+        enable_sms: false,
         enable_payment_reminders: true,
         enable_inflow_welcome: false,
         enable_outflow_confirmation: false,
@@ -29,6 +30,7 @@ export function SMSSettingsCard() {
             const data = await getSMSSettings();
             if (data) {
                 setSettings({
+                    enable_sms: data.enable_sms ?? false,
                     enable_payment_reminders: data.enable_payment_reminders ?? true,
                     enable_inflow_welcome: data.enable_inflow_welcome ?? false,
                     enable_outflow_confirmation: data.enable_outflow_confirmation ?? false,
@@ -98,6 +100,27 @@ export function SMSSettingsCard() {
                 </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
+                {/* Master switch — turns ALL SMS on or off */}
+                <div className={`flex items-center justify-between gap-4 rounded-lg border-2 p-4 shadow-sm ${settings.enable_sms ? 'border-primary/40 bg-primary/5' : 'border-destructive/30 bg-destructive/5'}`}>
+                    <div className="space-y-0.5 flex-1">
+                        <Label htmlFor="enable-sms" className="text-base font-semibold">
+                            Enable SMS {settings.enable_sms ? '' : '(All SMS are OFF)'}
+                        </Label>
+                        <p className="text-sm text-muted-foreground mr-2">
+                            Master switch. When off, no SMS is sent to customers from anywhere in the app, regardless of the options below.
+                        </p>
+                    </div>
+                    <Switch
+                        id="enable-sms"
+                        className="shrink-0"
+                        checked={settings.enable_sms}
+                        onCheckedChange={(checked) =>
+                            setSettings({ ...settings, enable_sms: checked })
+                        }
+                    />
+                </div>
+
+                <div className={`space-y-6 ${settings.enable_sms ? '' : 'opacity-50 pointer-events-none'}`}>
                 {/* Payment Reminders */}
                 <div className="flex items-center justify-between gap-4 rounded-lg border p-4 shadow-sm">
                     <div className="space-y-0.5 flex-1">
@@ -176,6 +199,7 @@ export function SMSSettingsCard() {
                             setSettings({ ...settings, enable_payment_confirmation: checked })
                         }
                     />
+                </div>
                 </div>
 
                 {/* Save Button */}

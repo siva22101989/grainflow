@@ -5,7 +5,7 @@
 
 import { textBeeService } from '@/lib/textbee';
 import { createClient } from '@/utils/supabase/server';
-import { isSMSEnabled } from '@/lib/sms-settings-actions';
+import { isSMSEnabled, isSMSMasterEnabled } from '@/lib/sms-settings-actions';
 import { hasSMSPermission } from '@/lib/sms-actions';
 import { logError } from '@/lib/error-logger';
 
@@ -22,9 +22,14 @@ export async function sendInflowWelcomeSMS(storageRecordId: string, bypassSettin
         };
     }
     
+    // Master switch — hard gate, cannot be bypassed by bypassSettings
+    if (!(await isSMSMasterEnabled())) {
+        return { success: false, error: 'SMS is turned off' };
+    }
+
     // Check settings
     const enabled = await isSMSEnabled('inflow_welcome');
-    
+
     if (!enabled && !bypassSettings) {
         return { success: false, error: 'SMS disabled in settings' };
     }
@@ -135,9 +140,14 @@ export async function sendOutflowConfirmationSMS(transactionId: string, bypassSe
         };
     }
     
+    // Master switch — hard gate, cannot be bypassed by bypassSettings
+    if (!(await isSMSMasterEnabled())) {
+        return { success: false, error: 'SMS is turned off' };
+    }
+
     // Check settings
     const enabled = await isSMSEnabled('outflow_confirmation');
-    
+
     if (!enabled && !bypassSettings) {
         return { success: false, error: 'SMS disabled in settings' };
     }
@@ -224,9 +234,14 @@ export async function sendDryingConfirmationSMS(recordId: string, bypassSettings
         };
     }
     
+    // Master switch — hard gate, cannot be bypassed by bypassSettings
+    if (!(await isSMSMasterEnabled())) {
+        return { success: false, error: 'SMS is turned off' };
+    }
+
     // Check settings (Using 'inflow_welcome' as master switch for Inflow-related events as requested)
     const enabled = await isSMSEnabled('inflow_welcome');
-    
+
     if (!enabled && !bypassSettings) {
         return { success: false, error: 'SMS disabled in settings' };
     }
@@ -307,6 +322,11 @@ export async function sendPaymentConfirmationSMS(
       success: false,
       error: 'SMS service is disabled for trial users. Please upgrade your plan to enable SMS notifications.'
     };
+  }
+
+  // Master switch — hard gate, cannot be bypassed by bypassSettings
+  if (!(await isSMSMasterEnabled())) {
+    return { success: false, error: 'SMS is turned off' };
   }
 
   const enabled = await isSMSEnabled('payment_confirmation');

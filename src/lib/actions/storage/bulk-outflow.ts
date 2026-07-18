@@ -13,6 +13,7 @@ import { BillingService } from '@/lib/billing';
 import { updateStorageRecord, addPaymentToRecord, saveWithdrawalTransaction } from '@/lib/data';
 import type { StorageRecord } from '@/lib/definitions';
 import { getStorageRecord, getCustomer } from '@/lib/queries';
+import { isSMSMasterEnabled } from '@/lib/sms-settings-actions';
 
 const { logger } = Sentry;
 
@@ -512,7 +513,8 @@ export async function processBulkOutflow(_prevState: any, formData: FormData): P
                 }
 
                 // --- STEP 6: SMS Notification ---
-                if (sendSms && transactionIds.length > 0) {
+                // Master switch gates the direct send too (bulk uses textBeeService directly).
+                if (sendSms && transactionIds.length > 0 && (await isSMSMasterEnabled())) {
                      const customer = await getCustomer(validCustomerId);
 
                      if (customer && customer.phone) {

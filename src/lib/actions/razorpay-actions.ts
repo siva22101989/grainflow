@@ -6,6 +6,7 @@ import { getUserWarehouse } from '@/lib/queries';
 import { logError } from '@/lib/error-logger';
 import { createPaymentLink } from '@/lib/services/razorpay-service';
 import { textBeeService } from '@/lib/textbee';
+import { isSMSMasterEnabled } from '@/lib/sms-settings-actions';
 
 export interface CreatePaymentLinkResult {
   success: boolean;
@@ -68,8 +69,10 @@ export async function createAndSendPaymentLink(
 
     let smsStatus = false;
     try {
-      const smsResult = await textBeeService.sendSMS({ to: customer.phone, message: smsMessage });
-      smsStatus = smsResult.success;
+      if (await isSMSMasterEnabled()) {
+        const smsResult = await textBeeService.sendSMS({ to: customer.phone, message: smsMessage });
+        smsStatus = smsResult.success;
+      }
     } catch (smsError) {
       logError(smsError as Error, { operation: 'createAndSendPaymentLink:SMS' });
       // Continue even if SMS fails - user can still copy link
