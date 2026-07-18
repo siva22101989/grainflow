@@ -1000,7 +1000,8 @@ import { logError } from './error-logger';
             crop:crops(name)
         `)
         .eq('warehouse_id', warehouseId)
-        .is('deleted_at', null)
+        // unloading_records is hard-deleted (no deleted_at column) — filtering on
+        // it 500'd the Unloading Register report and returned no data.
         .order('unload_date', { ascending: false });
     
     if (filters?.startDate) query = query.gte('unload_date', filters.startDate);
