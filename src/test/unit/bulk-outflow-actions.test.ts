@@ -430,6 +430,16 @@ describe('Bulk Outflow Actions', () => {
       };
       expect(calculateInsuranceDue(record)).toBe(0);
     });
+
+    it('uses payment types that exist in the DB payment_type enum', () => {
+      // Regression: STEP 5 writes 'hamali' and STEP 5b writes 'insurance'.
+      // 'insurance' was missing from the payment_type enum, so the insert threw
+      // and aborted the entire bulk outflow whenever an insured record closed.
+      // Keep this list in sync with the payment_type enum in the database.
+      const DB_PAYMENT_TYPES = ['rent', 'hamali', 'advance', 'security_deposit', 'other', 'waiver', 'insurance'];
+      expect(DB_PAYMENT_TYPES).toContain('hamali');
+      expect(DB_PAYMENT_TYPES).toContain('insurance');
+    });
   });
 
   describe('Specific record ID parsing', () => {

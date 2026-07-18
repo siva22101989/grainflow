@@ -513,28 +513,36 @@ export async function processBulkOutflow(_prevState: any, formData: FormData): P
                 }
 
                 // --- STEP 6: SMS Notification ---
-                // Master switch gates the direct send too (bulk uses textBeeService directly).
-                if (sendSms && transactionIds.length > 0 && (await isSMSMasterEnabled())) {
-                     const customer = await getCustomer(validCustomerId);
+                // Records are already withdrawn and saved above. SMS is a
+                // best-effort side effect — never let it fail the whole outflow
+                // (which would show an error to the user despite the data being
+                // written, and tempt a retry that double-withdraws).
+                try {
+                    // Master switch gates the direct send too (bulk uses textBeeService directly).
+                    if (sendSms && transactionIds.length > 0 && (await isSMSMasterEnabled())) {
+                         const customer = await getCustomer(validCustomerId);
 
-                     if (customer && customer.phone) {
-                         const { textBeeService } = await import('@/lib/textbee');
-                         
-                         const message = `Bulk Outflow Processed
+                         if (customer && customer.phone) {
+                             const { textBeeService } = await import('@/lib/textbee');
+
+                             const message = `Bulk Outflow Processed
 Item: ${commodity}
 Total Bags: ${totalBagsToWithdraw}
 Rent: ${totalBatchRent > 0 ? 'Rs.' + totalBatchRent.toLocaleString('en-IN') : 'N/A'}
 Paid: ${amountPaidNow && amountPaidNow > 0 ? 'Rs.' + amountPaidNow.toLocaleString('en-IN') : 'Rs.0'}
 Thank you.`;
 
-                         await textBeeService.sendSMS({
-                             to: customer.phone,
-                             message
-                         });
-                         logger.info("Bulk outflow SMS sent", { customerId, phone: customer.phone, batchId });
-                     } else {
-                         logger.warn("Skipping SMS: Customer phone not found", { customerId });
-                     }
+                             await textBeeService.sendSMS({
+                                 to: customer.phone,
+                                 message
+                             });
+                             logger.info("Bulk outflow SMS sent", { customerId, phone: customer.phone, batchId });
+                         } else {
+                             logger.warn("Skipping SMS: Customer phone not found", { customerId });
+                         }
+                    }
+                } catch (smsErr: any) {
+                    logError(smsErr, { operation: 'processBulkOutflow:SMS', metadata: { customerId, batchId } });
                 }
 
                 revalidatePath('/storage');
