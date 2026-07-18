@@ -157,6 +157,18 @@ export function BulkOutflowReceipt({ batch }: Props) {
                         <div className={`text-right font-bold text-base border-t pt-2 ${batch.totals.balance > 0 ? 'text-destructive' : 'text-emerald-700'}`}>
                             {formatCurrency(batch.totals.balance)}
                         </div>
+
+                        {batch.totals.pendingDues > 0 && (
+                            <>
+                                <div className="text-destructive border-t pt-2">Total Pending Dues (these records)</div>
+                                <div className="text-right font-semibold text-destructive border-t pt-2">
+                                    {formatCurrency(batch.totals.pendingDues)}
+                                </div>
+                                <div className="col-span-2 text-[11px] text-muted-foreground">
+                                    Includes any unpaid rent, hamali or insurance still owed on these records.
+                                </div>
+                            </>
+                        )}
                     </div>
 
                     <Separator />

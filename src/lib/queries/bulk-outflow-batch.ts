@@ -57,6 +57,7 @@ export type BulkOutflowBatchData = {
         totalBilled: number; // rent + hamali + insurance (discount is already subtracted in rent_collected for batch rows)
         totalPaidOnDate: number; // payments made on the same date (proxy for "paid now during this batch")
         balance: number;
+        pendingDues: number; // remaining unpaid balance across these records (rent + hamali + insurance - all payments)
     };
 };
 
@@ -170,6 +171,31 @@ export async function getBulkOutflowBatch(invoiceNo: string): Promise<BulkOutflo
     const totalBilled = totalRent + totalHamali + totalInsurance; // discount already netted into rent_collected
     const balance = Math.max(0, totalBilled - totalPaidOnDate);
 
+    // 4b. Remaining unpaid dues across ALL these records (rent from every
+    // withdrawal + hamali + insurance - every payment). Surfaces any still-owed
+    // hamali/rent (e.g. from partially-withdrawn records not auto-settled here),
+    // so the operator can collect everything at outflow time.
+    let pendingDues = 0;
+    if (recordIds.length > 0) {
+        const { data: recs } = await supabase
+            .from('storage_records')
+            .select('id, hamali_payable, insurance_payable, withdrawal_transactions(rent_collected, deleted_at), payments(amount, deleted_at)')
+            .in('id', recordIds)
+            .is('deleted_at', null);
+        if (recs) {
+            for (const r of recs as any[]) {
+                const rentBilled = (r.withdrawal_transactions || [])
+                    .filter((wt: any) => !wt.deleted_at)
+                    .reduce((s: number, wt: any) => s + Number(wt.rent_collected || 0), 0);
+                const recBilled = rentBilled + Number(r.hamali_payable || 0) + Number(r.insurance_payable || 0);
+                const recPaid = (r.payments || [])
+                    .filter((p: any) => !p.deleted_at)
+                    .reduce((s: number, p: any) => s + Number(p.amount || 0), 0);
+                pendingDues += Math.max(0, recBilled - recPaid);
+            }
+        }
+    }
+
     // 5. Warehouse for header
     const { data: w } = await supabase
         .from('warehouses')
@@ -207,6 +233,7 @@ export async function getBulkOutflowBatch(invoiceNo: string): Promise<BulkOutflo
             totalBilled,
             totalPaidOnDate,
             balance,
+            pendingDues,
         },
     };
 }
