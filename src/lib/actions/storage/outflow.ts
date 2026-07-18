@@ -240,24 +240,26 @@ export async function deleteOutflow(transactionId: string) {
     const bagsRestored = transaction.bags_withdrawn;
     const rentReversed = transaction.rent_collected || 0;
 
-    const { updates } = BillingService.calculateReversalImpact(record, bagsRestored, rentReversed);
+    const { updates, shouldReopen } = BillingService.calculateReversalImpact(record, bagsRestored, rentReversed);
 
-    try {
-        await updateStorageRecord(record.id, updates);
-    } catch (updateError: any) {
-        logError(updateError, { operation: 'deleteOutflow_revert', metadata: { recordId: record.id } });
-        return { success: false, message: 'Failed to update storage record' };
-    }
+    // 3. Reverse everything atomically: restore the record, soft-delete the
+    //    withdrawal, AND soft-delete the payments this outflow created (rent paid
+    //    + auto-settled hamali/insurance). Doing it in one RPC prevents a delete
+    //    from half-reverting (e.g. bags restored but auto-settle payments left
+    //    behind, which inflated the customer's paid total).
+    const { data: rpcResult, error: rpcError } = await supabase.rpc('reverse_outflow_atomic', {
+        p_transaction_id: transactionId,
+        p_new_bags_stored: updates.bagsStored ?? record.bagsStored,
+        p_new_bags_out: updates.bagsOut ?? 0,
+        p_new_total_rent_billed: updates.totalRentBilled ?? 0,
+        p_reopen: shouldReopen,
+    });
 
-    // 4. Delete Transaction
-    // 4. Soft Delete Transaction
-    const { error: delError } = await supabase
-        .from('withdrawal_transactions')
-        .update({ deleted_at: new Date().toISOString() })
-        .eq('id', transactionId);
-
-    if (delError) {
-         return { success: false, message: 'Failed to delete transaction log' };
+    if (rpcError || !rpcResult?.success) {
+        logError(rpcError || new Error(rpcResult?.error || 'reverse failed'), {
+            operation: 'deleteOutflow_revert', metadata: { recordId: record.id, transactionId }
+        });
+        return { success: false, message: `Failed to revert outflow: ${rpcError?.message || rpcResult?.error || 'unknown error'}` };
     }
 
     revalidatePath('/outflow');
