@@ -43,6 +43,7 @@ export type PricingSlabConfig = {
   slabs?: PricingSlab[];    // required for mode=slabs, sorted ascending by up_to_months
 };
 export type Payment = {
+  id?: string;
   amount: number;
   date: Date | string;
   type?: PaymentType; // Updated from literal union

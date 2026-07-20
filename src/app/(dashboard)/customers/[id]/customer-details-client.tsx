@@ -132,11 +132,12 @@ export function CustomerDetailsClient({ customer, initialRecords, crops }: Custo
             const end = dateRange.to ? endOfDay(dateRange.to) : endOfDay(dateRange.from);
             return isWithinInterval(new Date(p.date), { start, end });
         })
-        .map((p: any, idx: number) => ({
+        .map((p: any) => ({
             ...p,
             recordId: r.id,
             recordNumber: r.recordNumber,
-            paymentId: `${r.id}-${idx}`
+            // Real payment UUID (from mapRecords) — required for edit/delete.
+            paymentId: p.id
         }))
     );
     const paymentsStartIndex = (paymentsPage - 1) * paymentsPagination.pageSize;

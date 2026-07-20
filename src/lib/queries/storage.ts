@@ -145,6 +145,7 @@ export function mapRecords(records: any[]): StorageRecord[] {
       storageEndDate: r.storage_end_date ? new Date(r.storage_end_date) : null,
       billingCycle: r.billing_cycle,
       payments: (r.payments || []).map((p: any) => ({
+        id: p.id,
         amount: p.amount,
         date: new Date(p.payment_date),
         type: p.type || 'other',
