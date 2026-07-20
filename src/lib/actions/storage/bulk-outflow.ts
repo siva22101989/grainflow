@@ -13,6 +13,7 @@ import { BillingService } from '@/lib/billing';
 import type { StorageRecord } from '@/lib/definitions';
 import { getStorageRecord, getCustomer, getUserWarehouse } from '@/lib/queries';
 import { isSMSMasterEnabled } from '@/lib/sms-settings-actions';
+import { computeAutoSettle } from '@/lib/auto-settle';
 
 const { logger } = Sentry;
 
@@ -430,22 +431,22 @@ export async function processBulkOutflow(_prevState: any, formData: FormData): P
                         opPayments.push({ amount: allocatedPayment, type: 'rent', notes: `Bulk Outflow Payment (Batch: ${batchPrefix})` });
                     }
 
-                    // 4. Auto-settle outstanding hamali on full closure
+                    // 4. Auto-settle outstanding hamali + insurance on full closure.
+                    // Uses TOTAL paid (any type) so hamali/insurance already paid via a
+                    // bulk payment (recorded as type 'rent') is not charged again.
                     let hamaliCharged = 0;
-                    if (isClosed && record.hamaliPayable && record.hamaliPayable > 0) {
-                        const hamaliPaid = (record.payments || []).filter(p => p.type === 'hamali').reduce((s, p) => s + p.amount, 0);
-                        const hamaliDue = Math.max(0, record.hamaliPayable - hamaliPaid);
+                    let insuranceCharged = 0;
+                    if (isClosed) {
+                        const totalPaid = (record.payments || []).reduce((s, p) => s + p.amount, 0);
+                        const { hamaliDue, insuranceDue } = computeAutoSettle({
+                            hamaliPayable: record.hamaliPayable || 0,
+                            insurancePayable: record.insurancePayable || 0,
+                            totalPaid,
+                        });
                         if (hamaliDue > 0) {
                             hamaliCharged = hamaliDue;
                             opPayments.push({ amount: hamaliDue, type: 'hamali', notes: `Hamali auto-settled on record closure (Batch: ${batchPrefix})` });
                         }
-                    }
-
-                    // 4b. Auto-settle outstanding insurance on full closure (mirrors hamali)
-                    let insuranceCharged = 0;
-                    if (isClosed && record.insurancePayable && record.insurancePayable > 0) {
-                        const insurancePaid = (record.payments || []).filter(p => p.type === 'insurance').reduce((s, p) => s + p.amount, 0);
-                        const insuranceDue = Math.max(0, record.insurancePayable - insurancePaid);
                         if (insuranceDue > 0) {
                             insuranceCharged = insuranceDue;
                             opPayments.push({ amount: insuranceDue, type: 'insurance', notes: `Insurance auto-settled on record closure (Batch: ${batchPrefix})` });

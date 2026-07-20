@@ -14,6 +14,7 @@ import { checkRateLimit } from '@/lib/rate-limit';
 import { getNextInvoiceNumber } from '@/lib/sequence-utils';
 import { logError, logWarning, formatActionError } from '@/lib/error-logger';
 import { BillingService } from '@/lib/billing';
+import { computeAutoSettle } from '@/lib/auto-settle';
 
 
 const { logger } = Sentry;
@@ -341,15 +342,18 @@ export async function updateOutflow(transactionId: string, formData: FormData) {
             newInsuranceCharged = 0;
         } else if (isBulk && closing) {
             // Now closes → auto-settle outstanding hamali/insurance (mirrors bulk outflow).
+            // Total-paid based so amounts already covered by a bulk payment aren't recharged.
             const prefix = String(transaction.batch_id).slice(0, 8);
-            const hamaliPaid = (record.payments || []).filter(p => p.type === 'hamali').reduce((s, p) => s + p.amount, 0);
-            const hamaliDue = Math.max(0, (record.hamaliPayable || 0) - hamaliPaid);
+            const totalPaid = (record.payments || []).reduce((s, p) => s + p.amount, 0);
+            const { hamaliDue, insuranceDue } = computeAutoSettle({
+                hamaliPayable: record.hamaliPayable || 0,
+                insurancePayable: (record as any).insurancePayable || 0,
+                totalPaid,
+            });
             if (hamaliDue > 0) {
                 newHamaliCharged = hamaliDue;
                 addPayments.push({ amount: hamaliDue, type: 'hamali', notes: `Hamali auto-settled on record closure (Batch: ${prefix})` });
             }
-            const insurancePaid = (record.payments || []).filter(p => p.type === 'insurance').reduce((s, p) => s + p.amount, 0);
-            const insuranceDue = Math.max(0, ((record as any).insurancePayable || 0) - insurancePaid);
             if (insuranceDue > 0) {
                 newInsuranceCharged = insuranceDue;
                 addPayments.push({ amount: insuranceDue, type: 'insurance', notes: `Insurance auto-settled on record closure (Batch: ${prefix})` });
