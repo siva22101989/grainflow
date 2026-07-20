@@ -27,6 +27,7 @@ interface Props {
 }
 
 export function DeletePaymentButton({ paymentId, customerId, amount, variant = 'ghost', size = 'icon' }: Props) {
+    const [open, setOpen] = useState(false);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     const router = useRouter();
@@ -34,19 +35,23 @@ export function DeletePaymentButton({ paymentId, customerId, amount, variant = '
     async function handleDelete() {
         setLoading(true);
         setError('');
-
-        const result = await deletePayment(paymentId, customerId);
-
-        if (result.success) {
-            router.refresh();
-        } else {
-            setError(result.message);
-            setLoading(false);
+        try {
+            const result = await deletePayment(paymentId, customerId);
+            if (result.success) {
+                setOpen(false);       // close the dialog on success
+                router.refresh();     // drop the row from the list
+            } else {
+                setError(result.message);
+            }
+        } catch (e: any) {
+            setError(e?.message || 'Failed to delete payment');
+        } finally {
+            setLoading(false);        // never leave the button stuck on "Deleting…"
         }
     }
 
     return (
-        <AlertDialog>
+        <AlertDialog open={open} onOpenChange={(o) => { if (!loading) setOpen(o); }}>
             <AlertDialogTrigger asChild>
                 <Button variant={variant} size={size}>
                     <Trash2 className="h-4 w-4" />
@@ -66,7 +71,7 @@ export function DeletePaymentButton({ paymentId, customerId, amount, variant = '
                 <AlertDialogFooter>
                     <AlertDialogCancel>Cancel</AlertDialogCancel>
                     <AlertDialogAction
-                        onClick={handleDelete}
+                        onClick={(e) => { e.preventDefault(); handleDelete(); }}
                         disabled={loading}
                         className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                     >
