@@ -223,7 +223,11 @@ export async function processBulkPayment(
             const paymentDate = formData.get('paymentDate') as string;
             const strategy = formData.get('strategy') as 'fifo' | 'manual';
             const manualAllocationsJSON = formData.get('manualAllocations') as string;
-            const paymentType = formData.get('paymentType') === 'waiver' ? 'waiver' : 'rent';
+            // What this payment settles: a specific charge (hamali/insurance/rent)
+            // or a discount/waiver against the overall balance.
+            const rawType = String(formData.get('paymentType') || 'rent');
+            const paymentType: 'rent' | 'hamali' | 'insurance' | 'waiver' =
+                rawType === 'waiver' || rawType === 'hamali' || rawType === 'insurance' ? rawType : 'rent';
 
             span.setAttribute("customerId", customerId);
             span.setAttribute("totalAmount", totalAmount);

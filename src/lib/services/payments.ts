@@ -4,6 +4,7 @@ import { BillingService } from '@/lib/billing';
 import { getStorageRecord, getCustomer, getUserWarehouse } from '@/lib/queries';
 import type { Payment } from '@/lib/definitions';
 import { createNotification } from '@/lib/logger';
+import { computeChargeDues } from '@/lib/auto-settle';
 
 export class PaymentService {
   /**
@@ -119,16 +120,22 @@ export class PaymentService {
            const totalPaid = validPayments
             .reduce((sum: number, p: any) => sum + p.amount, 0);
 
-           const totalBilled =
-               (r.total_rent_billed || 0) +
-               (r.hamali_payable || 0) +
-               (r.insurance_payable || 0);
-           const totalDue = Math.max(0, totalBilled - totalPaid);
+           // Split what's still owed per charge (hamali -> insurance -> rent).
+           // The three dues sum to exactly (billed - paid), so totalDue is unchanged.
+           const dues = computeChargeDues({
+               hamaliPayable: r.hamali_payable || 0,
+               insurancePayable: r.insurance_payable || 0,
+               rentBilled: r.total_rent_billed || 0,
+               totalPaid,
+           });
 
            return {
                id: r.id,
                recordNumber: r.record_number?.toString() || r.id.substring(0, 8),
-               totalDue,
+               hamaliDue: dues.hamaliDue,
+               insuranceDue: dues.insuranceDue,
+               rentDue: dues.rentDue,
+               totalDue: dues.hamaliDue + dues.insuranceDue + dues.rentDue,
                storageStartDate: new Date(r.storage_start_date)
            };
       }).filter((r) => r.totalDue > 0);
@@ -143,25 +150,52 @@ export class PaymentService {
       paymentDate: string,
       strategy: 'fifo' | 'manual',
       manualAllocations?: { recordId: string; amount: number }[],
-      paymentType: 'rent' | 'waiver' = 'rent'
+      paymentType: 'rent' | 'hamali' | 'insurance' | 'waiver' = 'rent'
   ) {
       const pendingRecords = await PaymentService.getPendingRecords(customerId);
 
-      if (pendingRecords.length === 0) {
-          return { success: false, message: 'No pending dues found for this customer.' };
+      // Which pending bucket this payment settles. Paying "hamali" only reduces
+      // hamali dues, etc. A waiver reduces the overall balance, so it goes
+      // against the record's total dues.
+      const dueFor = (r: any): number =>
+          paymentType === 'hamali' ? r.hamaliDue
+        : paymentType === 'insurance' ? r.insuranceDue
+        : paymentType === 'rent' ? r.rentDue
+        : r.totalDue;
+
+      // Re-project onto totalDue so the shared FIFO helper allocates against the
+      // selected charge, and drop records that don't owe it.
+      const eligible = pendingRecords
+          .map((r: any) => ({ ...r, totalDue: dueFor(r) }))
+          .filter((r) => r.totalDue > 0);
+
+      if (eligible.length === 0) {
+          const label = paymentType === 'waiver' ? 'dues' : `${paymentType} dues`;
+          return { success: false, message: `No pending ${label} found for this customer.` };
       }
 
       let allocations: { recordId: string; recordNumber: string; amount: number }[];
 
       if (strategy === 'manual') {
-          const allocs = manualAllocations || [];
+          const allocs = (manualAllocations || []).filter(a => a.amount > 0);
           const sum = allocs.reduce((acc, a) => acc + a.amount, 0);
           if (Math.abs(sum - totalAmount) > 0.01) {
              return { success: false, message: `Allocation sum (₹${sum}) does not match total payment (₹${totalAmount}).` };
           }
-          
+
+          // Never let a manual entry exceed what that record actually owes for this charge.
+          for (const ma of allocs) {
+              const record = eligible.find((r) => r.id === ma.recordId);
+              if (!record) {
+                  return { success: false, message: `Record has no pending ${paymentType} dues.` };
+              }
+              if (ma.amount - record.totalDue > 0.01) {
+                  return { success: false, message: `Record #${record.recordNumber}: ₹${ma.amount} exceeds its pending ${paymentType} of ₹${record.totalDue}.` };
+              }
+          }
+
           allocations = allocs.map(ma => {
-              const record = pendingRecords.find((r) => r.id === ma.recordId);
+              const record = eligible.find((r) => r.id === ma.recordId);
               return {
                   recordId: ma.recordId,
                   recordNumber: record?.recordNumber || 'Unknown',
@@ -169,12 +203,13 @@ export class PaymentService {
               };
           });
       } else {
-          // FIFO
-          const result = BillingService.allocatePaymentFIFO(pendingRecords, totalAmount);
+          // FIFO across the records owing this charge (oldest first)
+          const result = BillingService.allocatePaymentFIFO(eligible, totalAmount);
           allocations = result.allocations.filter(a => a.amount > 0);
-          
+
           if (result.unallocated > 0.01) {
-              return { success: false, message: `Payment amount (₹${totalAmount}) exceeds total dues (₹${totalAmount - result.unallocated}).` };
+              const totalDueForCharge = eligible.reduce((s, r) => s + r.totalDue, 0);
+              return { success: false, message: `Payment amount (₹${totalAmount}) exceeds pending ${paymentType === 'waiver' ? 'dues' : paymentType} of ₹${totalDueForCharge}.` };
           }
       }
 
@@ -195,12 +230,14 @@ export class PaymentService {
       if (rpcError) throw rpcError;
       if (!rpcData?.success) throw new Error(rpcData?.message || 'Bulk payment failed');
 
-      const verb = paymentType === 'waiver' ? 'Discounted' : 'Processed';
+      const message = paymentType === 'waiver'
+          ? `Discounted ₹${totalAmount} across ${allocations.length} record(s).`
+          : `Received ₹${totalAmount} toward ${paymentType} across ${allocations.length} record(s).`;
       return {
           success: true,
           allocations,
           recordsUpdated: allocations.length,
-          message: `${verb} ₹${totalAmount} across ${allocations.length} record(s).`
+          message
       };
   }
 }

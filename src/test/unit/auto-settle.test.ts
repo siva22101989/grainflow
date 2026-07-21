@@ -1,5 +1,32 @@
 import { describe, it, expect } from 'vitest';
-import { computeAutoSettle } from '@/lib/auto-settle';
+import { computeAutoSettle, computeChargeDues } from '@/lib/auto-settle';
+
+describe('computeChargeDues', () => {
+    it('splits pending across hamali -> insurance -> rent', () => {
+        expect(computeChargeDues({ hamaliPayable: 1000, insurancePayable: 200, rentBilled: 500, totalPaid: 0 }))
+            .toEqual({ hamaliDue: 1000, insuranceDue: 200, rentDue: 500 });
+    });
+
+    it('applies payment to hamali first', () => {
+        expect(computeChargeDues({ hamaliPayable: 1000, insurancePayable: 200, rentBilled: 500, totalPaid: 600 }))
+            .toEqual({ hamaliDue: 400, insuranceDue: 200, rentDue: 500 });
+    });
+
+    it('spills over into insurance then rent once hamali is covered', () => {
+        expect(computeChargeDues({ hamaliPayable: 1000, insurancePayable: 200, rentBilled: 500, totalPaid: 1300 }))
+            .toEqual({ hamaliDue: 0, insuranceDue: 0, rentDue: 400 });
+    });
+
+    it('returns all zero when fully paid', () => {
+        expect(computeChargeDues({ hamaliPayable: 1000, insurancePayable: 200, rentBilled: 500, totalPaid: 5000 }))
+            .toEqual({ hamaliDue: 0, insuranceDue: 0, rentDue: 0 });
+    });
+
+    it('per-charge dues sum to the record total outstanding', () => {
+        const d = computeChargeDues({ hamaliPayable: 8000, insurancePayable: 870, rentBilled: 1200, totalPaid: 5000 });
+        expect(d.hamaliDue + d.insuranceDue + d.rentDue).toBe(8000 + 870 + 1200 - 5000);
+    });
+});
 
 describe('computeAutoSettle', () => {
     it('settles the full amount when nothing is paid', () => {

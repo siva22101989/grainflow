@@ -14,7 +14,33 @@ import { sendPaymentReminderSMS } from '@/lib/sms-actions';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 import type { StorageRecord } from '@/lib/definitions';
+import { computeChargeDues } from '@/lib/auto-settle';
 import { SearchBar } from '@/components/ui/search-bar';
+
+// Build per-record, per-charge dues for the Collect Payment dialog. Active
+// records only (matches the backend's getPendingRecords), same waterfall.
+function buildDueRecords(rawRecords: any[]) {
+    return (rawRecords || [])
+        .filter((r: any) => !r.storageEndDate)
+        .map((r: any) => {
+            const totalPaid = (r.payments || []).reduce((sum: number, p: any) => sum + p.amount, 0);
+            const dues = computeChargeDues({
+                hamaliPayable: r.hamaliPayable || 0,
+                insurancePayable: r.insurancePayable || 0,
+                rentBilled: r.totalRentBilled || 0,
+                totalPaid,
+            });
+            return {
+                id: r.id,
+                recordNumber: r.recordNumber || `REC-${r.id.substring(0, 8)}`,
+                hamaliDue: dues.hamaliDue,
+                insuranceDue: dues.insuranceDue,
+                rentDue: dues.rentDue,
+                totalDue: dues.hamaliDue + dues.insuranceDue + dues.rentDue,
+            };
+        })
+        .filter((r: any) => r.totalDue > 0);
+}
 import {
   Select,
   SelectContent,
@@ -151,16 +177,7 @@ export function PendingPaymentsClient({ pendingCustomers }: PendingPaymentsClien
                 id: customer.id,
                 name: customer.name,
                 totalDues: customer.balance,
-                records: fetchedRecords.map((r: any) => {
-                    const payments = r.payments || [];
-                    const totalPaid = payments.reduce((sum: number, p: any) => sum + p.amount, 0);
-                    const totalBilled = (r.totalRentBilled || 0) + (r.hamaliPayable || 0);
-                    return {
-                        id: r.id,
-                        recordNumber: r.recordNumber || `REC-${r.id.substring(0, 8)}`,
-                        totalDue: totalBilled - totalPaid
-                    };
-                }).filter((r: any) => r.totalDue > 0)
+                records: buildDueRecords(fetchedRecords)
             };
             setSelectedBulkCustomer(bulkData);
         } else {
@@ -169,16 +186,7 @@ export function PendingPaymentsClient({ pendingCustomers }: PendingPaymentsClien
                 id: customer.id,
                 name: customer.name,
                 totalDues: customer.balance,
-                records: records.map((r: any) => {
-                    const payments = r.payments || [];
-                    const totalPaid = payments.reduce((sum: number, p: any) => sum + p.amount, 0);
-                    const totalBilled = (r.totalRentBilled || 0) + (r.hamaliPayable || 0);
-                    return {
-                        id: r.id,
-                        recordNumber: r.recordNumber || `REC-${r.id.substring(0, 8)}`,
-                        totalDue: totalBilled - totalPaid
-                    };
-                }).filter((r: any) => r.totalDue > 0)
+                records: buildDueRecords(records)
             };
             setSelectedBulkCustomer(bulkData);
         }
