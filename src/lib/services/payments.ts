@@ -150,9 +150,15 @@ export class PaymentService {
       paymentDate: string,
       strategy: 'fifo' | 'manual',
       manualAllocations?: { recordId: string; amount: number }[],
-      paymentType: 'rent' | 'hamali' | 'insurance' | 'waiver' = 'rent'
+      paymentType: 'rent' | 'hamali' | 'insurance' | 'waiver' | 'all' = 'rent'
   ) {
       const pendingRecords = await PaymentService.getPendingRecords(customerId);
+
+      // "Everything" — one amount auto-split hamali -> insurance -> rent across
+      // the oldest bills first, recording each slice with its own correct type.
+      if (paymentType === 'all') {
+          return PaymentService.processBulkAll(customerId, totalAmount, paymentDate, pendingRecords);
+      }
 
       // Which pending bucket this payment settles. Paying "hamali" only reduces
       // hamali dues, etc. A waiver reduces the overall balance, so it goes
@@ -238,6 +244,71 @@ export class PaymentService {
           allocations,
           recordsUpdated: allocations.length,
           message
+      };
+  }
+
+  /**
+   * "Everything" bulk payment: one amount spread oldest-bill-first, filling each
+   * record's hamali -> insurance -> rent in order. Every slice is recorded as a
+   * separate payment tagged with its true charge type, so per-charge pending
+   * stays accurate.
+   */
+  private static async processBulkAll(
+      customerId: string,
+      totalAmount: number,
+      paymentDate: string,
+      pendingRecords: Awaited<ReturnType<typeof PaymentService.getPendingRecords>>
+  ) {
+      if (pendingRecords.length === 0) {
+          return { success: false, message: 'No pending dues found for this customer.' };
+      }
+
+      const totalPending = pendingRecords.reduce((s, r) => s + r.totalDue, 0);
+      if (totalAmount - totalPending > 0.01) {
+          return { success: false, message: `Payment amount (₹${totalAmount}) exceeds total pending of ₹${totalPending}.` };
+      }
+
+      // Walk oldest first (getPendingRecords already orders by start date), and
+      // within each record fill hamali, then insurance, then rent.
+      let remaining = totalAmount;
+      const allocations: { recordId: string; recordNumber: string; amount: number; type: 'hamali' | 'insurance' | 'rent' }[] = [];
+      for (const r of pendingRecords) {
+          if (remaining <= 0.01) break;
+          const buckets: { type: 'hamali' | 'insurance' | 'rent'; due: number }[] = [
+              { type: 'hamali', due: r.hamaliDue },
+              { type: 'insurance', due: r.insuranceDue },
+              { type: 'rent', due: r.rentDue },
+          ];
+          for (const b of buckets) {
+              if (remaining <= 0.01 || b.due <= 0) continue;
+              const amount = Math.min(remaining, b.due);
+              allocations.push({ recordId: r.id, recordNumber: r.recordNumber, amount, type: b.type });
+              remaining -= amount;
+          }
+      }
+
+      if (allocations.length === 0) {
+          return { success: false, message: 'Nothing to allocate.' };
+      }
+
+      const supabase = await createClient();
+      const warehouseId = await getUserWarehouse();
+      const { data: rpcData, error: rpcError } = await supabase.rpc('process_bulk_payment_atomic', {
+          p_customer_id: customerId,
+          p_payment_date: paymentDate,
+          p_warehouse_id: warehouseId,
+          p_allocations: allocations,
+      });
+
+      if (rpcError) throw rpcError;
+      if (!rpcData?.success) throw new Error(rpcData?.message || 'Bulk payment failed');
+
+      const recordCount = new Set(allocations.map(a => a.recordId)).size;
+      return {
+          success: true,
+          allocations,
+          recordsUpdated: recordCount,
+          message: `Received ₹${totalAmount} across ${recordCount} record(s), auto-split into hamali, insurance and rent.`
       };
   }
 }

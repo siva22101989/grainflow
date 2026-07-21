@@ -49,9 +49,10 @@ type BulkPaymentDialogProps = {
     autoOpen?: boolean;
 };
 
-type Charge = 'rent' | 'hamali' | 'insurance' | 'waiver';
+type Charge = 'all' | 'rent' | 'hamali' | 'insurance' | 'waiver';
 
 const CHARGE_LABEL: Record<Charge, string> = {
+    all: 'Everything (auto-split)',
     rent: 'Rent',
     hamali: 'Hamali',
     insurance: 'Insurance',
@@ -59,7 +60,7 @@ const CHARGE_LABEL: Record<Charge, string> = {
 };
 
 function dueFor(r: DueRecord, charge: Charge): number {
-    if (charge === 'waiver') return r.totalDue;
+    if (charge === 'waiver' || charge === 'all') return r.totalDue;
     if (charge === 'hamali') return r.hamaliDue ?? 0;
     if (charge === 'insurance') return r.insuranceDue ?? 0;
     // rent — fall back to totalDue if no breakdown was provided
@@ -78,20 +79,17 @@ export function BulkPaymentDialog({ customer, onClose, autoOpen = false }: BulkP
 
     // Pending total for each charge across the customer's records.
     const chargeTotals = useMemo(() => ({
+        all: customer.records.reduce((s, r) => s + dueFor(r, 'all'), 0),
         rent: customer.records.reduce((s, r) => s + dueFor(r, 'rent'), 0),
         hamali: customer.records.reduce((s, r) => s + dueFor(r, 'hamali'), 0),
         insurance: customer.records.reduce((s, r) => s + dueFor(r, 'insurance'), 0),
         waiver: customer.records.reduce((s, r) => s + dueFor(r, 'waiver'), 0),
     }), [customer.records]);
 
-    // Default to the first charge that actually has something pending.
-    const [charge, setCharge] = useState<Charge>(() => {
-        if (chargeTotals.hamali > 0) return 'hamali';
-        if (chargeTotals.rent > 0) return 'rent';
-        if (chargeTotals.insurance > 0) return 'insurance';
-        return 'rent';
-    });
+    // Default to "Everything" — the one-amount auto-split path most operators want.
+    const [charge, setCharge] = useState<Charge>('all');
     const isWaiver = charge === 'waiver';
+    const isAll = charge === 'all';
 
     // Records that owe the selected charge, projected onto `totalDue` so the
     // preview / manual editor / backend all allocate against that one charge.
@@ -107,9 +105,11 @@ export function BulkPaymentDialog({ customer, onClose, autoOpen = false }: BulkP
     const [state, formAction] = useActionState(processBulkPayment, initialState);
 
     // Reset amounts when switching charge so a stale value can't over-allocate.
+    // "Everything" only makes sense oldest-first, so force auto there.
     useEffect(() => {
         setTotalAmount(0);
         setManualAllocations({});
+        if (charge === 'all') setStrategy('fifo');
     }, [charge]);
 
     // FIFO preview whenever amount / charge changes
@@ -175,10 +175,12 @@ export function BulkPaymentDialog({ customer, onClose, autoOpen = false }: BulkP
             <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
                 <form action={handleSubmit}>
                     <DialogHeader>
-                        <DialogTitle>{isWaiver ? 'Apply Discount / Waiver' : `Collect ${CHARGE_LABEL[charge]}`}</DialogTitle>
+                        <DialogTitle>{isWaiver ? 'Apply Discount / Waiver' : isAll ? 'Collect Payment' : `Collect ${CHARGE_LABEL[charge]}`}</DialogTitle>
                         <DialogDescription>
                             {isWaiver
                                 ? <>Waive part of the outstanding balance for <strong>{customer.name}</strong>. Reduces what's owed but is not counted as cash received.</>
+                                : isAll
+                                ? <>Record one payment for <strong>{customer.name}</strong>. It auto-fills <strong>hamali → insurance → rent</strong>, oldest bills first.</>
                                 : <>Record a <strong>{CHARGE_LABEL[charge].toLowerCase()}</strong> payment for <strong>{customer.name}</strong>. It only reduces pending {CHARGE_LABEL[charge].toLowerCase()}.</>}
                         </DialogDescription>
                     </DialogHeader>
@@ -187,7 +189,7 @@ export function BulkPaymentDialog({ customer, onClose, autoOpen = false }: BulkP
                         {/* Pending for the selected charge */}
                         <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
                             <span className="text-sm font-medium">
-                                Pending {isWaiver ? 'Balance' : CHARGE_LABEL[charge]}:
+                                Pending {isWaiver || isAll ? 'Total' : CHARGE_LABEL[charge]}:
                             </span>
                             <Badge variant="destructive" className="text-base">
                                 {formatCurrency(chargeTotal)}
@@ -202,7 +204,7 @@ export function BulkPaymentDialog({ customer, onClose, autoOpen = false }: BulkP
                                 onValueChange={(value: Charge) => setCharge(value)}
                                 className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:gap-4"
                             >
-                                {(['rent', 'hamali', 'insurance', 'waiver'] as Charge[]).map(c => (
+                                {(['all', 'rent', 'hamali', 'insurance', 'waiver'] as Charge[]).map(c => (
                                     <div key={c} className="flex items-center space-x-2">
                                         <RadioGroupItem value={c} id={`charge-${c}`} />
                                         <Label htmlFor={`charge-${c}`} className="font-normal cursor-pointer">
@@ -251,7 +253,8 @@ export function BulkPaymentDialog({ customer, onClose, autoOpen = false }: BulkP
                             />
                         </div>
 
-                        {/* Allocation Strategy */}
+                        {/* Allocation Strategy — "Everything" is always oldest-first */}
+                        {!isAll && (
                         <div className="grid gap-2">
                             <Label>Allocation Strategy</Label>
                             <RadioGroup
@@ -273,6 +276,7 @@ export function BulkPaymentDialog({ customer, onClose, autoOpen = false }: BulkP
                                 </div>
                             </RadioGroup>
                         </div>
+                        )}
 
                         {sumMismatch && (
                             <Alert variant="destructive">
@@ -287,7 +291,7 @@ export function BulkPaymentDialog({ customer, onClose, autoOpen = false }: BulkP
                         <div className="border rounded-lg overflow-hidden">
                             <div className="bg-muted px-4 py-2">
                                 <p className="text-sm font-medium">
-                                    {strategy === 'fifo' ? 'Allocation Preview' : 'Manual Allocation'} — {isWaiver ? 'Balance' : CHARGE_LABEL[charge]}
+                                    {strategy === 'fifo' ? 'Allocation Preview' : 'Manual Allocation'} — {isWaiver ? 'Balance' : isAll ? 'Total' : CHARGE_LABEL[charge]}
                                 </p>
                             </div>
                             <div className="overflow-x-auto">
@@ -304,7 +308,7 @@ export function BulkPaymentDialog({ customer, onClose, autoOpen = false }: BulkP
                                         {chargeRecords.length === 0 ? (
                                             <TableRow>
                                                 <TableCell colSpan={4} className="text-center text-muted-foreground py-6">
-                                                    No pending {isWaiver ? 'dues' : CHARGE_LABEL[charge].toLowerCase()} for this customer.
+                                                    No pending {isWaiver || isAll ? 'dues' : CHARGE_LABEL[charge].toLowerCase()} for this customer.
                                                 </TableCell>
                                             </TableRow>
                                         ) : strategy === 'fifo' ? (
@@ -360,7 +364,7 @@ export function BulkPaymentDialog({ customer, onClose, autoOpen = false }: BulkP
                             Cancel
                         </Button>
                         <SubmitButton disabled={sumMismatch || totalAmount <= 0 || totalAmount > chargeTotal}>
-                            {isWaiver ? 'Apply Discount' : `Collect ${CHARGE_LABEL[charge]}`}
+                            {isWaiver ? 'Apply Discount' : isAll ? 'Collect Payment' : `Collect ${CHARGE_LABEL[charge]}`}
                         </SubmitButton>
                     </DialogFooter>
                 </form>

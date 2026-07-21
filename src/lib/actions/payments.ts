@@ -226,8 +226,8 @@ export async function processBulkPayment(
             // What this payment settles: a specific charge (hamali/insurance/rent)
             // or a discount/waiver against the overall balance.
             const rawType = String(formData.get('paymentType') || 'rent');
-            const paymentType: 'rent' | 'hamali' | 'insurance' | 'waiver' =
-                rawType === 'waiver' || rawType === 'hamali' || rawType === 'insurance' ? rawType : 'rent';
+            const paymentType: 'rent' | 'hamali' | 'insurance' | 'waiver' | 'all' =
+                rawType === 'waiver' || rawType === 'hamali' || rawType === 'insurance' || rawType === 'all' ? rawType : 'rent';
 
             span.setAttribute("customerId", customerId);
             span.setAttribute("totalAmount", totalAmount);
