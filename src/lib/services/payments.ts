@@ -94,6 +94,10 @@ export class PaymentService {
    * Fetch pending records for a customer (Records with dues > 0)
    */
   static async getPendingRecords(customerId: string) {
+      // Include CLOSED records too — a fully-withdrawn lot can still owe rent,
+      // hamali or insurance (we no longer auto-pay those on closure). The
+      // totalDue > 0 filter below drops anything already settled, so only
+      // records that genuinely still owe money are returned.
       const { data: records } = await (await createClient())
         .from('storage_records')
         .select(`
@@ -106,8 +110,7 @@ export class PaymentService {
             payments (amount, type, deleted_at)
         `)
         .eq('customer_id', customerId)
-        .is('storage_end_date', null)
-        .is('deleted_at', null) // Filter active records
+        .is('deleted_at', null)
         .order('storage_start_date', { ascending: true });
 
       if (!records) return [];

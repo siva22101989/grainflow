@@ -197,14 +197,15 @@ export async function previewBulkOutflow(input: {
  * Processes a bulk outflow operation for a specific customer and commodity.
  * Uses row-level locking via Postgres RPC to prevent race conditions.
  * Generates a batch_id to group all transactions together.
- * Auto-settles hamali when records are fully closed.
- * 
+ * Recognizes outstanding hamali/insurance as charged on closure (they stay
+ * pending until actually paid — never auto-marked as received).
+ *
  * Strategy:
  * 1. Lock rows atomically via RPC (prevents double-withdraw)
  * 2. Generate a single batch_id for traceability
  * 3. FIFO allocation of bags across records
  * 4. Proportional rent/discount/payment distribution
- * 5. Auto-settle hamali on fully closed records
+ * 5. Charge (but don't auto-pay) hamali/insurance on fully closed records
  * 6. Save transactions with batch_id linkage
  */
 export async function processBulkOutflow(_prevState: any, formData: FormData): Promise<BulkOutflowResult> {
@@ -431,9 +432,13 @@ export async function processBulkOutflow(_prevState: any, formData: FormData): P
                         opPayments.push({ amount: allocatedPayment, type: 'rent', notes: `Bulk Outflow Payment (Batch: ${batchPrefix})` });
                     }
 
-                    // 4. Auto-settle outstanding hamali + insurance on full closure.
-                    // Uses TOTAL paid (any type) so hamali/insurance already paid via a
-                    // bulk payment (recorded as type 'rent') is not charged again.
+                    // 4. On full closure, RECOGNIZE any outstanding hamali + insurance
+                    // as charged on this bill (hamali_charged / insurance_charged) — but
+                    // do NOT fabricate payments for them. If the customer hasn't paid,
+                    // they stay pending and are collected later via Collect Payment,
+                    // exactly like unpaid rent. Only amountPaidNow (allocated above) is
+                    // ever recorded as money received. Uses TOTAL paid (any type) so a
+                    // charge already covered isn't shown as still due.
                     let hamaliCharged = 0;
                     let insuranceCharged = 0;
                     if (isClosed) {
@@ -443,14 +448,8 @@ export async function processBulkOutflow(_prevState: any, formData: FormData): P
                             insurancePayable: record.insurancePayable || 0,
                             totalPaid,
                         });
-                        if (hamaliDue > 0) {
-                            hamaliCharged = hamaliDue;
-                            opPayments.push({ amount: hamaliDue, type: 'hamali', notes: `Hamali auto-settled on record closure (Batch: ${batchPrefix})` });
-                        }
-                        if (insuranceDue > 0) {
-                            insuranceCharged = insuranceDue;
-                            opPayments.push({ amount: insuranceDue, type: 'insurance', notes: `Insurance auto-settled on record closure (Batch: ${batchPrefix})` });
-                        }
+                        hamaliCharged = hamaliDue;
+                        insuranceCharged = insuranceDue;
                     }
 
                     return {

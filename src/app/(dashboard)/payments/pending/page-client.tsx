@@ -17,11 +17,11 @@ import type { StorageRecord } from '@/lib/definitions';
 import { computeChargeDues } from '@/lib/auto-settle';
 import { SearchBar } from '@/components/ui/search-bar';
 
-// Build per-record, per-charge dues for the Collect Payment dialog. Active
-// records only (matches the backend's getPendingRecords), same waterfall.
+// Build per-record, per-charge dues for the Collect Payment dialog. Includes
+// closed records that still owe (matches the backend's getPendingRecords) so
+// leftover hamali/insurance/rent stays collectible. Same waterfall.
 function buildDueRecords(rawRecords: any[]) {
     return (rawRecords || [])
-        .filter((r: any) => !r.storageEndDate)
         .map((r: any) => {
             const totalPaid = (r.payments || []).reduce((sum: number, p: any) => sum + p.amount, 0);
             const dues = computeChargeDues({
@@ -163,33 +163,18 @@ export function PendingPaymentsClient({ pendingCustomers }: PendingPaymentsClien
     };
     
     const handleBulkPayment = async (customer: any) => {
-        const records = customerRecords[customer.id] || [];
-        
-        if (records.length === 0) {
-            // Load records first
-            setLoadingCustomerId(customer.id);
-            const fetchedRecords = await getCustomerRecordsAction(customer.id);
-            setCustomerRecords(prev => ({ ...prev, [customer.id]: fetchedRecords }));
-            setLoadingCustomerId(null);
-            
-            // Prepare bulk data
-            const bulkData = {
-                id: customer.id,
-                name: customer.name,
-                totalDues: customer.balance,
-                records: buildDueRecords(fetchedRecords)
-            };
-            setSelectedBulkCustomer(bulkData);
-        } else {
-            // Use existing records
-            const bulkData = {
-                id: customer.id,
-                name: customer.name,
-                totalDues: customer.balance,
-                records: buildDueRecords(records)
-            };
-            setSelectedBulkCustomer(bulkData);
-        }
+        // Always fetch the full record set (including closed lots) so leftover
+        // hamali/insurance/rent on closed records is collectible. The expand
+        // cache (customerRecords) holds active-only and must not be reused here.
+        setLoadingCustomerId(customer.id);
+        const fetchedRecords = await getCustomerRecordsAction(customer.id);
+        setLoadingCustomerId(null);
+        setSelectedBulkCustomer({
+            id: customer.id,
+            name: customer.name,
+            totalDues: customer.balance,
+            records: buildDueRecords(fetchedRecords),
+        });
     };
 
     return (

@@ -124,14 +124,14 @@ export function BulkOutflowReceipt({ batch }: Props) {
 
                         {batch.totals.totalHamali > 0 && (
                             <>
-                                <div>Hamali (auto-settled on closed)</div>
+                                <div>Hamali (on closed records)</div>
                                 <div className="text-right font-medium">{formatCurrency(batch.totals.totalHamali)}</div>
                             </>
                         )}
 
                         {batch.totals.totalInsurance > 0 && (
                             <>
-                                <div>Insurance (auto-settled on closed)</div>
+                                <div>Insurance (on closed records)</div>
                                 <div className="text-right font-medium">{formatCurrency(batch.totals.totalInsurance)}</div>
                             </>
                         )}
