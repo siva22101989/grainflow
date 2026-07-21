@@ -57,3 +57,34 @@ export function computeAutoSettle(opts: {
     });
     return { hamaliDue, insuranceDue };
 }
+
+/**
+ * "Everything" bulk payment split. Spreads one amount CHARGE-FIRST: all hamali
+ * across every bill (oldest first) is collected before any insurance, and all
+ * insurance before any rent. Each slice is returned tagged with its true type
+ * so per-charge pending stays exact. Records must be passed oldest-first.
+ */
+export function splitPaymentAllCharges(
+    records: { id: string; recordNumber: string; hamaliDue: number; insuranceDue: number; rentDue: number }[],
+    amount: number
+): { recordId: string; recordNumber: string; amount: number; type: 'hamali' | 'insurance' | 'rent' }[] {
+    let remaining = Math.max(0, amount || 0);
+    const out: { recordId: string; recordNumber: string; amount: number; type: 'hamali' | 'insurance' | 'rent' }[] = [];
+    const order: { type: 'hamali' | 'insurance' | 'rent'; dueOf: (r: (typeof records)[number]) => number }[] = [
+        { type: 'hamali', dueOf: (r) => r.hamaliDue },
+        { type: 'insurance', dueOf: (r) => r.insuranceDue },
+        { type: 'rent', dueOf: (r) => r.rentDue },
+    ];
+    for (const charge of order) {
+        if (remaining <= 0.01) break;
+        for (const r of records) { // oldest first
+            if (remaining <= 0.01) break;
+            const due = Math.max(0, charge.dueOf(r) || 0);
+            if (due <= 0) continue;
+            const slice = Math.min(remaining, due);
+            out.push({ recordId: r.id, recordNumber: r.recordNumber, amount: slice, type: charge.type });
+            remaining -= slice;
+        }
+    }
+    return out;
+}

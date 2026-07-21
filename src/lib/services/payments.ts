@@ -4,7 +4,7 @@ import { BillingService } from '@/lib/billing';
 import { getStorageRecord, getCustomer, getUserWarehouse } from '@/lib/queries';
 import type { Payment } from '@/lib/definitions';
 import { createNotification } from '@/lib/logger';
-import { computeChargeDues } from '@/lib/auto-settle';
+import { computeChargeDues, splitPaymentAllCharges } from '@/lib/auto-settle';
 
 export class PaymentService {
   /**
@@ -268,24 +268,10 @@ export class PaymentService {
           return { success: false, message: `Payment amount (₹${totalAmount}) exceeds total pending of ₹${totalPending}.` };
       }
 
-      // Walk oldest first (getPendingRecords already orders by start date), and
-      // within each record fill hamali, then insurance, then rent.
-      let remaining = totalAmount;
-      const allocations: { recordId: string; recordNumber: string; amount: number; type: 'hamali' | 'insurance' | 'rent' }[] = [];
-      for (const r of pendingRecords) {
-          if (remaining <= 0.01) break;
-          const buckets: { type: 'hamali' | 'insurance' | 'rent'; due: number }[] = [
-              { type: 'hamali', due: r.hamaliDue },
-              { type: 'insurance', due: r.insuranceDue },
-              { type: 'rent', due: r.rentDue },
-          ];
-          for (const b of buckets) {
-              if (remaining <= 0.01 || b.due <= 0) continue;
-              const amount = Math.min(remaining, b.due);
-              allocations.push({ recordId: r.id, recordNumber: r.recordNumber, amount, type: b.type });
-              remaining -= amount;
-          }
-      }
+      // Charge-first: fully collect hamali across ALL bills (oldest first),
+      // then insurance across all, then rent. pendingRecords is already
+      // oldest-first (getPendingRecords orders by storage start date).
+      const allocations = splitPaymentAllCharges(pendingRecords, totalAmount);
 
       if (allocations.length === 0) {
           return { success: false, message: 'Nothing to allocate.' };
