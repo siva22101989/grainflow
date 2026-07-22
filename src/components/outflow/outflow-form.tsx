@@ -50,15 +50,6 @@ export function OutflowForm({
     const netRent = Math.max(0, standardRent - discount);
     const totalPayable = Math.max(0, netRent + hamaliPending - advanceAmount);
 
-    // Breakdown of the prior (inflow) charges that make up "Previous Balance",
-    // so insurance is visible instead of being lumped into one number.
-    // priorHamali + priorInsurance + priorRent - priorPaid === hamaliPending
-    // whenever hamaliPending > 0.
-    const priorHamali = selectedRecord?.hamaliPayable || 0;
-    const priorInsurance = selectedRecord?.insurancePayable || 0;
-    const priorRent = selectedRecord?.totalRentBilled || 0;
-    const priorPaid = (selectedRecord?.payments || []).reduce((acc, p) => acc + p.amount, 0);
-
     const handleRecordSelect = async (recordId: string) => {
         setSelectedRecordId(recordId);
         if(!recordId) {
@@ -281,37 +272,12 @@ export function OutflowForm({
                                         <span className="font-mono" data-testid="calculated-rent">₹{netRent.toFixed(2)}</span>
                                     </div>
 
-                                    {hamaliPending > 0 ? (
-                                        <div className="space-y-1 border-t pt-2">
-                                            <span className="text-xs font-medium text-muted-foreground">Old Balance</span>
-                                            <div className="flex justify-between items-center text-xs pl-3">
-                                                <span className="text-muted-foreground">Old Hamali</span>
-                                                <span className="font-mono">₹{priorHamali.toFixed(2)}</span>
-                                            </div>
-                                            {priorInsurance > 0 && (
-                                                <div className="flex justify-between items-center text-xs pl-3">
-                                                    <span className="text-muted-foreground">Old Insurance</span>
-                                                    <span className="font-mono">₹{priorInsurance.toFixed(2)}</span>
-                                                </div>
-                                            )}
-                                            {priorRent > 0 && (
-                                                <div className="flex justify-between items-center text-xs pl-3">
-                                                    <span className="text-muted-foreground">Old Rent</span>
-                                                    <span className="font-mono">₹{priorRent.toFixed(2)}</span>
-                                                </div>
-                                            )}
-                                            <div className="flex justify-between items-center text-xs pl-3">
-                                                <span className="text-muted-foreground">Already Paid</span>
-                                                <span className="font-mono">- ₹{priorPaid.toFixed(2)}</span>
-                                            </div>
-                                            <div className="flex justify-between items-center text-sm font-medium pl-3">
-                                                <span className="text-muted-foreground">Balance</span>
-                                                <span className="font-mono">₹{hamaliPending.toFixed(2)}</span>
-                                            </div>
-                                        </div>
-                                    ) : (
-                                        <div className="flex justify-between items-center text-sm">
-                                            <span className="text-muted-foreground">Old Balance</span>
+                                    {/* Only the net old balance still pending — no
+                                        hamali/insurance/already-paid breakdown. Hidden
+                                        entirely when nothing is owed. */}
+                                    {hamaliPending > 0 && (
+                                        <div className="flex justify-between items-center text-sm font-medium border-t pt-2">
+                                            <span className="text-muted-foreground">Old Balance (pending)</span>
                                             <span className="font-mono">₹{hamaliPending.toFixed(2)}</span>
                                         </div>
                                     )}
