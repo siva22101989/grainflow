@@ -91,6 +91,16 @@ export function OutflowReceipt({ record, customer, withdrawnBags, finalRent, pai
     const priorRent = Math.max(0, (record.totalRentBilled || 0) - finalRent);
     const priorPaid = Math.max(0, (record.payments || []).reduce((acc, p) => acc + p.amount, 0) - paidNow);
 
+    // One-line breakdown behind the single "Earlier dues" figure, so the detail
+    // (hamali / insurance / old rent, minus what was already paid) is still there
+    // for anyone who wants it, without cluttering the main list.
+    const earlierDuesParts: string[] = [];
+    if (priorHamali > 0) earlierDuesParts.push(`Hamali ${formatCurrency(priorHamali)}`);
+    if (priorInsurance > 0) earlierDuesParts.push(`Insurance ${formatCurrency(priorInsurance)}`);
+    if (priorRent > 0) earlierDuesParts.push(`Old rent ${formatCurrency(priorRent)}`);
+    let earlierDuesNote = earlierDuesParts.join(' + ');
+    if (priorPaid > 0) earlierDuesNote += `${earlierDuesNote ? ' − ' : ''}Paid ${formatCurrency(priorPaid)}`;
+
     const handlePrint = () => {
         const warehouseName = warehouse?.name || 'Srilakshmi Warehouse';
         const warehouseAddress = warehouse?.location || 'Your Company Address, City, State, ZIP';
@@ -260,39 +270,17 @@ export function OutflowReceipt({ record, customer, withdrawnBags, finalRent, pai
                     </thead>
                     <tbody>
                         <tr>
-                            <td>Rent</td>
+                            <td>Storage rent</td>
                             <td>${withdrawnBags} bags</td>
                             <td>${formatCurrency(rentBreakdown.rentPerBag)} / bag</td>
                             <td style="text-align: right;">${formatCurrency(finalRent)}</td>
                         </tr>
                         ${hamaliPending > 0 ? `
                         <tr>
-                            <td style="padding-left: 16px;">Old Balance - Hamali</td>
+                            <td>Earlier dues (unpaid)${earlierDuesNote ? `<div style="font-size: 11px; color: #9ca3af;">${earlierDuesNote}</div>` : ''}</td>
                             <td>-</td>
                             <td>-</td>
-                            <td style="text-align: right;">${formatCurrency(priorHamali)}</td>
-                        </tr>
-                        ${priorInsurance > 0 ? `
-                        <tr>
-                            <td style="padding-left: 16px;">Old Balance - Insurance</td>
-                            <td>-</td>
-                            <td>-</td>
-                            <td style="text-align: right;">${formatCurrency(priorInsurance)}</td>
-                        </tr>
-                        ` : ''}
-                        ${priorRent > 0 ? `
-                        <tr>
-                            <td style="padding-left: 16px;">Old Balance - Old Rent</td>
-                            <td>-</td>
-                            <td>-</td>
-                            <td style="text-align: right;">${formatCurrency(priorRent)}</td>
-                        </tr>
-                        ` : ''}
-                        <tr>
-                            <td style="padding-left: 16px;">Old Balance - Already Paid</td>
-                            <td>-</td>
-                            <td>-</td>
-                            <td style="text-align: right;">- ${formatCurrency(priorPaid)}</td>
+                            <td style="text-align: right;">${formatCurrency(hamaliPending)}</td>
                         </tr>
                         ` : ''}
                         ${advanceAmount > 0 ? `
@@ -309,15 +297,15 @@ export function OutflowReceipt({ record, customer, withdrawnBags, finalRent, pai
                 <div class="totals">
                     <div class="totals-box">
                         <div class="total-row">
-                            <span style="color: #6b7280;">Total Due</span>
+                            <span style="color: #6b7280;">Total to pay</span>
                             <span>${formatCurrency(totalPayable)}</span>
                         </div>
                         <div class="total-row">
-                            <span style="color: #6b7280;">Amount Paid Now</span>
+                            <span style="color: #6b7280;">Paid now</span>
                             <span>${formatCurrency(paidNow)}</span>
                         </div>
                         <div class="total-row final">
-                            <span>Balance Due</span>
+                            <span>Still to pay</span>
                             <span>${formatCurrency(balanceDue)}</span>
                         </div>
                     </div>
@@ -399,7 +387,6 @@ export function OutflowReceipt({ record, customer, withdrawnBags, finalRent, pai
                                 level="H"
                             />
                         </div>
-                        <p className="text-xs text-muted-foreground font-mono">{record.id}</p>
                     </div>
                 </div>
 
@@ -407,34 +394,20 @@ export function OutflowReceipt({ record, customer, withdrawnBags, finalRent, pai
                 <div className="border rounded p-4 mb-6">
                     <div className="grid grid-cols-2 gap-4 text-sm">
                         <div>
-                            <div className="text-muted-foreground">Rent</div>
+                            <div className="text-muted-foreground">Storage rent</div>
                             <div className="font-medium">{withdrawnBags} bags × {formatCurrency(rentBreakdown.rentPerBag)}</div>
                         </div>
                         <div className="text-right">
                             <div className="font-medium">{formatCurrency(finalRent)}</div>
                         </div>
-                        {hamaliPending > 0 ? (
+                        {hamaliPending > 0 && (
                             <>
-                                <div><div className="text-muted-foreground">Old Balance - Hamali</div></div>
-                                <div className="text-right"><div className="font-medium">{formatCurrency(priorHamali)}</div></div>
-                                {priorInsurance > 0 && (
-                                    <>
-                                        <div><div className="text-muted-foreground">Old Balance - Insurance</div></div>
-                                        <div className="text-right"><div className="font-medium">{formatCurrency(priorInsurance)}</div></div>
-                                    </>
-                                )}
-                                {priorRent > 0 && (
-                                    <>
-                                        <div><div className="text-muted-foreground">Old Balance - Old Rent</div></div>
-                                        <div className="text-right"><div className="font-medium">{formatCurrency(priorRent)}</div></div>
-                                    </>
-                                )}
-                                <div><div className="text-muted-foreground">Old Balance - Already Paid</div></div>
-                                <div className="text-right"><div className="font-medium">- {formatCurrency(priorPaid)}</div></div>
-                            </>
-                        ) : (
-                            <>
-                                <div><div className="text-muted-foreground">Old Balance</div></div>
+                                <div>
+                                    <div className="text-muted-foreground">Earlier dues (unpaid)</div>
+                                    {earlierDuesNote && (
+                                        <div className="text-[10px] text-muted-foreground/70">{earlierDuesNote}</div>
+                                    )}
+                                </div>
                                 <div className="text-right"><div className="font-medium">{formatCurrency(hamaliPending)}</div></div>
                             </>
                         )}
@@ -451,15 +424,15 @@ export function OutflowReceipt({ record, customer, withdrawnBags, finalRent, pai
                     </div>
                     <div className="border-t mt-4 pt-4">
                         <div className="flex justify-between text-sm mb-2">
-                            <span className="text-muted-foreground">Total Due</span>
+                            <span className="text-muted-foreground">Total to pay</span>
                             <span>{formatCurrency(totalPayable)}</span>
                         </div>
                         <div className="flex justify-between text-sm mb-2">
-                            <span className="text-muted-foreground">Amount Paid Now</span>
+                            <span className="text-muted-foreground">Paid now</span>
                             <span>{formatCurrency(paidNow)}</span>
                         </div>
                         <div className="flex justify-between font-bold text-lg text-destructive border-t pt-2">
-                            <span>Balance Due</span>
+                            <span>Still to pay</span>
                             <span>{formatCurrency(balanceDue)}</span>
                         </div>
                     </div>
