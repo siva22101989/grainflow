@@ -1,5 +1,21 @@
 import { describe, it, expect } from 'vitest';
-import { computeAutoSettle, computeChargeDues, splitPaymentAllCharges } from '@/lib/auto-settle';
+import { computeAutoSettle, computeChargeDues, splitPaymentAllCharges, pendingChargeLabel } from '@/lib/auto-settle';
+
+describe('pendingChargeLabel', () => {
+    it('names a single leftover charge directly', () => {
+        expect(pendingChargeLabel({ hamaliDue: 0, insuranceDue: 816, rentDue: 0 })).toBe('Insurance (pending)');
+        expect(pendingChargeLabel({ hamaliDue: 500, insuranceDue: 0, rentDue: 0 })).toBe('Hamali (pending)');
+        expect(pendingChargeLabel({ hamaliDue: 0, insuranceDue: 0, rentDue: 200 })).toBe('Old rent (pending)');
+    });
+
+    it('falls back to a generic label for a mix', () => {
+        expect(pendingChargeLabel({ hamaliDue: 500, insuranceDue: 816, rentDue: 0 })).toBe('Old balance (pending)');
+    });
+
+    it('ignores sub-paisa noise', () => {
+        expect(pendingChargeLabel({ hamaliDue: 0.001, insuranceDue: 816, rentDue: 0 })).toBe('Insurance (pending)');
+    });
+});
 
 describe('computeChargeDues', () => {
     it('splits pending across hamali -> insurance -> rent', () => {

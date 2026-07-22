@@ -12,6 +12,7 @@ import type { StorageRecord } from '@/lib/definitions';
 import { useUnifiedToast } from '@/components/shared/toast-provider';
 import { Separator } from '../ui/separator';
 import { calculateFinalRent } from '@/lib/billing';
+import { computeChargeDues, pendingChargeLabel } from '@/lib/auto-settle';
 import { format } from 'date-fns';
 import { toDate } from '@/lib/utils';
 import { Loader2 } from 'lucide-react';
@@ -49,6 +50,19 @@ export function OutflowForm({
     // Calculate net rent based on discount
     const netRent = Math.max(0, standardRent - discount);
     const totalPayable = Math.max(0, netRent + hamaliPending - advanceAmount);
+
+    // Name what the pending old balance actually is (usually this lot's own
+    // unpaid insurance), instead of a generic "Old Balance".
+    const oldBalanceLabel = pendingChargeLabel(
+        selectedRecord
+            ? computeChargeDues({
+                  hamaliPayable: selectedRecord.hamaliPayable || 0,
+                  insurancePayable: selectedRecord.insurancePayable || 0,
+                  rentBilled: selectedRecord.totalRentBilled || 0,
+                  totalPaid: (selectedRecord.payments || []).reduce((acc, p) => acc + p.amount, 0),
+              })
+            : { hamaliDue: 0, insuranceDue: 0, rentDue: 0 }
+    );
 
     const handleRecordSelect = async (recordId: string) => {
         setSelectedRecordId(recordId);
@@ -277,7 +291,7 @@ export function OutflowForm({
                                         entirely when nothing is owed. */}
                                     {hamaliPending > 0 && (
                                         <div className="flex justify-between items-center text-sm font-medium border-t pt-2">
-                                            <span className="text-muted-foreground">Old Balance (pending)</span>
+                                            <span className="text-muted-foreground">{oldBalanceLabel}</span>
                                             <span className="font-mono">₹{hamaliPending.toFixed(2)}</span>
                                         </div>
                                     )}

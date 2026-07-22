@@ -59,6 +59,22 @@ export function computeAutoSettle(opts: {
 }
 
 /**
+ * Names what a net "still-owed" figure actually consists of, so the UI can show
+ * an honest label instead of a generic "Old Balance". If only one charge remains
+ * it's named directly (e.g. "Insurance (pending)"); a mix stays "Old balance
+ * (pending)". Insurance/hamali are billed at inflow, so a single leftover charge
+ * is usually this lot's own insurance — not a leftover from a past deal.
+ */
+export function pendingChargeLabel(dues: { hamaliDue: number; insuranceDue: number; rentDue: number }): string {
+    const active: string[] = [];
+    if (dues.hamaliDue > 0.005) active.push('Hamali');
+    if (dues.insuranceDue > 0.005) active.push('Insurance');
+    if (dues.rentDue > 0.005) active.push('Old rent');
+    if (active.length === 1) return `${active[0]} (pending)`;
+    return 'Old balance (pending)';
+}
+
+/**
  * "Everything" bulk payment split. Spreads one amount CHARGE-FIRST: all hamali
  * across every bill (oldest first) is collected before any insurance, and all
  * insurance before any rent. Each slice is returned tagged with its true type

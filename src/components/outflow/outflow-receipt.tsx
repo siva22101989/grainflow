@@ -6,6 +6,7 @@ import { format, differenceInDays, differenceInMonths } from 'date-fns';
 import { Button } from '../ui/button';
 import { FileText } from 'lucide-react';
 import { calculateFinalRent } from '@/lib/billing';
+import { computeChargeDues, pendingChargeLabel } from '@/lib/auto-settle';
 import { formatCurrency, toDate } from '@/lib/utils';
 import { QRCodeSVG } from 'qrcode.react';
 
@@ -91,15 +92,28 @@ export function OutflowReceipt({ record, customer, withdrawnBags, finalRent, pai
     const priorRent = Math.max(0, (record.totalRentBilled || 0) - finalRent);
     const priorPaid = Math.max(0, (record.payments || []).reduce((acc, p) => acc + p.amount, 0) - paidNow);
 
-    // One-line breakdown behind the single "Earlier dues" figure, so the detail
-    // (hamali / insurance / old rent, minus what was already paid) is still there
-    // for anyone who wants it, without cluttering the main list.
-    const earlierDuesParts: string[] = [];
-    if (priorHamali > 0) earlierDuesParts.push(`Hamali ${formatCurrency(priorHamali)}`);
-    if (priorInsurance > 0) earlierDuesParts.push(`Insurance ${formatCurrency(priorInsurance)}`);
-    if (priorRent > 0) earlierDuesParts.push(`Old rent ${formatCurrency(priorRent)}`);
-    let earlierDuesNote = earlierDuesParts.join(' + ');
-    if (priorPaid > 0) earlierDuesNote += `${earlierDuesNote ? ' − ' : ''}Paid ${formatCurrency(priorPaid)}`;
+    // Name the leftover honestly: a single remaining charge (usually this lot's
+    // own unpaid insurance) is labelled directly; a mix stays "Old balance".
+    const earlierDues = computeChargeDues({
+        hamaliPayable: priorHamali,
+        insurancePayable: priorInsurance,
+        rentBilled: priorRent,
+        totalPaid: priorPaid,
+    });
+    const earlierDuesLabel = pendingChargeLabel(earlierDues);
+    const earlierDuesIsMixed = earlierDuesLabel === 'Old balance (pending)';
+
+    // For a mixed balance, keep a one-line breakdown so the printed record still
+    // shows the parts. A single named charge needs no explanation.
+    let earlierDuesNote = '';
+    if (earlierDuesIsMixed) {
+        const parts: string[] = [];
+        if (priorHamali > 0) parts.push(`Hamali ${formatCurrency(priorHamali)}`);
+        if (priorInsurance > 0) parts.push(`Insurance ${formatCurrency(priorInsurance)}`);
+        if (priorRent > 0) parts.push(`Old rent ${formatCurrency(priorRent)}`);
+        earlierDuesNote = parts.join(' + ');
+        if (priorPaid > 0) earlierDuesNote += `${earlierDuesNote ? ' − ' : ''}Paid ${formatCurrency(priorPaid)}`;
+    }
 
     const handlePrint = () => {
         const warehouseName = warehouse?.name || 'Srilakshmi Warehouse';
@@ -277,7 +291,7 @@ export function OutflowReceipt({ record, customer, withdrawnBags, finalRent, pai
                         </tr>
                         ${hamaliPending > 0 ? `
                         <tr>
-                            <td>Earlier dues (unpaid)${earlierDuesNote ? `<div style="font-size: 11px; color: #9ca3af;">${earlierDuesNote}</div>` : ''}</td>
+                            <td>${earlierDuesLabel}${earlierDuesNote ? `<div style="font-size: 11px; color: #9ca3af;">${earlierDuesNote}</div>` : ''}</td>
                             <td>-</td>
                             <td>-</td>
                             <td style="text-align: right;">${formatCurrency(hamaliPending)}</td>
@@ -403,7 +417,7 @@ export function OutflowReceipt({ record, customer, withdrawnBags, finalRent, pai
                         {hamaliPending > 0 && (
                             <>
                                 <div>
-                                    <div className="text-muted-foreground">Earlier dues (unpaid)</div>
+                                    <div className="text-muted-foreground">{earlierDuesLabel}</div>
                                     {earlierDuesNote && (
                                         <div className="text-[10px] text-muted-foreground/70">{earlierDuesNote}</div>
                                     )}

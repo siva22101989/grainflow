@@ -25,6 +25,7 @@ import { processBulkOutflow, type BulkOutflowResult } from '@/lib/actions/storag
 import { useUnifiedToast } from '@/components/shared/toast-provider';
 import type { Customer, StorageRecord } from '@/lib/definitions';
 import { calculateFinalRent } from '@/lib/billing';
+import { computeChargeDues, pendingChargeLabel } from '@/lib/auto-settle';
 import { usePreventNavigation } from '@/hooks/use-prevent-navigation';
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -130,6 +131,10 @@ export function BulkOutflowDialog({ customer, records, crops, onOpenChange: _onO
         let totalPriorInsurance = 0;
         let totalPriorRent = 0;
         let totalPriorPaid = 0;
+        // Aggregate residual per charge (after per-record payment waterfall).
+        let dueHamali = 0;
+        let dueInsurance = 0;
+        let dueRent = 0;
 
         for (const r of activeRecords) {
             let take: number;
@@ -160,6 +165,17 @@ export function BulkOutflowDialog({ customer, records, crops, onOpenChange: _onO
                 totalPriorInsurance += (r.insurancePayable || 0);
                 totalPriorRent += (r.totalRentBilled || 0);
                 totalPriorPaid += amountPaid;
+                // Per-record residual (waterfall) so the aggregate label names
+                // what's actually still owed across the selected lots.
+                const d = computeChargeDues({
+                    hamaliPayable: r.hamaliPayable,
+                    insurancePayable: r.insurancePayable || 0,
+                    rentBilled: r.totalRentBilled || 0,
+                    totalPaid: amountPaid,
+                });
+                dueHamali += d.hamaliDue;
+                dueInsurance += d.insuranceDue;
+                dueRent += d.rentDue;
             } else {
                 totalAdvanceAmount += Math.abs(pending);
             }
@@ -183,6 +199,7 @@ export function BulkOutflowDialog({ customer, records, crops, onOpenChange: _onO
             totalPriorInsurance,
             totalPriorRent,
             totalPriorPaid,
+            oldBalanceLabel: pendingChargeLabel({ hamaliDue: dueHamali, insuranceDue: dueInsurance, rentDue: dueRent }),
             impossible: hasOverrides ? totalAllocated > targetBags : remaining > 0,
             activeRecordCount: activeRecords.length,
             totalAllocated
@@ -378,32 +395,9 @@ export function BulkOutflowDialog({ customer, records, crops, onOpenChange: _onO
                                                 <span className="text-muted-foreground">Rent: {formatCurrency(previewPlan.totalRent || 0)}</span>
                                             </div>
                                             {(previewPlan.totalHamaliPending > 0) && (
-                                                <div className="border-t border-border/50 pt-1 mt-1 space-y-0.5">
-                                                    <div className="text-xs font-medium">Old Balance</div>
-                                                    <div className="flex justify-between text-xs pl-3">
-                                                        <span>Old Hamali</span>
-                                                        <span>{formatCurrency(previewPlan.totalPriorHamali)}</span>
-                                                    </div>
-                                                    {previewPlan.totalPriorInsurance > 0 && (
-                                                        <div className="flex justify-between text-xs pl-3">
-                                                            <span>Old Insurance</span>
-                                                            <span>{formatCurrency(previewPlan.totalPriorInsurance)}</span>
-                                                        </div>
-                                                    )}
-                                                    {previewPlan.totalPriorRent > 0 && (
-                                                        <div className="flex justify-between text-xs pl-3">
-                                                            <span>Old Rent</span>
-                                                            <span>{formatCurrency(previewPlan.totalPriorRent)}</span>
-                                                        </div>
-                                                    )}
-                                                    <div className="flex justify-between text-xs pl-3">
-                                                        <span>Already Paid</span>
-                                                        <span>- {formatCurrency(previewPlan.totalPriorPaid)}</span>
-                                                    </div>
-                                                    <div className="flex justify-between text-sm font-medium pl-3">
-                                                        <span>Balance</span>
-                                                        <span>{formatCurrency(previewPlan.totalHamaliPending)}</span>
-                                                    </div>
+                                                <div className="flex justify-between text-sm font-medium border-t border-border/50 pt-1 mt-1">
+                                                    <span>{previewPlan.oldBalanceLabel}</span>
+                                                    <span>{formatCurrency(previewPlan.totalHamaliPending)}</span>
                                                 </div>
                                             )}
                                             {(previewPlan.totalAdvanceAmount > 0) && (
