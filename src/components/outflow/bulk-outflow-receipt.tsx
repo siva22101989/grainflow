@@ -38,7 +38,7 @@ export function BulkOutflowReceipt({ batch }: Props) {
                     {batch.warehouse?.gstNumber && (
                         <p className="text-xs text-muted-foreground">GST: {batch.warehouse.gstNumber}</p>
                     )}
-                    <p className="text-base font-semibold uppercase tracking-wider mt-2">Outflow Bill (Consolidated)</p>
+                    <p className="text-base font-semibold uppercase tracking-wider mt-2">Outflow Bill (all lots)</p>
                 </CardHeader>
 
                 <CardContent className="space-y-4">
@@ -119,7 +119,7 @@ export function BulkOutflowReceipt({ batch }: Props) {
 
                     {/* Totals panel */}
                     <div className="grid grid-cols-2 gap-y-2 text-sm max-w-md ml-auto">
-                        <div>Total Rent</div>
+                        <div>Storage rent</div>
                         <div className="text-right font-medium">{formatCurrency(batch.totals.totalRent)}</div>
 
                         {batch.totals.totalHamali > 0 && (
@@ -143,29 +143,29 @@ export function BulkOutflowReceipt({ batch }: Props) {
                             </>
                         )}
 
-                        <div className="font-semibold border-t pt-2">Total Bill</div>
+                        <div className="font-semibold border-t pt-2">Total to pay</div>
                         <div className="text-right font-semibold border-t pt-2">{formatCurrency(batch.totals.totalBilled)}</div>
 
                         {batch.totals.totalPaidOnDate > 0 && (
                             <>
-                                <div className="text-emerald-700">Paid on {withdrawalDateStr}</div>
+                                <div className="text-emerald-700">Paid now</div>
                                 <div className="text-right font-medium text-emerald-700">- {formatCurrency(batch.totals.totalPaidOnDate)}</div>
                             </>
                         )}
 
-                        <div className="font-bold text-base border-t pt-2">Balance Due</div>
+                        <div className="font-bold text-base border-t pt-2">Still to pay (this bill)</div>
                         <div className={`text-right font-bold text-base border-t pt-2 ${batch.totals.balance > 0 ? 'text-destructive' : 'text-emerald-700'}`}>
                             {formatCurrency(batch.totals.balance)}
                         </div>
 
                         {batch.totals.pendingDues > 0 && (
                             <>
-                                <div className="text-destructive border-t pt-2">Total Pending Dues (these records)</div>
+                                <div className="text-destructive border-t pt-2">Total still owed (all these lots)</div>
                                 <div className="text-right font-semibold text-destructive border-t pt-2">
                                     {formatCurrency(batch.totals.pendingDues)}
                                 </div>
                                 <div className="col-span-2 text-[11px] text-muted-foreground">
-                                    Includes any unpaid rent, hamali or insurance still owed on these records.
+                                    Includes any unpaid rent, hamali or insurance still owed on these lots.
                                 </div>
                             </>
                         )}
