@@ -17,6 +17,25 @@ export class PaymentService {
       throw new Error('Storage record not found');
     }
 
+    // 1b. Idempotency guard against accidental double-submit (double-click /
+    // "did it save?" re-click). If an identical payment — same lot, amount and
+    // type — was recorded in the last 60s, treat this as the same action and
+    // return success WITHOUT creating a twin. (This is exactly how Pvs ended up
+    // with two ₹1,300 hamali rows 11s apart.)
+    const dupWindowStart = new Date(Date.now() - 60_000).toISOString();
+    const { data: recentDup } = await (await createClient())
+      .from('payments')
+      .select('id')
+      .eq('storage_record_id', recordId)
+      .eq('amount', payment.amount)
+      .eq('type', payment.type)
+      .is('deleted_at', null)
+      .gte('created_at', dupWindowStart)
+      .limit(1);
+    if (recentDup && recentDup.length > 0) {
+      return { success: true, recordId, amount: payment.amount, customerId: record.customerId, duplicateIgnored: true };
+    }
+
     // 2. Add Payment via Data Layer
     await addPaymentToRecord(recordId, payment);
 
