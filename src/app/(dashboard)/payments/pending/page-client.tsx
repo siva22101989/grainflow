@@ -14,7 +14,7 @@ import { sendPaymentReminderSMS } from '@/lib/sms-actions';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 import type { StorageRecord } from '@/lib/definitions';
-import { poolChargeDuesAcrossRecords } from '@/lib/auto-settle';
+import { poolChargeDuesAcrossRecords, sumPaidByType } from '@/lib/auto-settle';
 import { SearchBar } from '@/components/ui/search-bar';
 
 // Build per-record, per-charge dues for the Collect Payment dialog. Pools the
@@ -25,9 +25,8 @@ function buildDueRecords(rawRecords: any[]) {
     const oldestFirst = [...(rawRecords || [])].sort(
         (a, b) => new Date(a.storageStartDate).getTime() - new Date(b.storageStartDate).getTime()
     );
-    const totalPaidByCustomer = oldestFirst.reduce(
-        (sum, r) => sum + (r.payments || []).reduce((s: number, p: any) => s + p.amount, 0),
-        0
+    const paidByType = sumPaidByType(
+        oldestFirst.flatMap((r: any) => (r.payments || []).filter((p: any) => !p.deleted_at))
     );
     const shaped = oldestFirst.map((r: any) => ({
         id: r.id,
@@ -36,7 +35,7 @@ function buildDueRecords(rawRecords: any[]) {
         insurancePayable: r.insurancePayable || 0,
         rentBilled: r.totalRentBilled || 0,
     }));
-    return poolChargeDuesAcrossRecords(shaped, totalPaidByCustomer)
+    return poolChargeDuesAcrossRecords(shaped, paidByType)
         .map(({ hamaliPayable, insurancePayable, rentBilled, ...rest }) => rest)
         .filter((r: any) => r.totalDue > 0);
 }

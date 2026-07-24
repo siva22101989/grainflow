@@ -1,8 +1,23 @@
 import { describe, it, expect } from 'vitest';
-import { computeAutoSettle, computeChargeDues, splitPaymentAllCharges, pendingChargeLabel, poolChargeDuesAcrossRecords } from '@/lib/auto-settle';
+import { computeAutoSettle, computeChargeDues, splitPaymentAllCharges, pendingChargeLabel, poolChargeDuesAcrossRecords, sumPaidByType } from '@/lib/auto-settle';
+
+const NONE = { hamali: 0, insurance: 0, rent: 0, general: 0 };
+
+describe('sumPaidByType', () => {
+    it('buckets payments by charge type, everything else = general', () => {
+        expect(sumPaidByType([
+            { amount: 100, type: 'hamali' },
+            { amount: 200, type: 'rent' },
+            { amount: 50, type: 'insurance' },
+            { amount: 30, type: 'waiver' },
+            { amount: 10, type: 'advance' },
+            { amount: 5, type: null },
+        ])).toEqual({ hamali: 100, insurance: 50, rent: 200, general: 45 });
+    });
+});
 
 describe('poolChargeDuesAcrossRecords', () => {
-    // D.nagaraju-shaped: ₹20,000 total paid, 5 lots oldest-first.
+    // D.nagaraju-shaped: 5 lots oldest-first (hamali total 21340, rent total 53350).
     const lots = [
         { id: '1069', hamaliPayable: 8448, insurancePayable: 0, rentBilled: 21120 }, // billed 29568
         { id: '1082', hamaliPayable: 2904, insurancePayable: 0, rentBilled: 7260 },  // billed 10164
@@ -10,31 +25,42 @@ describe('poolChargeDuesAcrossRecords', () => {
         { id: '1099', hamaliPayable: 264, insurancePayable: 0, rentBilled: 660 },    // billed 924
         { id: '1100', hamaliPayable: 748, insurancePayable: 0, rentBilled: 1870 },   // billed 2618
     ];
+    const sumBy = (out: any[], k: string) => out.reduce((s, r) => s + r[k], 0);
 
-    it('credits pooled payment to oldest lots first', () => {
-        const out = poolChargeDuesAcrossRecords(lots, 20000);
-        // Total dues == billed(74690) − paid(20000) regardless of which lot held the cash.
-        expect(out.reduce((s, r) => s + r.totalDue, 0)).toBe(54690);
-        // Oldest lot absorbs the whole payment (billed 29568 > 20000).
-        expect(out[0]!.totalDue).toBe(9568);
-        expect(out[1]!.totalDue).toBe(10164); // untouched
+    it('a HAMALI payment reduces hamali (D.nagaraju ₹20,000 re-typed to hamali)', () => {
+        const out = poolChargeDuesAcrossRecords(lots, { ...NONE, hamali: 20000 });
+        expect(sumBy(out, 'hamaliDue')).toBe(1340);   // 21340 − 20000
+        expect(sumBy(out, 'rentDue')).toBe(53350);    // rent untouched
+        expect(sumBy(out, 'totalDue')).toBe(54690);
     });
 
-    it('zeroes every lot when the customer has fully paid (net 0)', () => {
-        const out = poolChargeDuesAcrossRecords(lots, 74690);
-        expect(out.every(r => r.totalDue === 0)).toBe(true);
+    it('a RENT payment reduces rent, NOT hamali', () => {
+        const out = poolChargeDuesAcrossRecords(lots, { ...NONE, rent: 20000 });
+        expect(sumBy(out, 'rentDue')).toBe(33350);    // 53350 − 20000
+        expect(sumBy(out, 'hamaliDue')).toBe(21340);  // hamali untouched
     });
 
-    it('ignores extra credit beyond total billed', () => {
-        const out = poolChargeDuesAcrossRecords(lots, 999999);
-        expect(out.reduce((s, r) => s + r.totalDue, 0)).toBe(0);
+    it('general (untyped) money falls back to hamali -> insurance -> rent', () => {
+        const out = poolChargeDuesAcrossRecords(lots, { ...NONE, general: 20000 });
+        expect(sumBy(out, 'hamaliDue')).toBe(1340);   // hamali covered first
+        expect(sumBy(out, 'rentDue')).toBe(53350);
     });
 
-    it('applies each lot pool hamali -> insurance -> rent', () => {
-        const first = poolChargeDuesAcrossRecords(lots, 20000)[0]!;
-        // 20000 covers hamali 8448 fully, then 11552 toward rent 21120.
-        expect(first.hamaliDue).toBe(0);
-        expect(first.rentDue).toBe(9568);
+    it('typed overpayment overflows to other charges via the waterfall', () => {
+        // 25000 of hamali payments but only 21340 hamali billed -> 3660 spills to rent.
+        const out = poolChargeDuesAcrossRecords(lots, { ...NONE, hamali: 25000 });
+        expect(sumBy(out, 'hamaliDue')).toBe(0);
+        expect(sumBy(out, 'rentDue')).toBe(53350 - 3660);
+    });
+
+    it('pools across lots so an overpaid lot credits the others (total = billed − paid)', () => {
+        const out = poolChargeDuesAcrossRecords(lots, { ...NONE, rent: 54690 });
+        expect(sumBy(out, 'totalDue')).toBe(20000); // 74690 − 54690
+    });
+
+    it('ignores credit beyond total billed', () => {
+        const out = poolChargeDuesAcrossRecords(lots, { ...NONE, general: 999999 });
+        expect(sumBy(out, 'totalDue')).toBe(0);
     });
 });
 

@@ -4,7 +4,7 @@ import { BillingService } from '@/lib/billing';
 import { getStorageRecord, getCustomer, getUserWarehouse } from '@/lib/queries';
 import type { Payment } from '@/lib/definitions';
 import { createNotification } from '@/lib/logger';
-import { splitPaymentAllCharges, poolChargeDuesAcrossRecords } from '@/lib/auto-settle';
+import { splitPaymentAllCharges, poolChargeDuesAcrossRecords, sumPaidByType } from '@/lib/auto-settle';
 
 export class PaymentService {
   /**
@@ -134,16 +134,13 @@ export class PaymentService {
 
       if (!records) return [];
 
-      // Pool the customer's payments across all their lots (oldest-first) so a
-      // lump paid onto one lot credits their oldest unpaid dues instead of
-      // stranding as an overpayment. This keeps the sum of per-lot dues equal to
-      // the customer balance (which already nets payments globally).
-      const totalPaidByCustomer = (records as any[]).reduce(
-          (sum, r) => sum + (r.payments || [])
-              .filter((p: any) => !p.deleted_at)
-              .reduce((s: number, p: any) => s + p.amount, 0),
-          0
-      );
+      // Pool the customer's payments across all their lots (oldest-first),
+      // respecting payment TYPE (a rent payment lowers rent, hamali lowers
+      // hamali, etc.) so a lump on one lot credits the right charge on the whole
+      // account. The sum of per-lot dues stays equal to the customer balance.
+      const allPayments = (records as any[]).flatMap((r) =>
+          (r.payments || []).filter((p: any) => !p.deleted_at));
+      const paidByType = sumPaidByType(allPayments);
 
       const shaped = (records as any[]).map((r) => ({
           id: r.id,
@@ -154,7 +151,7 @@ export class PaymentService {
           rentBilled: r.total_rent_billed || 0,
       }));
 
-      return poolChargeDuesAcrossRecords(shaped, totalPaidByCustomer)
+      return poolChargeDuesAcrossRecords(shaped, paidByType)
           .map(({ hamaliPayable, insurancePayable, rentBilled, ...rest }) => rest)
           .filter((r) => r.totalDue > 0);
   }

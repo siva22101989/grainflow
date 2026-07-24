@@ -58,34 +58,86 @@ export function computeAutoSettle(opts: {
     return { hamaliDue, insuranceDue };
 }
 
+/** A customer's payments split by what charge they were made toward. */
+export type PaidByType = { hamali: number; insurance: number; rent: number; general: number };
+
 /**
- * Distributes a customer's TOTAL paid across their records oldest-first, and
- * returns each record's residual per-charge dues (hamali -> insurance -> rent).
+ * Split a list of payments into per-charge buckets. A payment's TYPE decides
+ * which charge it pays down: 'hamali' -> hamali, 'insurance' -> insurance,
+ * 'rent' -> rent. Everything else (advance / security_deposit / other / waiver /
+ * untyped) is "general" money that falls back to the hamali->insurance->rent
+ * waterfall. Caller should pass non-deleted payments.
+ */
+export function sumPaidByType(payments: { amount: number; type?: string | null }[]): PaidByType {
+    const acc: PaidByType = { hamali: 0, insurance: 0, rent: 0, general: 0 };
+    for (const p of payments || []) {
+        const amt = Math.max(0, p.amount || 0);
+        if (p.type === 'hamali') acc.hamali += amt;
+        else if (p.type === 'insurance') acc.insurance += amt;
+        else if (p.type === 'rent') acc.rent += amt;
+        else acc.general += amt; // advance, security_deposit, other, waiver, null
+    }
+    return acc;
+}
+
+/**
+ * Distributes a customer's payments across their records oldest-first and returns
+ * each record's residual per-charge dues.
  *
- * Payments are stored per-record, so a lump paid onto one lot can leave that lot
- * overpaid while siblings still show dues — the per-lot view then disagrees with
- * the customer balance (which nets globally). Pooling here fixes that: an
- * overpayment on any lot automatically credits the customer's oldest unpaid dues,
- * so the sum of residual dues equals (total billed − total paid).
+ * Respects payment TYPE: a 'hamali' payment reduces hamali, 'rent' reduces rent,
+ * etc. — so "I paid rent" actually lowers pending rent, not hamali. Only leftover
+ * money (untyped payments, or a charge paid past its billed amount) falls back to
+ * the hamali -> insurance -> rent waterfall.
+ *
+ * Pooling across lots also means a lump paid onto one lot credits the customer's
+ * other lots, so the sum of residual dues always equals (total billed − total
+ * paid) — matching the customer balance.
  *
  * `records` MUST be oldest-first.
  */
 export function poolChargeDuesAcrossRecords<T extends {
     hamaliPayable: number; insurancePayable: number; rentBilled: number;
-}>(records: T[], totalPaidByCustomer: number): (T & ChargeDues & { totalDue: number })[] {
-    let pool = Math.max(0, totalPaidByCustomer || 0);
-    return records.map((r) => {
-        const billed = Math.max(0, r.hamaliPayable || 0) + Math.max(0, r.insurancePayable || 0) + Math.max(0, r.rentBilled || 0);
-        const applied = Math.min(pool, billed);
-        pool -= applied;
-        const dues = computeChargeDues({
-            hamaliPayable: r.hamaliPayable,
-            insurancePayable: r.insurancePayable,
-            rentBilled: r.rentBilled,
-            totalPaid: applied,
-        });
-        return { ...r, ...dues, totalDue: dues.hamaliDue + dues.insuranceDue + dues.rentDue };
-    });
+}>(records: T[], paid: PaidByType): (T & ChargeDues & { totalDue: number })[] {
+    // Mutable residual dues per record.
+    const rows = records.map((r) => ({
+        ref: r,
+        hamaliDue: Math.max(0, r.hamaliPayable || 0),
+        insuranceDue: Math.max(0, r.insurancePayable || 0),
+        rentDue: Math.max(0, r.rentBilled || 0),
+    }));
+
+    // Apply a pool against one charge across all lots (oldest-first); return leftover.
+    const applyToCharge = (key: 'hamaliDue' | 'insuranceDue' | 'rentDue', amount: number): number => {
+        let pool = Math.max(0, amount);
+        for (const row of rows) {
+            if (pool <= 0) break;
+            const applied = Math.min(pool, row[key]);
+            row[key] -= applied;
+            pool -= applied;
+        }
+        return pool;
+    };
+
+    // 1. Typed payments reduce their own charge first (oldest lot first). Any
+    //    overflow (a charge paid past its billed amount) becomes general money.
+    let general = Math.max(0, paid.general || 0);
+    general += applyToCharge('hamaliDue', paid.hamali || 0);
+    general += applyToCharge('insuranceDue', paid.insurance || 0);
+    general += applyToCharge('rentDue', paid.rent || 0);
+
+    // 2. General money (untyped payments + typed overflow) fills remaining dues
+    //    via the hamali -> insurance -> rent waterfall. Leftover is advance credit.
+    general = applyToCharge('hamaliDue', general);
+    general = applyToCharge('insuranceDue', general);
+    applyToCharge('rentDue', general);
+
+    return rows.map(({ ref, hamaliDue, insuranceDue, rentDue }) => ({
+        ...ref,
+        hamaliDue,
+        insuranceDue,
+        rentDue,
+        totalDue: hamaliDue + insuranceDue + rentDue,
+    }));
 }
 
 /**
