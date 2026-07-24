@@ -4,7 +4,7 @@ import { BillingService } from '@/lib/billing';
 import { getStorageRecord, getCustomer, getUserWarehouse } from '@/lib/queries';
 import type { Payment } from '@/lib/definitions';
 import { createNotification } from '@/lib/logger';
-import { computeChargeDues, splitPaymentAllCharges } from '@/lib/auto-settle';
+import { splitPaymentAllCharges, poolChargeDuesAcrossRecords } from '@/lib/auto-settle';
 
 export class PaymentService {
   /**
@@ -115,33 +115,29 @@ export class PaymentService {
 
       if (!records) return [];
 
-      // We need to cast because Supabase select types might not fully match specialized joins automatically
-      return (records as any[]).map((r) => {
-           const validPayments = (r.payments || []).filter((p: any) => !p.deleted_at);
+      // Pool the customer's payments across all their lots (oldest-first) so a
+      // lump paid onto one lot credits their oldest unpaid dues instead of
+      // stranding as an overpayment. This keeps the sum of per-lot dues equal to
+      // the customer balance (which already nets payments globally).
+      const totalPaidByCustomer = (records as any[]).reduce(
+          (sum, r) => sum + (r.payments || [])
+              .filter((p: any) => !p.deleted_at)
+              .reduce((s: number, p: any) => s + p.amount, 0),
+          0
+      );
 
-           // Sum ALL payment types (rent, hamali, insurance, other/online) to get total paid
-           const totalPaid = validPayments
-            .reduce((sum: number, p: any) => sum + p.amount, 0);
+      const shaped = (records as any[]).map((r) => ({
+          id: r.id,
+          recordNumber: r.record_number?.toString() || r.id.substring(0, 8),
+          storageStartDate: new Date(r.storage_start_date),
+          hamaliPayable: r.hamali_payable || 0,
+          insurancePayable: r.insurance_payable || 0,
+          rentBilled: r.total_rent_billed || 0,
+      }));
 
-           // Split what's still owed per charge (hamali -> insurance -> rent).
-           // The three dues sum to exactly (billed - paid), so totalDue is unchanged.
-           const dues = computeChargeDues({
-               hamaliPayable: r.hamali_payable || 0,
-               insurancePayable: r.insurance_payable || 0,
-               rentBilled: r.total_rent_billed || 0,
-               totalPaid,
-           });
-
-           return {
-               id: r.id,
-               recordNumber: r.record_number?.toString() || r.id.substring(0, 8),
-               hamaliDue: dues.hamaliDue,
-               insuranceDue: dues.insuranceDue,
-               rentDue: dues.rentDue,
-               totalDue: dues.hamaliDue + dues.insuranceDue + dues.rentDue,
-               storageStartDate: new Date(r.storage_start_date)
-           };
-      }).filter((r) => r.totalDue > 0);
+      return poolChargeDuesAcrossRecords(shaped, totalPaidByCustomer)
+          .map(({ hamaliPayable, insurancePayable, rentBilled, ...rest }) => rest)
+          .filter((r) => r.totalDue > 0);
   }
 
   /**

@@ -14,31 +14,30 @@ import { sendPaymentReminderSMS } from '@/lib/sms-actions';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 import type { StorageRecord } from '@/lib/definitions';
-import { computeChargeDues } from '@/lib/auto-settle';
+import { poolChargeDuesAcrossRecords } from '@/lib/auto-settle';
 import { SearchBar } from '@/components/ui/search-bar';
 
-// Build per-record, per-charge dues for the Collect Payment dialog. Includes
-// closed records that still owe (matches the backend's getPendingRecords) so
-// leftover hamali/insurance/rent stays collectible. Same waterfall.
+// Build per-record, per-charge dues for the Collect Payment dialog. Pools the
+// customer's payments across all lots (oldest-first) so an overpayment on one
+// lot credits the others — keeping the total equal to the customer balance.
+// Includes closed lots that still owe. Mirrors the backend's getPendingRecords.
 function buildDueRecords(rawRecords: any[]) {
-    return (rawRecords || [])
-        .map((r: any) => {
-            const totalPaid = (r.payments || []).reduce((sum: number, p: any) => sum + p.amount, 0);
-            const dues = computeChargeDues({
-                hamaliPayable: r.hamaliPayable || 0,
-                insurancePayable: r.insurancePayable || 0,
-                rentBilled: r.totalRentBilled || 0,
-                totalPaid,
-            });
-            return {
-                id: r.id,
-                recordNumber: r.recordNumber || `REC-${r.id.substring(0, 8)}`,
-                hamaliDue: dues.hamaliDue,
-                insuranceDue: dues.insuranceDue,
-                rentDue: dues.rentDue,
-                totalDue: dues.hamaliDue + dues.insuranceDue + dues.rentDue,
-            };
-        })
+    const oldestFirst = [...(rawRecords || [])].sort(
+        (a, b) => new Date(a.storageStartDate).getTime() - new Date(b.storageStartDate).getTime()
+    );
+    const totalPaidByCustomer = oldestFirst.reduce(
+        (sum, r) => sum + (r.payments || []).reduce((s: number, p: any) => s + p.amount, 0),
+        0
+    );
+    const shaped = oldestFirst.map((r: any) => ({
+        id: r.id,
+        recordNumber: r.recordNumber || `REC-${r.id.substring(0, 8)}`,
+        hamaliPayable: r.hamaliPayable || 0,
+        insurancePayable: r.insurancePayable || 0,
+        rentBilled: r.totalRentBilled || 0,
+    }));
+    return poolChargeDuesAcrossRecords(shaped, totalPaidByCustomer)
+        .map(({ hamaliPayable, insurancePayable, rentBilled, ...rest }) => rest)
         .filter((r: any) => r.totalDue > 0);
 }
 import {

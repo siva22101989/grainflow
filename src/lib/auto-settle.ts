@@ -59,6 +59,36 @@ export function computeAutoSettle(opts: {
 }
 
 /**
+ * Distributes a customer's TOTAL paid across their records oldest-first, and
+ * returns each record's residual per-charge dues (hamali -> insurance -> rent).
+ *
+ * Payments are stored per-record, so a lump paid onto one lot can leave that lot
+ * overpaid while siblings still show dues — the per-lot view then disagrees with
+ * the customer balance (which nets globally). Pooling here fixes that: an
+ * overpayment on any lot automatically credits the customer's oldest unpaid dues,
+ * so the sum of residual dues equals (total billed − total paid).
+ *
+ * `records` MUST be oldest-first.
+ */
+export function poolChargeDuesAcrossRecords<T extends {
+    hamaliPayable: number; insurancePayable: number; rentBilled: number;
+}>(records: T[], totalPaidByCustomer: number): (T & ChargeDues & { totalDue: number })[] {
+    let pool = Math.max(0, totalPaidByCustomer || 0);
+    return records.map((r) => {
+        const billed = Math.max(0, r.hamaliPayable || 0) + Math.max(0, r.insurancePayable || 0) + Math.max(0, r.rentBilled || 0);
+        const applied = Math.min(pool, billed);
+        pool -= applied;
+        const dues = computeChargeDues({
+            hamaliPayable: r.hamaliPayable,
+            insurancePayable: r.insurancePayable,
+            rentBilled: r.rentBilled,
+            totalPaid: applied,
+        });
+        return { ...r, ...dues, totalDue: dues.hamaliDue + dues.insuranceDue + dues.rentDue };
+    });
+}
+
+/**
  * Names what a net "still-owed" figure actually consists of, so the UI can show
  * an honest label instead of a generic "Old Balance". If only one charge remains
  * it's named directly (e.g. "Insurance (pending)"); a mix stays "Old balance
