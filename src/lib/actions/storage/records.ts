@@ -316,7 +316,12 @@ export async function restoreStorageRecordAction(recordId: string): Promise<Form
 }
 
 export async function getCustomerRecordsAction(customerId: string) {
-    const { getStorageRecords } = await import('@/lib/queries');
-    const allRecords = await getStorageRecords();
-    return allRecords.filter(r => r.customerId === customerId);
+    // Query this customer's records directly. The old approach fetched only the
+    // 20 most-recent records warehouse-wide (getStorageRecords is paginated) and
+    // filtered in memory — so customers whose lots weren't in that global window
+    // (e.g. all lots closed / older) returned NOTHING, making Collect Payment
+    // show ₹0 despite an outstanding balance. getCustomerRecords filters by
+    // customer_id (up to 200) and includes closed lots.
+    const { getCustomerRecords } = await import('@/lib/queries/storage');
+    return getCustomerRecords(customerId);
 }
