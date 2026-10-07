@@ -11,6 +11,7 @@ import { useTeamMembers } from "@/hooks/use-team-members";
 import { useStaticData } from "@/hooks/use-static-data";
 import { toast } from "@/hooks/use-toast";
 import { exportFullBackupToExcel, exportSimpleLedgerToExcel, type FullBackupData } from "@/lib/export-utils";
+import { logError } from '@/lib/error-logger';
 
 interface DataManagementTabProps {
     userRole?: string;
@@ -132,7 +133,7 @@ export function DataManagementTab({ userRole }: DataManagementTabProps) {
               toast({ title: "Export Successful", description: "Your full data backup has been downloaded." });
           }
       } catch (error) {
-          console.error("Export failed:", error);
+          logError(error, { operation: 'dataManagement.export' });
           toast({ title: "Export Failed", description: "Could not fetch data for export.", variant: "destructive" });
       } finally {
           setLoading(null);
@@ -171,7 +172,7 @@ export function DataManagementTab({ userRole }: DataManagementTabProps) {
           }
 
       } catch (error) {
-          console.error("Import error:", error);
+          logError(error, { operation: 'dataManagement.import' });
           toast({ title: "Import Failed", description: "Invalid file format or server error.", variant: "destructive" });
       } finally {
           setLoading(null);

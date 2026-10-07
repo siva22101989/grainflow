@@ -6,6 +6,7 @@ import { toast } from "@/hooks/use-toast";
 import { fetchCrops, fetchLots } from '@/lib/actions/common';
 import { fetchCustomers } from '@/lib/actions/customers';
 import { createClient } from '@/utils/supabase/client';
+import { logError } from '@/lib/error-logger';
 
 const CACHE_DURATION = 24 * 60 * 60 * 1000; // 24 hours for static data
 
@@ -126,7 +127,7 @@ export function StaticDataProvider({ children }: { children: React.ReactNode }) 
            }
            
        } catch (e) {
-           console.error("Error loading static data", e);
+           logError(e, { operation: 'useStaticData.load' });
        } finally {
            setLoading(false);
        }
@@ -156,7 +157,7 @@ export function StaticDataProvider({ children }: { children: React.ReactNode }) 
             toast({ title: "Data Refreshed", description: "All data updated successfully." });
         }
     } catch (e) {
-        console.error("Error refreshing data", e);
+        logError(e, { operation: 'useStaticData.refresh' });
         if (showToast) {
             toast({ title: "Error", description: "Failed to refresh data.", variant: "destructive" });
         }

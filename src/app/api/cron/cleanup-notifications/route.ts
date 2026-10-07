@@ -1,6 +1,7 @@
 
 import { createClient } from '@/utils/supabase/server';
 import { NextResponse } from 'next/server';
+import { logError } from '@/lib/error-logger';
 
 export const dynamic = 'force-dynamic';
 
@@ -23,7 +24,7 @@ export async function GET(request: Request) {
         const { error } = await supabase.rpc('cleanup_old_notifications');
 
         if (error) {
-             console.error('Cleanup failed:', error);
+             logError(error, { operation: 'cron.cleanupNotifications' });
              return NextResponse.json({ error: error.message }, { status: 500 });
         }
 

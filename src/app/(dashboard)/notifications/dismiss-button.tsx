@@ -4,6 +4,7 @@ import { X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { dismissNotificationAction } from '@/lib/actions/notification-actions';
 import { useState } from 'react';
+import { logError } from '@/lib/error-logger';
 
 export function DismissNotificationButton({ notificationId }: { notificationId: string }) {
   const [isLoading, setIsLoading] = useState(false);
@@ -14,12 +15,12 @@ export function DismissNotificationButton({ notificationId }: { notificationId: 
       const result = await dismissNotificationAction(notificationId);
       
       if (!result.success) {
-        console.error('Failed to dismiss notification:', result.error);
+        logError(result.error, { operation: 'notifications.dismiss' });
         setIsLoading(false);
       }
       // router.refresh() is not needed because Server Action calls revalidatePath
     } catch (error) {
-      console.error('Failed to dismiss notification:', error);
+      logError(error, { operation: 'notifications.dismiss' });
       setIsLoading(false);
     }
   };

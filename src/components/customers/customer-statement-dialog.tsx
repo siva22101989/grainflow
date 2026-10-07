@@ -24,6 +24,7 @@ import {
 } from '@/lib/customer-statement-pdf';
 import { useWarehouses } from '@/contexts/warehouse-context';
 import { DateRange } from 'react-day-picker';
+import { logError } from '@/lib/error-logger';
 
 interface Props {
   customer: Customer;
@@ -76,7 +77,7 @@ export function CustomerStatementDialog({
         dateRange: dateRange?.from ? { from: dateRange.from, to: dateRange.to } : null,
       });
     } catch (error) {
-      console.error('Error generating PDF:', error);
+      logError(error, { operation: 'customerStatement.generatePdf' });
     } finally {
       setIsGenerating(false);
     }

@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyWebhookSignature, processPaymentCapture } from '@/lib/services/razorpay-service';
 import { textBeeService } from '@/lib/textbee';
-import { logError } from '@/lib/error-logger';
+import { logError, logWarning } from '@/lib/error-logger';
+import { Logger } from '@/lib/logger';
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/utils/supabase/server';
 import { rateLimit } from '@/lib/rate-limit';
@@ -49,7 +50,7 @@ export async function POST(request: NextRequest) {
         break;
 
       case 'payment.authorized':
-        console.log('Payment authorized:', payload.payment.entity.id);
+        Logger.info('Payment authorized', { paymentId: payload.payment.entity.id });
         break;
 
       case 'payment_link.paid':
@@ -67,7 +68,10 @@ export async function POST(request: NextRequest) {
         break;
 
       default:
-        console.log('Unhandled webhook event:', event);
+        logWarning('Unhandled Razorpay webhook event', {
+          operation: 'razorpayWebhook',
+          metadata: { event },
+        });
     }
 
     return NextResponse.json({ status: 'success' }, { status: 200 });
@@ -152,7 +156,7 @@ async function handlePaymentCaptured(payment: any) {
       // Don't fail if SMS fails
     }
 
-    console.log('Payment captured and processed:', payment.id);
+    Logger.info('Payment captured and processed', { paymentId: payment.id });
   } catch (error) {
     logError(error as Error, { operation: 'handlePaymentCaptured', metadata: { payment } });
   }
@@ -163,7 +167,10 @@ async function handlePaymentCaptured(payment: any) {
  */
 async function handlePaymentFailed(payment: any) {
   try {
-    console.log('Payment failed:', payment.id, payment.error_description);
+    logWarning('Razorpay payment failed', {
+      operation: 'handlePaymentFailed',
+      metadata: { paymentId: payment.id, reason: payment.error_description },
+    });
 
     // Optionally send retry SMS to customer
     // For now, just log the failure
@@ -193,7 +200,7 @@ async function handleSubscriptionPayment(payment: any, linkData: any) {
     });
 
     if (result.success) {
-      console.log('Subscription activated for warehouse:', warehouse_id);
+      Logger.info('Subscription activated', { warehouseId: warehouse_id });
       
       // Mark payment link as completed
       const supabase = await createClient();
@@ -235,7 +242,7 @@ async function handlePaymentLinkStatusChange(paymentLinkEntity: any, status: str
       });
     }
 
-    console.log(`Payment link ${razorpayLinkId} status changed to: ${status}`);
+    Logger.info('Payment link status changed', { razorpayLinkId, status });
   } catch (error) {
     logError(error as Error, { operation: 'handlePaymentLinkStatusChange' });
   }

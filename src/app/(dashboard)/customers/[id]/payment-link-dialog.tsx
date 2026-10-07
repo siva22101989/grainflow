@@ -17,6 +17,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { createAndSendPaymentLink } from '@/lib/actions/razorpay-actions';
 import { Loader2, Link as LinkIcon, Send, Check, Copy } from 'lucide-react';
 import { toast } from 'sonner';
+import { logError } from '@/lib/error-logger';
 
 interface PaymentLinkDialogProps {
   customerId: string;
@@ -66,7 +67,7 @@ export function PaymentLinkDialog({
       }
     } catch (error) {
       toast.error('Failed to create payment link');
-      console.error(error);
+      logError(error, { operation: 'paymentLinkDialog' });
     } finally {
       setLoading(false);
     }

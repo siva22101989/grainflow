@@ -117,7 +117,9 @@ export async function fetchCommodityPrices(
 
     if (!response.ok) {
       if (response.status === 429) {
-        console.warn('[AGMARKNET] Rate limit exceeded (429). Switching to sample data.');
+        logWarning('AGMARKNET rate limit exceeded (429), falling back to sample data', {
+          operation: 'agmarknet.fetch',
+        });
         return [];
       }
       logError(new Error(`[AGMARKNET] API error: ${response.status}`), { 
@@ -212,7 +214,9 @@ export async function getCachedPrices(
     const canFetchFromAPI = await checkRateLimit();
     
     if (!canFetchFromAPI) {
-      console.warn('[AGMARKNET] Rate limit protection - using sample data');
+      logWarning('AGMARKNET rate limit protection engaged, using sample data', {
+        operation: 'agmarknet.fetch',
+      });
       return getSampleData(commodity);
     }
 
@@ -220,7 +224,9 @@ export async function getCachedPrices(
 
     // If API fetch failed, return sample data
     if (freshPrices.length === 0) {
-      console.warn('[AGMARKNET] API fetch failed - using sample data');
+      logWarning('AGMARKNET API fetch failed, using sample data', {
+        operation: 'agmarknet.fetch',
+      });
       return getSampleData(commodity);
     }
 

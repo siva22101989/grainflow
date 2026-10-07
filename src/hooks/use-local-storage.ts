@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { logWarning } from '@/lib/error-logger';
 
 export function useLocalStorage<T>(key: string, initialValue: T) {
   const [storedValue, setStoredValue] = useState<T>(initialValue);
@@ -13,7 +14,10 @@ export function useLocalStorage<T>(key: string, initialValue: T) {
         setStoredValue(JSON.parse(item));
       }
     } catch (error) {
-      console.warn(`Error reading localStorage key "${key}":`, error);
+      logWarning(`Error reading localStorage key "${key}"`, {
+        operation: 'useLocalStorage.read',
+        metadata: { key },
+      });
     }
   }, [key]);
 
@@ -29,7 +33,10 @@ export function useLocalStorage<T>(key: string, initialValue: T) {
         return valueToStore;
       });
     } catch (error) {
-      console.warn(`Error setting localStorage key "${key}":`, error);
+      logWarning(`Error setting localStorage key "${key}"`, {
+        operation: 'useLocalStorage.write',
+        metadata: { key },
+      });
     }
   }, [key]);
 

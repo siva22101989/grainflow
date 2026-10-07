@@ -1,5 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
 import { type NextRequest, NextResponse } from "next/server";
+import { logError } from '@/lib/error-logger';
 
 export const updateSession = async (request: NextRequest) => {
   // Create an unmodified response
@@ -13,7 +14,9 @@ export const updateSession = async (request: NextRequest) => {
   const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY;
 
   if (!supabaseUrl || !supabaseKey) {
-    console.error('Supabase Environment Variables are missing in Middleware!');
+    logError(new Error('Supabase environment variables are missing in middleware'), {
+      operation: 'middleware.supabaseConfig',
+    });
     // Allow request to proceed (or fail gracefully) instead of crashing entire app
     // Ideally, redirect to an error page or show a friendly message, but for now prevent 500
     return response; 

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { updateStorageRecordSimple } from '@/lib/actions/storage/records';
 import { createClient } from '@/utils/supabase/server';
+import { logError } from '@/lib/error-logger';
 
 export async function POST(request: NextRequest) {
     try {
@@ -19,7 +20,7 @@ export async function POST(request: NextRequest) {
         
         return NextResponse.json(result);
     } catch (error) {
-        console.error('API Error:', error);
+        logError(error, { operation: 'api.storage.update' });
         return NextResponse.json(
             { success: false, message: 'Internal server error' },
             { status: 500 }

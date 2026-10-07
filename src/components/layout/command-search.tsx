@@ -27,6 +27,7 @@ import { createClient } from '@/utils/supabase/client';
 
 import { useDebounce } from '@/hooks/use-debounce';
 import { searchGlobal, type SearchResult } from '@/lib/actions/search';
+import { logError } from '@/lib/error-logger';
 
 export function CommandSearch() {
   const [open, setOpen] = React.useState(false);
@@ -91,7 +92,7 @@ export function CommandSearch() {
               setResults([]);
           }
       } catch (error) {
-          console.error("Search error:", error);
+          logError(error, { operation: 'commandSearch' });
       } finally {
           setLoading(false);
       }

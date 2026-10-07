@@ -5,6 +5,7 @@ import { getStorageRecord, getCustomer, getUserWarehouse } from '@/lib/queries';
 import type { Payment } from '@/lib/definitions';
 import { createNotification } from '@/lib/logger';
 import { splitPaymentAllCharges, poolChargeDuesAcrossRecords, sumPaidByType } from '@/lib/auto-settle';
+import { logError } from '@/lib/error-logger';
 
 export class PaymentService {
   /**
@@ -62,7 +63,7 @@ export class PaymentService {
         }
       }
     } catch (e) {
-      console.error('Failed to send payment notification', e);
+      logError(e, { operation: 'sendPaymentNotification' });
       // Suppress notification error to not fail payment
     }
 

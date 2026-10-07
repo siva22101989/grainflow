@@ -1,6 +1,7 @@
 'use server';
 
 import { createClient } from '@/utils/supabase/server';
+import { logError } from '@/lib/error-logger';
 
 
 export interface SystemHealth {
@@ -27,7 +28,7 @@ export const checkSystemHealth = async (): Promise<SystemHealth> => {
             timestamp: Date.now()
         };
     } catch (error) {
-        console.error('System Check Failed:', error);
+        logError(error, { operation: 'systemHealthCheck' });
         return {
             status: 'offline',
             dbLatency: -1,

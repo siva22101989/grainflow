@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useLocalStorage } from "@/hooks/use-local-storage";
 import { fetchTeamMembers } from '@/lib/actions/auth';
 import { createClient } from '@/utils/supabase/client';
+import { logError } from '@/lib/error-logger';
 
 const CACHE_KEY = 'rent_team_members_v3'; // Changed to force refresh after schema update
 const CACHE_DURATION = 24 * 60 * 60 * 1000; // 24 Hours
@@ -26,7 +27,7 @@ export function useTeamMembers() {
             });
             setMembers(teamData || []);
         } catch(e) {
-             console.error("Error refreshing team members", e);
+             logError(e, { operation: 'useTeamMembers.refresh' });
         } finally {
             setLoading(false);
         }
@@ -59,7 +60,7 @@ export function useTeamMembers() {
                 }
                 setMembers(teamData || []);
             } catch (e) {
-                console.error("Error loading team members", e);
+                logError(e, { operation: 'useTeamMembers.load' });
             } finally {
                 setLoading(false);
             }

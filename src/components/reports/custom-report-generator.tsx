@@ -15,6 +15,7 @@ import { useCustomers } from '@/contexts/customer-context';
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
+import { logError } from '@/lib/error-logger';
 
 interface CustomReportGeneratorProps {
     warehouseName: string;
@@ -141,7 +142,7 @@ export function CustomReportGenerator({ warehouseName, allowExport }: CustomRepo
                 });
             }
         } catch (error) {
-            console.error('Report generation error:', error);
+            logError(error, { operation: 'customReport.generate' });
             toast({
                 title: "Error",
                 description: "Failed to generate report",

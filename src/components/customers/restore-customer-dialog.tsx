@@ -9,6 +9,7 @@ import { restoreCustomer } from '@/lib/actions/customers';
 import { useUnifiedToast } from '@/components/shared/toast-provider';
 import { format } from 'date-fns';
 import { useRouter } from 'next/navigation';
+import { logError } from '@/lib/error-logger';
 
 export function RestoreCustomerDialog() {
     const [open, setOpen] = useState(false);
@@ -41,7 +42,7 @@ export function RestoreCustomerDialog() {
             .order('deleted_at', { ascending: false });
 
         if (fetchError) {
-            console.error('Error fetching deleted customers:', fetchError);
+            logError(fetchError, { operation: 'restoreCustomer.fetchDeleted' });
         } else {
             setCustomers(data || []);
         }

@@ -48,6 +48,7 @@ import {
 } from "@/components/ui/select";
 import { usePagination } from '@/hooks/use-pagination';
 import { Pagination } from '@/components/ui/pagination';
+import { logError } from '@/lib/error-logger';
 
 interface PendingPaymentsClientProps {
     pendingCustomers: any[];
@@ -123,7 +124,7 @@ export function PendingPaymentsClient({ pendingCustomers }: PendingPaymentsClien
                     const activeRecords = records.filter((r: any) => !r.storageEndDate);
                     setCustomerRecords(prev => ({ ...prev, [customerId]: activeRecords }));
                 } catch (error) {
-                    console.error('Error fetching records:', error);
+                    logError(error, { operation: 'pendingPayments.fetchRecords' });
                     alert('Failed to load customer records');
                     setExpandedCustomerId(null);
                 } finally {

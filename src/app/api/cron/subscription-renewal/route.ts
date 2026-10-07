@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/utils/supabase/admin';
 import { createSubscriptionPaymentLink } from '@/lib/subscription-actions';
 import { logError } from '@/lib/error-logger';
+import { Logger } from '@/lib/logger';
 
 /**
  * Subscription Renewal Endpoint
@@ -16,7 +17,9 @@ export async function GET(request: NextRequest) {
     const cronSecret = process.env.CRON_SECRET;
 
     if (!cronSecret) {
-      console.error('CRON_SECRET not configured');
+      logError(new Error('CRON_SECRET not configured'), {
+        operation: 'cron.subscriptionRenewal',
+      });
       return NextResponse.json({ error: 'Cron not configured' }, { status: 500 });
     }
 
@@ -64,7 +67,7 @@ export async function GET(request: NextRequest) {
 
         if (linkResult.success) {
           results.sent++;
-          console.log(`Renewal link sent to warehouse ${warehouse_id} (${days_until_expiry} days left)`);
+          Logger.info('Renewal link sent', { warehouseId: warehouse_id, daysUntilExpiry: days_until_expiry });
         } else {
           results.failed++;
           results.errors.push(`Warehouse ${warehouse_id}: ${linkResult.error}`);

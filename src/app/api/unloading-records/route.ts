@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
 import { getUserWarehouse } from '@/lib/queries/warehouses';
+import { logError } from '@/lib/error-logger';
 
 export async function GET() {
     try {
@@ -26,7 +27,7 @@ export async function GET() {
 
         return NextResponse.json(data);
     } catch (error: any) {
-        console.error('Error fetching unloading records:', error);
+        logError(error, { operation: 'api.unloadingRecords.get' });
         return NextResponse.json({ error: error.message }, { status: 500 });
     }
 }

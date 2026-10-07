@@ -5,6 +5,7 @@ import { flushSync } from 'react-dom';
 
 import { useLoading } from '@/components/providers/loading-provider';
 import { useToast } from '@/hooks/use-toast';
+import { logError } from '@/lib/error-logger';
 
 /**
  * A hook to wrap server actions with a global blocking loading state.
@@ -66,7 +67,7 @@ export function useServerAction() {
         throw error;
       }
 
-      console.error('Action Failed:', error);
+      logError(error, { operation: 'useServerAction' });
       toast({
           title: options?.errorMessage || "Error",
           description: error.message || 'Something went wrong',

@@ -98,7 +98,7 @@ export const getUserWarehouses = cache(async (): Promise<UserWarehouse[]> => {
         .is('deleted_at', null); // Only get active assignments
         
     if (error) {
-        console.error('Error fetching warehouse assignments:', error);
+        logError(error, { operation: 'getWarehouseAssignments' });
         return [];
     }
     
@@ -112,7 +112,7 @@ export const getUserWarehouses = cache(async (): Promise<UserWarehouse[]> => {
         .single();
     
     if (profileError) {
-        console.error('Error fetching profile:', profileError);
+        logError(profileError, { operation: 'getUserWarehouse:profile' });
     }
 
     return data.map((item: any) => ({
@@ -171,7 +171,7 @@ export const getTeamMembers = cache(async () => {
             .order('created_at', { ascending: false });
 
         if (error) {
-            console.error('[getTeamMembers] SuperAdmin Error:', error);
+            logError(error, { operation: 'getTeamMembers:superAdmin' });
             return [];
         }
 

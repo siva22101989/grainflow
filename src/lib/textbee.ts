@@ -1,3 +1,4 @@
+import { logError, logWarning } from '@/lib/error-logger';
 /**
  * TextBee SMS Service
  * Handles sending SMS via TextBee (Android gateway).
@@ -52,10 +53,10 @@ export class TextBeeService {
     this.deviceId = process.env.TEXTBEE_DEVICE_ID || '';
 
     if (!this.apiKey) {
-      console.warn('TextBee API key not configured');
+      logWarning('TextBee API key not configured', { operation: 'textbee.config' });
     }
     if (!this.deviceId) {
-      console.warn('TextBee Device ID not configured. Get it from your TextBee dashboard.');
+      logWarning('TextBee Device ID not configured', { operation: 'textbee.config' });
     }
   }
 
@@ -94,7 +95,10 @@ export class TextBeeService {
       const data = await response.json();
 
       if (!response.ok) {
-        console.error('TextBee API error:', data);
+        logError(new Error('TextBee API error'), {
+          operation: 'textbee.sendSMS',
+          metadata: { response: data },
+        });
         return {
           success: false,
           error: data.message || data.error || 'Failed to send SMS',
@@ -108,7 +112,7 @@ export class TextBeeService {
         segments: seg.segments,
       };
     } catch (error) {
-      console.error('TextBee service error:', error);
+      logError(error, { operation: 'textbee.sendSMS' });
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Unknown error',

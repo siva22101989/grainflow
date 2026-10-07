@@ -3,6 +3,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { PlanTier } from '@/lib/feature-flags';
 import { getSubscriptionAction } from '@/lib/subscription-actions';
+import { logError } from '@/lib/error-logger';
 
 interface Subscription {
   plan: {
@@ -80,7 +81,7 @@ export function SubscriptionProvider({
         });
       }
     } catch (err) {
-      console.error('Failed to fetch subscription:', err);
+      logError(err, { operation: 'subscriptionContext.fetch' });
     } finally {
       setLoading(false);
     }

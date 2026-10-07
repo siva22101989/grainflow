@@ -5,6 +5,7 @@ import { getUserWarehouses, getActiveWarehouseId } from '@/lib/warehouse-actions
 import { useLocalStorage } from "@/hooks/use-local-storage";
 import { createClient } from '@/utils/supabase/client';
 import type { WarehouseWithRole } from '@/lib/definitions';
+import { logError } from '@/lib/error-logger';
 
 type WarehouseCache = {
   data: WarehouseWithRole[];
@@ -53,7 +54,7 @@ export function WarehouseProvider({ children }: { children: React.ReactNode }) {
         activeId
       });
     } catch (err) {
-      console.error('Warehouse fetch error:', err);
+      logError(err, { operation: 'warehouseContext.fetch' });
     } finally {
       setIsLoading(false);
     }
@@ -93,7 +94,7 @@ export function WarehouseProvider({ children }: { children: React.ReactNode }) {
             return;
           }
         } catch (e) {
-          console.error('Cache read error:', e);
+          logError(e, { operation: 'warehouseContext.cacheRead' });
         }
       }
 

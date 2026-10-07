@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { processExpiredSubscriptions, sendExpiryWarnings } from '@/lib/subscription-actions';
+import { logError } from '@/lib/error-logger';
 
 /**
  * API Route for subscription expiry cron job
@@ -43,7 +44,7 @@ export async function GET(request: NextRequest) {
       }
     });
   } catch (error: any) {
-    console.error('Subscription expiry cron error:', error);
+    logError(error, { operation: 'cron.subscriptionExpiry' });
     return NextResponse.json(
       { 
         success: false, 

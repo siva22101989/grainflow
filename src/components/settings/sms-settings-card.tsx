@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Loader2, MessageSquare, Save } from 'lucide-react';
 import { getSMSSettings, updateSMSSettings } from '@/lib/sms-settings-actions';
 import { useToast } from '@/hooks/use-toast';
+import { logError } from '@/lib/error-logger';
 
 export function SMSSettingsCard() {
     const [settings, setSettings] = useState({
@@ -38,7 +39,7 @@ export function SMSSettingsCard() {
                 });
             }
         } catch (error) {
-            console.error('Failed to load SMS settings:', error);
+            logError(error, { operation: 'smsSettings.load' });
         } finally {
             setLoading(false);
         }

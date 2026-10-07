@@ -16,6 +16,7 @@ import { Button } from '../ui/button';
 import { Download, Loader2 } from 'lucide-react';
 import { BillReceipt } from './bill-receipt';
 import type { Customer, StorageRecord } from '@/lib/definitions';
+import { logError } from '@/lib/error-logger';
 
 export function BillReceiptDialog({
   record,
@@ -69,7 +70,7 @@ export function BillReceiptDialog({
       pdf.addImage(imgData, 'PNG', x, y, widthInPdf, heightInPdf);
       pdf.save(`bill-${record.id}.pdf`);
     } catch (error) {
-      console.error('Error generating PDF:', error);
+      logError(error, { operation: 'billReceipt.generatePdf' });
     } finally {
       setIsGenerating(false);
       setIsOpen(false);

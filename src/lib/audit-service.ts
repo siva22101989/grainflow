@@ -1,6 +1,6 @@
 import { createClient } from '@/utils/supabase/server';
 import { headers } from 'next/headers';
-import { logError } from './error-logger';
+import { logError, logWarning } from './error-logger';
 import { AuditAction, AuditEntity } from '@/types/db';
 
 export { AuditAction, AuditEntity };
@@ -36,7 +36,9 @@ export async function logActivity({
         }
         
         if (!userId) {
-            console.warn('Attempted to log activity without authenticated user');
+            logWarning('Attempted to log activity without authenticated user', {
+                operation: 'logActivity',
+            });
             return;
         }
 
@@ -51,7 +53,7 @@ export async function logActivity({
         });
 
         if (error) {
-            console.error('Failed to insert audit log:', error);
+            logError(error, { operation: 'logActivity:insert' });
             // Don't throw, as auditing shouldn't block the main action
             logError(error, { 
                 operation: 'logActivity', 
@@ -59,7 +61,7 @@ export async function logActivity({
             });
         }
     } catch (err) {
-        console.error('Error in logActivity:', err);
+        logError(err, { operation: 'logActivity' });
         logError(err, { 
             operation: 'logActivity_Unknown', 
             metadata: { action, entity, warehouseId } 

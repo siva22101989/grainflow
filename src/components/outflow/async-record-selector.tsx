@@ -11,6 +11,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover"
 import { findRecordsAction } from '@/lib/actions/storage/records';
+import { logError } from '@/lib/error-logger';
 
 interface AsyncRecordSelectorProps {
     onSelect: (recordId: string) => void;
@@ -44,7 +45,7 @@ export function AsyncRecordSelector({ onSelect }: AsyncRecordSelectorProps) {
              setRecords(results);
           }
       } catch (e) {
-          console.error("Failed to search records", e);
+          logError(e, { operation: 'asyncRecordSelector.search' });
       } finally {
           if (search === lastQueryRef.current) {
              setLoading(false);

@@ -1,6 +1,7 @@
 import { createClient } from '@/utils/supabase/server';
 import { logError } from './error-logger';
 import { getUserWarehouse } from '@/lib/data';
+import { Logger } from '@/lib/logger';
 
 /**
  * Generates a short code for the warehouse.
@@ -43,7 +44,7 @@ export async function getNextInvoiceNumber(type: 'inflow' | 'outflow'): Promise<
         throw new Error("No warehouse assigned to user");
     }
 
-    console.log(`Generating ${type} invoice number for warehouse: ${warehouseId}`);
+    Logger.info('Generating invoice number', { type, warehouseId });
 
     // Call the thread-safe database function
     const { data: invoiceNumber, error } = await supabase.rpc('generate_invoice_number', {
@@ -59,7 +60,7 @@ export async function getNextInvoiceNumber(type: 'inflow' | 'outflow'): Promise<
         throw new Error(`Failed to generate ${type} invoice number: ${error.message || JSON.stringify(error)}`);
     }
 
-    console.log(`Generated invoice number: ${invoiceNumber}`);
+    Logger.info('Generated invoice number', { invoiceNumber });
     return invoiceNumber;
 }
 

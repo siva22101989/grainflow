@@ -5,6 +5,7 @@ import { Share2, Check } from 'lucide-react';
 import { useState } from 'react';
 import { getShareableFilterUrl } from '@/lib/url-filters';
 import { shareNative } from '@/lib/native/capacitor-bridge';
+import { logError } from '@/lib/error-logger';
 
 interface ShareFilterButtonProps {
   filters: any;
@@ -42,7 +43,7 @@ export function ShareFilterButton({
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } else if (!result.ok && result.error !== 'canceled') {
-      console.error('Share failed:', result.error);
+      logError(result.error, { operation: 'shareFilter' });
     }
   };
   

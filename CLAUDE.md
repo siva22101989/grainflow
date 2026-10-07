@@ -11,7 +11,7 @@ GrainFlow is a multi-tenant Warehouse Management System for agricultural storage
 
 ```bash
 npm run dev          # Dev server on port 9002
-npm test             # Vitest (352 tests, ~5s)
+npm test             # Vitest (420 tests, ~5s)
 npm run test:e2e     # Playwright E2E (10 specs)
 npx tsc --noEmit     # Type check
 npx next build       # Production build
@@ -27,9 +27,11 @@ npx next build       # Production build
 - **Bulk Outflow**: Supports FIFO (default) and per-record manual allocation via `recordAllocations` JSON field. Backend validates per-record bag counts.
 - **Lot Stock**: `sync_lot_stock` DB trigger auto-recalculates `current_stock` from `SUM(bags_stored)` on every `storage_records` change. Always sort lots with `.order('name')`.
 - **Soft Delete**: All deletions use `deleted_at` timestamp. Always add `.is('deleted_at', null)` to queries.
+- **Tenant isolation**: Every API-reachable object needs its own row filter. Materialized views (e.g. `customer_balances_mat`) CANNOT carry RLS — revoke `anon`/`authenticated` and expose them only through a view or function gated on `belongs_to_warehouse()`.
+- **Build**: `npx tsc --noEmit` and `next build` report phantom errors in `.next/dev/types` after a dev run. `rm -rf .next/dev` first.
 - **Payments table**: Has no `warehouse_id` column. Filter via join: `.eq('storage_records.warehouse_id', warehouseId)`.
 - **Bag counts**: `bagsStored` from `mapRecords()` already has withdrawals subtracted. Never do `bagsStored - bagsOut` (double-counts).
-- **Tests**: 352 passing (Vitest). Factories at `src/test/factories/index.ts`. Run `npm test`.
+- **Tests**: 420 passing (Vitest). Run `npm test`. Factories exist at `src/test/factories/index.ts` but no spec imports them yet.
 
 ## Architecture
 
@@ -94,7 +96,7 @@ TEXTBEE_DEVICE_ID=                   # SMS device ID
 ## Testing
 
 - **Framework**: Vitest + jsdom. Run with `npm test`.
-- **Factories**: `src/test/factories/index.ts` — `buildCustomer()`, `buildStorageRecord()`, `buildPayment()`, `buildWarehouse()`, `buildSubscription()`, `buildPlan()`.
+- **Factories**: `src/test/factories/index.ts` — `buildCustomer()`, `buildStorageRecord()`, `buildPayment()`, `buildWarehouse()`, `buildSubscription()`, `buildPlan()`. Currently unused scaffolding: prefer them over inline fixtures when adding specs.
 - **Mock Supabase**: `src/test/mocks/supabase.ts` — chainable query builder with `.eq()`, `.is()`, `.single()`, in-memory data.
 - **Pattern**: Extract pure logic from server actions, test the logic directly. Don't mock Next.js request infrastructure.
 - **Style**: `describe()` → nested `describe()` → `it('should ...')`. Import `{ describe, it, expect }` from `vitest`.

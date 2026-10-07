@@ -8,6 +8,7 @@ import { toggleWarehouseAccess, getMemberAssignments, updateStaffRoleInWarehouse
 import { getUserWarehouses } from "@/lib/warehouse-actions"; 
 import { useToast } from "@/hooks/use-toast";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { logError } from '@/lib/error-logger';
 
 interface WarehouseAccessManagerProps {
     userId: string;
@@ -30,7 +31,7 @@ export function WarehouseAccessManager({ userId }: WarehouseAccessManagerProps) 
                 setAllWarehouses(warehouses);
                 setAssignments(userAssignments);
             } catch (error) {
-                console.error("Failed to load warehouse access data:", error);
+                logError(error, { operation: 'warehouseAccessManager.load' });
                 toast({ title: "Error", description: "Failed to load data", variant: "destructive" });
             } finally {
                 setLoading(false);
