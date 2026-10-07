@@ -207,7 +207,7 @@ export const CustomerStatementReceipt = React.forwardRef<HTMLDivElement, Custome
                             <p><span className="font-medium">Date:</span> {formattedDate}</p>
                             {dateRange?.from && (
                                 <p className="text-sm text-muted-foreground mt-1">
-                                    Period: {format(dateRange.from, 'dd/MM/yy')} - {dateRange.to ? format(dateRange.to, 'dd/MM/yy') : '...'}
+                                    Period: {format(dateRange.from, 'dd MMM yyyy')} - {dateRange.to ? format(dateRange.to, 'dd MMM yyyy') : '...'}
                                 </p>
                             )}
                             <p><span className="font-medium">Total Records:</span> {records.length}</p>

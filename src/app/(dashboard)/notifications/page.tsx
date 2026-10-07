@@ -2,11 +2,12 @@ import { createClient } from '@/utils/supabase/server';
 import { PageHeader } from '@/components/shared/page-header';
 import { Card, CardContent } from '@/components/ui/card';
 import { Bell, Package, Warehouse, DollarSign, TrendingUp, Search, Info } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn, formatDate } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { Badge } from '@/components/ui/badge';
 import { DismissNotificationButton } from './dismiss-button';
+import { logError } from '@/lib/error-logger';
 
 export const metadata = {
   title: 'Notifications',
@@ -51,7 +52,7 @@ async function getNotifications() {
     .limit(50);
 
   if (error) {
-    console.error('Error fetching notifications:', error);
+    logError(error, { operation: 'notificationsPage.fetch' });
     return [];
   }
 
@@ -185,7 +186,7 @@ function NotificationCard({ notification, severityColor }: { notification: any; 
             </div>
             <div className="flex items-center gap-2">
               <span className="text-xs text-muted-foreground whitespace-nowrap">
-                {new Date(notification.created_at).toLocaleDateString()} {new Date(notification.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                {formatDate(notification.created_at)} {new Date(notification.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
               </span>
               <DismissNotificationButton notificationId={notification.id} />
             </div>

@@ -3,6 +3,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Package } from 'lucide-react';
 import { EmptyState } from '@/components/ui/empty-state';
+import { formatDate } from '@/lib/utils';
 
 interface UnloadedInventoryProps {
     records: Array<{
@@ -75,7 +76,7 @@ export function UnloadedInventory({ records, onMoveToStorage }: UnloadedInventor
                             </div>
 
                             <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground">
-                                <span>{new Date(record.unload_date).toLocaleDateString()}</span>
+                                <span>{formatDate(record.unload_date)}</span>
                                 {record.lorry_tractor_no && (
                                     <span className="break-all">{record.lorry_tractor_no}</span>
                                 )}

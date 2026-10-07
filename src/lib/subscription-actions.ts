@@ -4,6 +4,7 @@ import { createClient } from '@/utils/supabase/server';
 import { revalidatePath } from 'next/cache';
 import { logError } from './error-logger';
 import { LIMITS } from '@/lib/feature-flags';
+import { Logger } from '@/lib/logger';
 
 export type SubscriptionState = {
   success: boolean;
@@ -59,6 +60,7 @@ export async function getSubscriptionAction(warehouseId: string) {
 
 import { authenticatedAction } from './safe-action';
 import { SubscriptionStatus, UserRole } from '@/types/db';
+import { formatDate } from '@/lib/utils';
 
 export async function startSubscriptionAction(
   warehouseId: string,
@@ -302,7 +304,7 @@ async function sendExpiryNotifications(): Promise<void> {
       await adminSupabase.from('notifications').insert({
         warehouse_id: sub.warehouse_id,
         title: '⚠️ Subscription in Grace Period',
-        message: `Your subscription expired on ${new Date(sub.current_period_end).toLocaleDateString()}. You have ${daysLeft} day${daysLeft !== 1 ? 's' : ''} remaining to renew before your account is downgraded to the Free plan.`,
+        message: `Your subscription expired on ${formatDate(sub.current_period_end)}. You have ${daysLeft} day${daysLeft !== 1 ? 's' : ''} remaining to renew before your account is downgraded to the Free plan.`,
         type: 'warning',
         category: 'subscription'
       });
@@ -378,7 +380,7 @@ export async function sendExpiryWarnings(): Promise<{
         await adminSupabase.from('notifications').insert({
           warehouse_id: sub.warehouse_id,
           title: `⏰ Subscription Expiring in ${days} Day${days > 1 ? 's' : ''}`,
-          message: `Your subscription will expire on ${new Date(sub.current_period_end).toLocaleDateString()}. Renew now to avoid service interruption and maintain access to all features.`,
+          message: `Your subscription will expire on ${formatDate(sub.current_period_end)}. Renew now to avoid service interruption and maintain access to all features.`,
           type: 'warning',
           category: 'subscription'
         });
@@ -692,7 +694,9 @@ export async function activateSubscriptionPayment(
       .single();
 
     if (existingPayment) {
-      console.log('Payment already processed (Idempotency check passed):', paymentDetails.razorpay_payment_id);
+      Logger.info('Payment already processed (idempotency check passed)', {
+        razorpayPaymentId: paymentDetails.razorpay_payment_id,
+      });
       return { success: true };
     }
 

@@ -107,7 +107,7 @@ export function SubscriptionSettingsTab() {
                             <span className="text-muted-foreground">Next Billing Date</span>
                             <span className="font-medium">
                                 {subscription.current_period_end 
-                                    ? format(new Date(subscription.current_period_end), 'MMMM d, yyyy')
+                                    ? format(new Date(subscription.current_period_end), 'dd MMM yyyy')
                                     : 'Lifetime / Manual'}
                             </span>
                         </div>

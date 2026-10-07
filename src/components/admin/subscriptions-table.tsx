@@ -153,7 +153,7 @@ export function SubscriptionsTable({ initialData, plans }: SubscriptionsTablePro
                                     <span className="text-muted-foreground">Expires:</span>
                                     <span className="font-medium">
                                         {item.subscription?.current_period_end 
-                                            ? format(new Date(item.subscription.current_period_end), 'MMM d, yyyy') 
+                                            ? format(new Date(item.subscription.current_period_end), 'dd MMM yyyy') 
                                             : '-'}
                                     </span>
                                 </div>
@@ -203,7 +203,7 @@ export function SubscriptionsTable({ initialData, plans }: SubscriptionsTablePro
                             </TableCell>
                             <TableCell>
                                 {item.subscription?.current_period_end 
-                                    ? format(new Date(item.subscription.current_period_end), 'MMM d, yyyy') 
+                                    ? format(new Date(item.subscription.current_period_end), 'dd MMM yyyy') 
                                     : '-'}
                             </TableCell>
                             <TableCell className="text-right">

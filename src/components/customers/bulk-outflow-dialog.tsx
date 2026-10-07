@@ -20,7 +20,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertCircle, Loader2, PackageMinus, Calculator } from "lucide-react";
-import { formatCurrency } from '@/lib/utils';
+import { formatCurrency, formatDate } from '@/lib/utils';
 import { processBulkOutflow, type BulkOutflowResult } from '@/lib/actions/storage/bulk-outflow';
 import { useUnifiedToast } from '@/components/shared/toast-provider';
 import type { Customer, StorageRecord } from '@/lib/definitions';
@@ -455,7 +455,7 @@ export function BulkOutflowDialog({ customer, records, crops, onOpenChange: _onO
                                                                                     Record #{r.recordNumber}
                                                                                 </div>
                                                                                 <div className="text-xs text-muted-foreground">
-                                                                                    {new Date(r.storageStartDate).toLocaleDateString()}
+                                                                                    {formatDate(r.storageStartDate)}
                                                                                     {r.location && ` • ${r.location}`}
                                                                                 </div>
                                                                             </div>
@@ -527,7 +527,7 @@ export function BulkOutflowDialog({ customer, records, crops, onOpenChange: _onO
                                                                 </TableCell>
                                                                 <TableCell className="text-xs font-medium">{r.location || '-'}</TableCell>
                                                                 <TableCell className="font-mono text-xs">#{r.recordNumber}</TableCell>
-                                                                <TableCell className="text-xs">{new Date(r.storageStartDate).toLocaleDateString()}</TableCell>
+                                                                <TableCell className="text-xs">{formatDate(r.storageStartDate)}</TableCell>
                                                                 <TableCell className="text-right text-xs text-muted-foreground">{r.bagsStored}</TableCell>
                                                                 <TableCell className="text-right">
                                                                     {!isExcluded ? (

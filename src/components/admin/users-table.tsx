@@ -279,7 +279,7 @@ function AdminUsersTableComponent({ users }: AdminUsersTableProps) {
                                 <TableCell className="text-xs text-muted-foreground">
                                     <div className="flex items-center gap-1">
                                         <Clock className="h-3 w-3" />
-                                        {format(new Date(u.created_at), 'MMM d, yyyy')}
+                                        {format(new Date(u.created_at), 'dd MMM yyyy')}
                                     </div>
                                 </TableCell>
                                 <TableCell className="text-right">
@@ -432,7 +432,7 @@ function AdminUsersTableComponent({ users }: AdminUsersTableProps) {
                                 </div>
                                 <div className="flex items-center gap-1 text-xs text-slate-500 shrink-0">
                                     <Clock className="h-3 w-3" />
-                                    {format(new Date(u.created_at), 'MMM d, yyyy')}
+                                    {format(new Date(u.created_at), 'dd MMM yyyy')}
                                 </div>
                             </div>
                         </CardContent>

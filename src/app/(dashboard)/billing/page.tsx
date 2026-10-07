@@ -11,6 +11,7 @@ import { PlanTier } from '@/lib/feature-flags';
 import { createClient } from '@/utils/supabase/server';
 import { UpgradePlanButton } from '@/components/billing/upgrade-plan-button';
 import { PaymentHistory } from '@/components/billing/payment-history';
+import { formatDate } from '@/lib/utils';
 
 
 export const revalidate = 60; // Revalidate every 60 seconds
@@ -41,7 +42,7 @@ export default async function BillingPage() {
     display_name: subscriptionData?.plans?.display_name || 'Free',
     status: subscriptionData?.status || 'active',
     renewalDate: subscriptionData?.current_period_end 
-        ? new Date(subscriptionData.current_period_end).toLocaleDateString() 
+        ? formatDate(subscriptionData.current_period_end) 
         : 'N/A',
     usage: {
       records: recordCount || 0,

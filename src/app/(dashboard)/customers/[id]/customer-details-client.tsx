@@ -7,7 +7,7 @@ import { Pagination } from '@/components/ui/pagination';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { formatCurrency } from '@/lib/utils';
+import { formatCurrency, formatDate } from '@/lib/utils';
 import { 
     Package, 
     CreditCard, 
@@ -304,7 +304,7 @@ export function CustomerDetailsClient({ customer, initialRecords, crops }: Custo
                                     <div>
                                         <h3 className="font-semibold">{r.commodityDescription}</h3>
                                         <p className="text-sm text-muted-foreground mt-1 flex items-center gap-1">
-                                            <Calendar className="h-3 w-3" /> In: {new Date(r.storageStartDate).toLocaleDateString()}
+                                            <Calendar className="h-3 w-3" /> In: {formatDate(r.storageStartDate)}
                                         </p>
                                         <p className="text-sm text-muted-foreground flex items-center gap-1">
                                              <MapPin className="h-3 w-3" /> Lot: {r.location || 'N/A'}
@@ -357,7 +357,7 @@ export function CustomerDetailsClient({ customer, initialRecords, crops }: Custo
                         <div key={payment.paymentId} className="border rounded-lg p-4 bg-card shadow-sm space-y-3">
                             <div className="flex justify-between items-start">
                                 <div>
-                                    <div className="text-sm text-muted-foreground">{new Date(payment.date).toLocaleDateString()}</div>
+                                    <div className="text-sm text-muted-foreground">{formatDate(payment.date)}</div>
                                     <div className="font-semibold text-lg">{formatCurrency(payment.amount)}</div>
                                 </div>
                                 <Badge variant="secondary" className="font-mono">#{payment.recordNumber}</Badge>
@@ -427,7 +427,7 @@ export function CustomerDetailsClient({ customer, initialRecords, crops }: Custo
                         <tbody>
                             {paginatedPayments.map((payment: any) => (
                                 <tr key={payment.paymentId} className="border-b last:border-0 hover:bg-muted/50">
-                                    <td className="p-3">{new Date(payment.date).toLocaleDateString()}</td>
+                                    <td className="p-3">{formatDate(payment.date)}</td>
                                     <td className="p-3 font-mono">#{payment.recordNumber}</td>
                                     <td className="p-3 capitalize">{payment.type || 'other'}</td>
                                     <td className="p-3 text-right font-mono font-semibold">{formatCurrency(payment.amount)}</td>
@@ -493,8 +493,8 @@ export function CustomerDetailsClient({ customer, initialRecords, crops }: Custo
                                 <div>
                                     <h4 className="font-semibold text-foreground">{r.commodityDescription}</h4>
                                     <div className="text-xs text-muted-foreground mt-1 flex gap-2">
-                                        <span className="flex items-center gap-1"><ArrowDownToDot className="h-3 w-3" /> {new Date(r.storageStartDate).toLocaleDateString()}</span>
-                                        <span className="flex items-center gap-1"><ArrowUpFromDot className="h-3 w-3" /> {r.storageEndDate ? new Date(r.storageEndDate).toLocaleDateString() : 'Partial'}</span>
+                                        <span className="flex items-center gap-1"><ArrowDownToDot className="h-3 w-3" /> {formatDate(r.storageStartDate)}</span>
+                                        <span className="flex items-center gap-1"><ArrowUpFromDot className="h-3 w-3" /> {r.storageEndDate ? formatDate(r.storageEndDate) : 'Partial'}</span>
                                     </div>
                                 </div>
                                 <Badge variant="outline" className="font-mono">#{r.recordNumber}</Badge>
@@ -564,9 +564,9 @@ export function CustomerDetailsClient({ customer, initialRecords, crops }: Custo
                                 return (
                                 <tr key={r.id} className="border-b last:border-0 hover:bg-muted/50">
                                     <td className="p-3 font-mono">#{r.recordNumber}</td>
-                                    <td className="p-3">{new Date(r.storageStartDate).toLocaleDateString()}</td>
+                                    <td className="p-3">{formatDate(r.storageStartDate)}</td>
                                     <td className="p-3">
-                                        {r.storageEndDate ? new Date(r.storageEndDate).toLocaleDateString() : <span className="text-amber-600 font-medium text-xs border border-amber-200 bg-amber-50 px-2 py-0.5 rounded-full">Partial</span>}
+                                        {r.storageEndDate ? formatDate(r.storageEndDate) : <span className="text-amber-600 font-medium text-xs border border-amber-200 bg-amber-50 px-2 py-0.5 rounded-full">Partial</span>}
                                     </td>
                                     <td className="p-3">{r.commodityDescription}</td>
                                     <td className="p-3 text-right font-mono">{r.bagsOut}</td>

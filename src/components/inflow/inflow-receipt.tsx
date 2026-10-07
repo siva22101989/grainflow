@@ -20,7 +20,7 @@ export function InflowReceipt({ record, customer, warehouse }: InflowReceiptProp
 
     useEffect(() => {
         const startDate = toDate(record.storageStartDate);
-        setFormattedDate(format(startDate, 'dd/MM/yy'));
+        setFormattedDate(format(startDate, 'dd MMM yyyy'));
     }, [record.storageStartDate]);
 
     // Custom HandlePrint removed in favor of PrintButton, but we keep the view below primarily for user satisfaction "I see the receipt".

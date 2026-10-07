@@ -7,6 +7,7 @@
  */
 
 import type { ExportMetadata } from './export-utils-filtered';
+import { formatDate } from '@/lib/utils';
 
 const HEADER_FILL: [number, number, number] = [22, 78, 99];   // teal-900
 const ALT_ROW_FILL: [number, number, number] = [245, 247, 250]; // slate-50
@@ -15,7 +16,7 @@ const ALT_ROW_FILL: [number, number, number] = [245, 247, 250]; // slate-50
 function formatCell(value: unknown): string {
   if (value === null || value === undefined || value === '') return '-';
   if (typeof value === 'number' && Number.isFinite(value)) return value.toLocaleString('en-IN');
-  if (value instanceof Date) return value.toLocaleDateString();
+  if (value instanceof Date) return formatDate(value);
   return String(value);
 }
 

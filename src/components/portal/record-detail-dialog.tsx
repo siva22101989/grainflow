@@ -103,7 +103,7 @@ export function RecordDetailDialog({ record, trigger }: RecordDetailDialogProps)
                                                     <p className="text-sm font-bold text-foreground">{event.title}</p>
                                                     <p className="text-sm font-black text-green-700 dark:text-green-500">+{event.amount}</p>
                                                 </div>
-                                                <p className="text-[10px] text-muted-foreground">{format(event.date, 'MMM d, yyyy')}</p>
+                                                <p className="text-[10px] text-muted-foreground">{format(event.date, 'dd MMM yyyy')}</p>
                                             </div>
                                         </div>
                                     );
@@ -117,7 +117,7 @@ export function RecordDetailDialog({ record, trigger }: RecordDetailDialogProps)
                                                     <p className="text-sm font-bold text-foreground">{event.title}</p>
                                                     <p className="text-sm font-black text-red-700 dark:text-red-500">-{event.amount} Bags</p>
                                                 </div>
-                                                <p className="text-[10px] text-muted-foreground">{format(event.date, 'MMM d, yyyy')}</p>
+                                                <p className="text-[10px] text-muted-foreground">{format(event.date, 'dd MMM yyyy')}</p>
                                             </div>
                                         </div>
                                     );
@@ -130,7 +130,7 @@ export function RecordDetailDialog({ record, trigger }: RecordDetailDialogProps)
                                                 <p className="text-sm font-bold text-foreground">{event.title}</p>
                                                 <p className="text-sm font-black text-blue-700 dark:text-blue-500">₹{event.amount}</p>
                                             </div>
-                                            <p className="text-[10px] text-muted-foreground">{format(event.date, 'MMM d, yyyy')}</p>
+                                            <p className="text-[10px] text-muted-foreground">{format(event.date, 'dd MMM yyyy')}</p>
                                         </div>
                                     </div>
                                 );

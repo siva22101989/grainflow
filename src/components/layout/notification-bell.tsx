@@ -17,6 +17,8 @@ import {
 import Link from 'next/link';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useToast } from '@/hooks/use-toast';
+import { logError } from '@/lib/error-logger';
+import { formatDate } from '@/lib/utils';
 
 export function NotificationBell() {
     const [notifications, setNotifications] = useState<NotificationEntry[]>([]);
@@ -87,7 +89,7 @@ export function NotificationBell() {
              const { data, error } = await query;
              
              if (error) {
-                 console.error('Failed to fetch notifications:', error);
+                 logError(error, { operation: 'notificationBell.fetch' });
                  return;
              }
              
@@ -99,7 +101,7 @@ export function NotificationBell() {
                  setHasUnread(validNotes.length > 0);
              }
          } catch (err) {
-             console.error('Error fetching notifications:', err);
+             logError(err, { operation: 'notificationBell.fetch' });
          }
     };
 
@@ -236,7 +238,7 @@ export function NotificationBell() {
         const result = await markAllNotificationsAsRead();
         
         if (result.error) {
-             console.error("Failed to mark all as read:", result.error);
+             logError(result.error, { operation: 'notificationBell.markAllRead' });
              setNotifications(oldNotes);
              setHasUnread(true);
         }
@@ -310,7 +312,7 @@ export function NotificationBell() {
                                                             </p>
                                                         </div>
                                                         <span className="text-[10px] text-muted-foreground whitespace-nowrap shrink-0">
-                                                            {new Date(note.created_at).toLocaleDateString()}
+                                                            {formatDate(note.created_at)}
                                                         </span>
                                                     </div>
                                                 </Link>
@@ -372,7 +374,7 @@ export function NotificationBell() {
                                                                     </p>
                                                                 </div>
                                                                 <span className="text-[10px] text-muted-foreground whitespace-nowrap shrink-0">
-                                                                    {new Date(note.created_at).toLocaleDateString()}
+                                                                    {formatDate(note.created_at)}
                                                                 </span>
                                                             </div>
                                                         </Link>

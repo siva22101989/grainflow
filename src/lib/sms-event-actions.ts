@@ -8,6 +8,7 @@ import { createClient } from '@/utils/supabase/server';
 import { isSMSEnabled, isSMSMasterEnabled } from '@/lib/sms-settings-actions';
 import { hasSMSPermission } from '@/lib/sms-actions';
 import { logError } from '@/lib/error-logger';
+import { formatDate } from '@/lib/utils';
 
 /**
  * Send welcome SMS when inflow is created
@@ -83,11 +84,7 @@ export async function sendInflowWelcomeSMS(storageRecordId: string, bypassSettin
 
         // Format storage date
         const storageDate = record.storage_start_date
-            ? new Date(record.storage_start_date).toLocaleDateString('en-IN', {
-                day: '2-digit',
-                month: 'short',
-                year: 'numeric'
-              })
+            ? formatDate(record.storage_start_date)
             : undefined;
 
         const result = await textBeeService.sendInflowWelcome({
@@ -361,7 +358,7 @@ export async function sendPaymentConfirmationSMS(
     const remainingBalance = bal?.balance != null ? Number(bal.balance) : undefined;
 
     const paymentDate = paymentDateISO
-      ? new Date(paymentDateISO).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
+      ? formatDate(paymentDateISO)
       : undefined;
 
     const result = await textBeeService.sendPaymentConfirmation({

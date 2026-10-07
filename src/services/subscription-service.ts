@@ -59,6 +59,7 @@ export async function getSubscription(warehouseId: string) {
 }
 
 import { cache } from 'react';
+import { formatDate } from '@/lib/utils';
 
 export async function getSubscriptionWithUsage(warehouseId: string) {
   return _getSubscriptionWithUsageImpl(warehouseId);
@@ -122,7 +123,7 @@ export async function checkSubscriptionLimits(warehouseId: string, action: 'add_
 
     // Auto-expire check
     if (subscription.current_period_end && new Date(subscription.current_period_end) < new Date()) {
-         const expiredDate = new Date(subscription.current_period_end).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+         const expiredDate = formatDate(subscription.current_period_end);
          return { allowed: false, message: `Your subscription expired on ${expiredDate}. Go to Settings > Billing to renew your plan.` };
     }
 

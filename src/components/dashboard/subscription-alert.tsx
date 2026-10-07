@@ -4,6 +4,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { AlertTriangle, Clock, XCircle } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import { formatDate } from '@/lib/utils';
 
 interface SubscriptionAlertProps {
   subscription: {
@@ -37,7 +38,7 @@ export function SubscriptionAlert({ subscription }: SubscriptionAlertProps) {
           Subscription in Grace Period
         </AlertTitle>
         <AlertDescription className="text-orange-800 dark:text-orange-200">
-          Your subscription expired on {new Date(current_period_end!).toLocaleDateString()}.
+          Your subscription expired on {formatDate(current_period_end!)}.
           You have <strong>{daysLeft} day{daysLeft !== 1 ? 's' : ''}</strong> remaining to renew before your account is downgraded to the Free plan.
           <div className="mt-3">
             <Button 
@@ -68,7 +69,7 @@ export function SubscriptionAlert({ subscription }: SubscriptionAlertProps) {
             Subscription Expiring Soon
           </AlertTitle>
           <AlertDescription className="text-yellow-800 dark:text-yellow-200">
-            Your {plan?.name || 'subscription'} will expire in <strong>{daysUntilExpiry} day{daysUntilExpiry !== 1 ? 's' : ''}</strong> on {new Date(current_period_end).toLocaleDateString()}.
+            Your {plan?.name || 'subscription'} will expire in <strong>{daysUntilExpiry} day{daysUntilExpiry !== 1 ? 's' : ''}</strong> on {formatDate(current_period_end)}.
             <div className="mt-3">
               <Button 
                 variant="default" 

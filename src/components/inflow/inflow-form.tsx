@@ -24,6 +24,7 @@ import { useCustomers } from "@/contexts/customer-context";
 import { useStaticData } from "@/hooks/use-static-data";
 import { usePreventNavigation } from "@/hooks/use-prevent-navigation";
 import { useServerAction } from "@/hooks/use-server-action";
+import { formatDate } from '@/lib/utils';
 
 interface InflowFormInnerProps {
     nextSerialNumber: string;
@@ -255,7 +256,7 @@ function InflowFormInner({
                                 <div className="text-xs text-muted-foreground space-y-1">
                                     <div className="flex flex-wrap gap-x-3 gap-y-1">
                                         <span>Available: {selectedUnloading.bags_remaining} bags</span>
-                                        <span>Unloaded: {new Date(selectedUnloading.unload_date).toLocaleDateString()}</span>
+                                        <span>Unloaded: {formatDate(selectedUnloading.unload_date)}</span>
                                     </div>
                                     {selectedUnloading.lorry_tractor_no && (
                                         <div className="break-all">{selectedUnloading.lorry_tractor_no}</div>

@@ -17,6 +17,7 @@ import { useUrlFilters } from '@/hooks/use-url-filters';
 import { usePagination } from '@/hooks/use-pagination';
 import { Pagination } from '@/components/ui/pagination';
 import { useWarehouses } from '@/contexts/warehouse-context';
+import { formatDate } from '@/lib/utils';
 
 // Filter state interface
 interface InflowFilterState {
@@ -223,7 +224,7 @@ export function InflowListClient({ inflows }: InflowListClientProps) {
                             <div className="flex-1">
                                 <MobileCard.Title>{record.customerName}</MobileCard.Title>
                                 <p className="text-xs text-muted-foreground mt-1">
-                                    {record.date.toLocaleDateString()} • Inflow #{record.recordNumber || record.id.slice(0, 8)}
+                                    {formatDate(record.date)} • Inflow #{record.recordNumber || record.id.slice(0, 8)}
                                 </p>
                             </div>
                             <MobileCard.Badge>{record.bags} Bags</MobileCard.Badge>
@@ -259,7 +260,7 @@ export function InflowListClient({ inflows }: InflowListClientProps) {
                         {paginatedInflows.map((record) => {
                             return (
                                 <TableRow key={record.id}>
-                                    <TableCell>{record.date.toLocaleDateString()}</TableCell>
+                                    <TableCell>{formatDate(record.date)}</TableCell>
                                     <TableCell className="font-medium font-mono">{record.recordNumber || record.id.slice(0, 8)}</TableCell>
                                     <TableCell>{record.customerName}</TableCell>
                                     <TableCell>{record.commodity}</TableCell>

@@ -14,6 +14,7 @@
 import type { Customer, StorageRecord } from './definitions';
 import { ensurePdfFonts } from './pdf-fonts';
 import { summarizePayments, isWaiver } from './payment-summary';
+import { formatDate } from '@/lib/utils';
 
 const HEADER_FILL: [number, number, number] = [22, 78, 99];      // teal-900
 const ZEBRA_FILL: [number, number, number] = [245, 247, 250];   // slate-50
@@ -50,7 +51,7 @@ function fmtDate(d: Date | string | null | undefined): string {
   if (!d) return '-';
   const date = d instanceof Date ? d : new Date(d);
   if (isNaN(date.getTime())) return '-';
-  return date.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+  return formatDate(date);
 }
 
 async function loadPdf() {

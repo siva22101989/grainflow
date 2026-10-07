@@ -101,7 +101,7 @@ export function TeamMemberDetails({ member, currentUserRole = 'staff' }: TeamMem
                     <CardContent className="space-y-3">
                         <div className="flex items-center gap-2">
                             <Calendar className="w-4 h-4 text-muted-foreground" />
-                            <span className="text-sm">Joined {format(new Date(member.createdAt), 'MMM d, yyyy')}</span>
+                            <span className="text-sm">Joined {format(new Date(member.createdAt), 'dd MMM yyyy')}</span>
                         </div>
                         <div className="flex items-center gap-2">
                             <Shield className="w-4 h-4 text-muted-foreground" />

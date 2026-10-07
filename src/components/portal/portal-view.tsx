@@ -198,7 +198,7 @@ function WarehouseList({ portfolio, type, currentDate }: { portfolio: PortfolioI
                                                 <div className="flex items-center gap-3">
                                                     <p className="text-[10px] font-medium text-muted-foreground flex items-center gap-1">
                                                         <Calendar className="h-3 w-3" />
-                                                        {format(new Date(record.storage_start_date), 'MMM d')}
+                                                        {format(new Date(record.storage_start_date), 'dd MMM yyyy')}
                                                     </p>
                                                     {type === 'active' && (
                                                         <p className="text-[10px] font-medium text-muted-foreground flex items-center gap-1">

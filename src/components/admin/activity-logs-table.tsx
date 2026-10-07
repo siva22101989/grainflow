@@ -206,7 +206,7 @@ export function ActivityLogsTable({ logs }: ActivityLogsTableProps) {
                                         </div>
                                     </TableCell>
                                     <TableCell className="text-right whitespace-nowrap text-sm text-muted-foreground">
-                                        {format(new Date(log.created_at), 'MMM d, h:mm a')}
+                                        {format(new Date(log.created_at), 'dd MMM yyyy, h:mm a')}
                                     </TableCell>
                                 </TableRow>
                             ))
@@ -247,7 +247,7 @@ export function ActivityLogsTable({ logs }: ActivityLogsTableProps) {
                                 <div className="flex items-center justify-between text-sm">
                                     <span className="font-medium">{log.entity}</span>
                                     <span className="text-xs text-muted-foreground whitespace-nowrap">
-                                        {format(new Date(log.created_at), 'MMM d, h:mm a')}
+                                        {format(new Date(log.created_at), 'dd MMM yyyy, h:mm a')}
                                     </span>
                                 </div>
                                 <p className="text-sm text-muted-foreground line-clamp-2">

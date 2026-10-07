@@ -2,6 +2,7 @@
 
 import { createClient } from '@/utils/supabase/server';
 import { getActiveWarehouseId } from '@/lib/warehouse-actions';
+import { formatDate } from '@/lib/utils';
 
 export type SearchResultType = 'customer' | 'record' | 'payment' | 'page';
 
@@ -70,7 +71,7 @@ export async function searchGlobal(query: string): Promise<SearchResult[]> {
                 id: r.id,
                 type: 'record',
                 title: `Record #${r.record_number}`,
-                subtitle: `${r.commodity_description} • ${new Date(r.storage_start_date).toLocaleDateString()}`,
+                subtitle: `${r.commodity_description} • ${formatDate(r.storage_start_date)}`,
                 url: `/storage?id=${r.id}`
             });
         });
@@ -99,7 +100,7 @@ export async function searchGlobal(query: string): Promise<SearchResult[]> {
                 id: p.id,
                 type: 'payment',
                 title: `Receipt #${p.payment_number}`,
-                subtitle: `₹${p.amount} • ${p.type} • ${new Date(p.payment_date).toLocaleDateString()}`,
+                subtitle: `₹${p.amount} • ${p.type} • ${formatDate(p.payment_date)}`,
                 url: `/payments/history?id=${p.id}`
             });
         });

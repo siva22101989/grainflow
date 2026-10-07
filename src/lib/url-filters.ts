@@ -1,4 +1,5 @@
 import { DateRange } from 'react-day-picker';
+import { formatDate } from '@/lib/utils';
 
 /**
  * Generic filter state interface
@@ -182,11 +183,11 @@ export function getAppliedFiltersSummary(filters: FilterState): { label: string;
     if (Array.isArray(value)) {
       displayValue = value.join(', ');
     } else if (value instanceof Date) {
-      displayValue = value.toLocaleDateString();
+      displayValue = formatDate(value);
     } else if (typeof value === 'object' && 'from' in value) {
       const dateRange = value as DateRange;
-      const from = dateRange.from?.toLocaleDateString() || 'Any';
-      const to = dateRange.to?.toLocaleDateString() || 'Any';
+      const from = formatDate(dateRange.from) || 'Any';
+      const to = formatDate(dateRange.to) || 'Any';
       displayValue = `${from} - ${to}`;
     } else {
       displayValue = String(value);

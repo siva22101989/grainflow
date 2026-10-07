@@ -1,6 +1,6 @@
 // import * as XLSX from 'xlsx'; // Removed for lazy loading
 import type { StorageRecord, Customer } from './definitions';
-import { formatCurrency } from './utils';
+import { formatCurrency, formatDate } from './utils';
 import { format } from 'date-fns';
 import { exportToPdf, exportFinancialReportToPdf } from './export-pdf-utils';
 
@@ -314,7 +314,7 @@ export function generateCustomerStatement(
         return `
             <tr>
                 <td>${r.recordNumber || r.id.substring(0, 8)}</td>
-                <td>${new Date(r.storageStartDate).toLocaleDateString()}</td>
+                <td>${formatDate(r.storageStartDate)}</td>
                 <td>${r.commodityDescription || '-'}</td>
                 <td>${r.bagsStored}</td>
                 <td>${formatCurrency(billed)}</td>
@@ -458,7 +458,7 @@ export function generateCustomerStatement(
                     ${customer.village ? `<p><strong>Village:</strong> ${customer.village}</p>` : ''}
                 </div>
                 <div>
-                    <p><strong>Date:</strong> ${new Date().toLocaleDateString()}</p>
+                    <p><strong>Date:</strong> ${formatDate(new Date())}</p>
                 </div>
             </div>
             
@@ -814,14 +814,14 @@ export async function exportToExcel<T extends Record<string, any>>(
 export function exportStorageRecordsToExcel(records: StorageRecord[], format: ExportFormat = 'excel') {
     const data = records.map(r => ({
         'Record Number': r.recordNumber || r.id.substring(0, 8),
-        'Date': new Date(r.storageStartDate).toLocaleDateString(),
+        'Date': formatDate(r.storageStartDate),
         'Commodity': r.commodityDescription || '-',
         'Location': r.location || '-',
         'Bags Stored': r.bagsStored,
         'Hamali Payable': r.hamaliPayable || 0,
         'Rent Billed': r.totalRentBilled || 0,
         'Status': r.storageEndDate ? 'Completed' : 'Active',
-        'End Date': r.storageEndDate ? new Date(r.storageEndDate).toLocaleDateString() : '-'
+        'End Date': r.storageEndDate ? formatDate(r.storageEndDate) : '-'
     }));
 
     return dispatchExport(data, 'storage-records', 'Storage Records', format);
@@ -964,7 +964,7 @@ export async function exportFinancialReportToExcel(
  */
 export function exportUnloadingRegisterToExcel(records: any[], format: ExportFormat = 'excel') {
     const data = records.map(r => ({
-        'Date': r.unload_date ? new Date(r.unload_date).toLocaleDateString() : '-',
+        'Date': r.unload_date ? formatDate(r.unload_date) : '-',
         'Customer': r.customer?.name || 'Unknown',
         'Commodity': r.commodity_description,
         'Lorry No': r.lorry_tractor_no || '-',
@@ -981,8 +981,8 @@ export function exportUnloadingRegisterToExcel(records: any[], format: ExportFor
 export function exportHamaliRevenueToExcel(records: any[], format: ExportFormat = 'excel') {
      const data = records.map(r => ({
         'Customer': r.customer?.name || 'Unknown',
-        'Start Date': new Date(r.storageStartDate).toLocaleDateString(),
-        'End Date': r.storageEndDate ? new Date(r.storageEndDate).toLocaleDateString() : 'Active',
+        'Start Date': formatDate(r.storageStartDate),
+        'End Date': r.storageEndDate ? formatDate(r.storageEndDate) : 'Active',
         'Bags Stored': r.bagsStored,
         'Active Bags': r.storageEndDate ? 0 : r.bagsStored,
         'Hamali Payable': r.hamaliPayable || 0,
@@ -1016,7 +1016,7 @@ export function exportPendingBreakdownToExcel(data: any[], format: ExportFormat 
  */
 export function exportUnloadingExpensesToExcel(expenses: any[], format: ExportFormat = 'excel') {
     const data = expenses.map(e => ({
-        'Date': new Date(e.date).toLocaleDateString(),
+        'Date': formatDate(e.date),
         'Description': e.description,
         'Amount': e.amount,
         'Category': e.category,
@@ -1047,9 +1047,10 @@ export function generateCustomReportPDF(
            
            const ledgerRows = transactions.map((t: any) => `
              <tr style="font-size: 11px;">
-               <td style="padding: 6px 8px; border-bottom: 1px solid #eee;">${new Date(t.date).toLocaleDateString()}</td>
+               <td style="padding: 6px 8px; border-bottom: 1px solid #eee; white-space: nowrap;">${formatDate(t.date)}</td>
                <td style="padding: 6px 8px; border-bottom: 1px solid #eee;">${t.description}</td>
                <td style="padding: 6px 8px; border-bottom: 1px solid #eee;">${t.invoiceNo}</td>
+               <td style="padding: 6px 8px; border-bottom: 1px solid #eee;">${t.lotName || ''}</td>
                <td style="padding: 6px 8px; border-bottom: 1px solid #eee; text-align: right;">${t.bagsIn || ''}</td>
                <td style="padding: 6px 8px; border-bottom: 1px solid #eee; text-align: right;">${t.bagsOut || ''}</td>
                <td style="padding: 6px 8px; border-bottom: 1px solid #eee; text-align: right;">${t.hamali !== null && t.hamali !== undefined ? formatCurrency(t.hamali) : ''}</td>
@@ -1086,6 +1087,7 @@ export function generateCustomReportPDF(
                    <th style="padding: 10px 8px; text-align: left; border: 1px solid #2c3e50;">Date</th>
                    <th style="padding: 10px 8px; text-align: left; border: 1px solid #2c3e50;">Description</th>
                    <th style="padding: 10px 8px; text-align: left; border: 1px solid #2c3e50;">Invoice No</th>
+                   <th style="padding: 10px 8px; text-align: left; border: 1px solid #2c3e50; width: 90px;">Lot No</th>
                    <th style="padding: 10px 8px; text-align: right; border: 1px solid #2c3e50; width: 80px;">Bags In</th>
                    <th style="padding: 10px 8px; text-align: right; border: 1px solid #2c3e50; width: 80px;">Bags Out</th>
                    <th style="padding: 10px 8px; text-align: right; border: 1px solid #2c3e50; width: 100px;">Hamali</th>
@@ -1098,7 +1100,7 @@ export function generateCustomReportPDF(
                <tbody>
                  ${ledgerRows}
                  <tr style="font-weight: bold; background-color: #ecf0f1;">
-                   <td colspan="3" style="padding: 10px 8px; border-top: 2px solid #34495e;">Totals:</td>
+                   <td colspan="4" style="padding: 10px 8px; border-top: 2px solid #34495e;">Totals:</td>
                    <td style="padding: 10px 8px; text-align: right; border-top: 2px solid #34495e;">${summary.totalBagsIn}</td>
                    <td style="padding: 10px 8px; text-align: right; border-top: 2px solid #34495e;">${summary.totalBagsOut}</td>
                    <td style="padding: 10px 8px; text-align: right; border-top: 2px solid #34495e;">₹${formatCurrency(summary.totalHamali)}</td>
@@ -1163,7 +1165,7 @@ export function generateCustomReportPDF(
                 return `
                     <tr>
                         <td>${r.record_number || r.id.substring(0, 8)}</td>
-                        <td>${new Date(r.storage_start_date).toLocaleDateString()}</td>
+                        <td>${formatDate(r.storage_start_date)}</td>
                         <td>${r.commodity_description || '-'}</td>
                         <td>${r.location || '-'}</td>
                         <td style="text-align: right">${r.bags_stored}</td>
@@ -1308,7 +1310,7 @@ export function generateCustomReportPDF(
             const originalQty = r.bags_in || r.bags_stored;
             return `
             <tr>
-                <td>${new Date(r.storage_start_date).toLocaleDateString()}</td>
+                <td>${formatDate(r.storage_start_date)}</td>
                 <td>${r.record_number || r.id.substring(0, 8)}</td>
                 <td>${r.customers?.name || 'Unknown'}</td>
                 <td>${r.commodity_description || '-'}</td>
@@ -1350,7 +1352,7 @@ export function generateCustomReportPDF(
             const statusColor = balance === 0 && paid > 0 ? '#16a34a' : balance > 0 ? '#dc2626' : '#6b7280';
             return `
             <tr>
-                <td>${new Date(r.storage_end_date).toLocaleDateString()}</td>
+                <td>${formatDate(r.storage_end_date)}</td>
                 <td>${r.record_number || r.id.substring(0, 8)}</td>
                 <td>${r.customers?.name || 'Unknown'}</td>
                 <td style="text-align: right">${r.bags_stored}</td>
@@ -1401,7 +1403,7 @@ export function generateCustomReportPDF(
         title = `Payment Register ${dateRange}`;
         const rows = data.data.map((p: any) => `
             <tr>
-                <td>${new Date(p.payment_date).toLocaleDateString()}</td>
+                <td>${formatDate(p.payment_date)}</td>
                 <td>${p.storage_records?.record_number || p.storage_records?.id?.substring(0, 8) || '-'}</td>
                 <td>${p.storage_records?.customers?.name || p.customers?.name || 'Unknown'}</td>
                 <td>${p.payment_mode || 'Cash'}</td>
@@ -1444,7 +1446,7 @@ export function generateCustomReportPDF(
             const statusColor = c.paymentStatus === 'paid' ? '#27ae60' : 
                                c.paymentStatus === 'partial' ? '#f39c12' : '#e74c3c';
             const statusBadge = `<span style="color: ${statusColor}; font-weight: bold;">${c.paymentStatus.toUpperCase()}</span>`;
-            const lastActivity = c.lastActivity ? new Date(c.lastActivity).toLocaleDateString() : 'N/A';
+            const lastActivity = c.lastActivity ? formatDate(c.lastActivity) : 'N/A';
             
             return `
             <tr>
@@ -1716,7 +1718,7 @@ export function exportCustomReportToExcel(
             'Name': c.name,
             'Phone': c.phone,
             'Village': c.village || '-',
-            'Join Date': c.entry_date ? new Date(c.entry_date).toLocaleDateString() : '-',
+            'Join Date': c.entry_date ? formatDate(c.entry_date) : '-',
             'Active Bags': c.activeBags || 0,
             'Outstanding': c.outstanding || 0
         }));
@@ -1725,7 +1727,7 @@ export function exportCustomReportToExcel(
         exportData = data.data.map((r: any) => ({
             'Storage ID': r.record_number ?? '',
             'Customer ID': r.customers?.customer_number ?? '',
-            'Date In': new Date(r.storage_start_date).toLocaleDateString(),
+            'Date In': formatDate(r.storage_start_date),
             'Customer': r.customers?.name || 'Unknown',
             'Commodity': r.commodity_description,
             'Location': r.location,
@@ -1736,8 +1738,8 @@ export function exportCustomReportToExcel(
         exportData = data.data.map((r: any) => ({
             'Storage ID': r.record_number ?? '',
             'Customer ID': r.customers?.customer_number ?? '',
-            'Date In': new Date(r.storage_start_date).toLocaleDateString(),
-            'Date Out': r.storage_end_date ? new Date(r.storage_end_date).toLocaleDateString() : '-',
+            'Date In': formatDate(r.storage_start_date),
+            'Date Out': r.storage_end_date ? formatDate(r.storage_end_date) : '-',
             'Customer': r.customers?.name || 'Unknown',
             'Commodity': r.commodity_description,
             'Bags': r.bags_stored,
@@ -1748,7 +1750,7 @@ export function exportCustomReportToExcel(
         exportData = data.data.map((r: any) => ({
             'Storage ID': r.record_number ?? '',
             'Customer ID': r.customers?.customer_number ?? '',
-            'Date': new Date(r.storage_start_date).toLocaleDateString(),
+            'Date': formatDate(r.storage_start_date),
             'Customer': r.customers?.name || 'Unknown',
             'Commodity': r.commodity_description,
             'Bags In': r.bags_in || r.bags_stored
@@ -1759,7 +1761,7 @@ export function exportCustomReportToExcel(
             'Withdrawal ID': r.withdrawal_number ?? '',
             'Storage ID': r.record_number ?? '',
             'Customer ID': r.customers?.customer_number ?? '',
-            'Date Out': new Date(r.storage_end_date).toLocaleDateString(),
+            'Date Out': formatDate(r.storage_end_date),
             'Customer': r.customers?.name || 'Unknown',
             'Bags': r.bags_stored,
             'Rent': r.total_rent_billed || 0,
@@ -1773,7 +1775,7 @@ export function exportCustomReportToExcel(
             'Payment ID': p.payment_number ?? '',
             'Storage ID': p.storage_records?.record_number ?? '',
             'Customer ID': p.storage_records?.customers?.customer_number ?? p.customers?.customer_number ?? '',
-            'Date': new Date(p.payment_date).toLocaleDateString(),
+            'Date': formatDate(p.payment_date),
             'Customer': p.storage_records?.customers?.name || p.customers?.name || 'Unknown',
             'Payment Mode': p.payment_mode || 'Cash',
             'Payment Type': p.type || 'Other',
@@ -1786,8 +1788,8 @@ export function exportCustomReportToExcel(
 
         exportData = data.data.map((r: any) => {
             const dateRange = r.endDate
-                ? `${new Date(r.date).toLocaleDateString()} to ${new Date(r.endDate).toLocaleDateString()}`
-                : `${new Date(r.date).toLocaleDateString()} to Active`;
+                ? `${formatDate(r.date)} to ${formatDate(r.endDate)}`
+                : `${formatDate(r.date)} to Active`;
 
             const record: any = {
                 'Storage ID': r.recordNumber ?? '',
@@ -1884,6 +1886,7 @@ async function exportCustomerDuesMultiSheet(opts: {
         { header: 'Type', key: 'type', width: 14 },
         { header: 'Description', key: 'description', width: 50 },
         { header: 'Bill / Record #', key: 'invoiceNo', width: 18 },
+        { header: 'Lot No', key: 'lotName', width: 14 },
         { header: 'Bags In', key: 'bagsIn', width: 10 },
         { header: 'Bags Out', key: 'bagsOut', width: 10 },
         { header: 'Hamali (₹)', key: 'hamali', width: 14 },
@@ -1902,12 +1905,13 @@ async function exportCustomerDuesMultiSheet(opts: {
     );
 
     for (const t of sorted) {
-        const dateStr = new Date(t.date).toLocaleDateString();
+        const dateStr = formatDate(t.date);
         const parent = ws2.addRow({
             date: dateStr,
             type: t.type.toUpperCase(),
             description: t.description,
             invoiceNo: t.invoiceNo,
+            lotName: t.lotName ?? '',
             bagsIn: t.bagsIn ?? '',
             bagsOut: t.bagsOut ?? '',
             hamali: t.hamali ?? '',
@@ -1929,6 +1933,7 @@ async function exportCustomerDuesMultiSheet(opts: {
                     type: '  ↳ slice',
                     description: `   Record #${sl.recordNumber ?? '—'}`,
                     invoiceNo: '',
+                    lotName: sl.lotName ?? '',
                     bagsIn: '',
                     bagsOut: sl.bagsOut,
                     hamali: '',
@@ -1994,8 +1999,8 @@ async function exportCustomerDuesMultiSheet(opts: {
  */
 function formatDateRange(period?: { startDate?: string, endDate?: string }) {
     if (!period?.startDate && !period?.endDate) return '(All Time)';
-    const start = period.startDate ? new Date(period.startDate).toLocaleDateString() : '...';
-    const end = period.endDate ? new Date(period.endDate).toLocaleDateString() : '...';
+    const start = period.startDate ? formatDate(period.startDate) : '...';
+    const end = period.endDate ? formatDate(period.endDate) : '...';
     return `(${start} - ${end})`;
 }
 

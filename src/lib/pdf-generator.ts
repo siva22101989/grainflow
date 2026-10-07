@@ -16,7 +16,7 @@ export const generateStatementPDF = async (record: any, events: any[]) => {
   
   doc.setFontSize(10);
   doc.setTextColor(255, 255, 255);
-  doc.text(`Generated: ${format(new Date(), 'PPP')}`, 14, 28);
+  doc.text(`Generated: ${format(new Date(), 'dd MMM yyyy')}`, 14, 28);
 
   doc.setFontSize(16);
   doc.text("GrainFlow", 196, 20, { align: 'right' });
@@ -80,7 +80,7 @@ export const generateStatementPDF = async (record: any, events: any[]) => {
     }
 
     return [
-        format(new Date(e.date), 'MMM d, yyyy'),
+        format(new Date(e.date), 'dd MMM yyyy'),
         typeDisplay,
         amountDisplay
     ];
@@ -139,7 +139,7 @@ export const generateConsolidatedPDF = async (portfolio: any[]) => {
     
     doc.setFontSize(10);
     doc.setTextColor(100, 100, 100);
-    doc.text(`Generated on: ${format(new Date(), 'PPP')}`, 14, 26);
+    doc.text(`Generated on: ${format(new Date(), 'dd MMM yyyy')}`, 14, 26);
     
     let grandTotalCurrent = 0;
     let grandTotalWithdrawn = 0;
@@ -223,7 +223,7 @@ export const generateConsolidatedPDF = async (portfolio: any[]) => {
         if (r.due < 0) balanceDisplay = `Cr. Rs. ${Math.abs(r.due)}`;
         
         return [
-            format(new Date(r.date), 'dd/MM/yy'),
+            format(new Date(r.date), 'dd MMM yyyy'),
             `${r.crop}\nLot: ${r.lot} (#${r.recordNo})`,
             r.initial,
             r.withdrawn > 0 ? `-${r.withdrawn}` : '-',

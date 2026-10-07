@@ -3,6 +3,7 @@
 import { createClient } from '@/utils/supabase/server';
 import { getUserWarehouse } from '@/lib/queries';
 import { logError } from './error-logger';
+import { formatDate } from '@/lib/utils';
 
   export async function fetchReportData(
     reportType: string,
@@ -34,6 +35,7 @@ import { logError } from './error-logger';
           .from('storage_records')
           .select(`
               *,
+              warehouse_lots ( name ),
               payments (amount, type, payment_date, notes, deleted_at),
               withdrawal_transactions (bags_withdrawn, withdrawal_date, rent_collected, deleted_at, consolidated_invoice_no, batch_id)
           `)
@@ -152,6 +154,14 @@ import { logError } from './error-logger';
         // row each.
         const transactions: any[] = [];
 
+        // Supabase returns the embedded lot as an object, but tolerate an array
+        // shape so a schema/embed change cannot silently blank the column.
+        const lotNameOf = (record: any): string => {
+          const lot = record.warehouse_lots;
+          const resolved = Array.isArray(lot) ? lot[0] : lot;
+          return resolved?.name || '';
+        };
+
         // Inflows + per-record payments — one entry each (unchanged)
         records.forEach((record: any) => {
           transactions.push({
@@ -159,6 +169,7 @@ import { logError } from './error-logger';
             type: 'inflow',
             description: `Inflow - ${record.commodity_description || 'Storage'}`,
             invoiceNo: record.record_number || record.id.substring(0, 8),
+            lotName: lotNameOf(record),
             bagsIn: record.bags_in || (record.bags_stored + (record.withdrawal_transactions || []).filter((w: any) => !w.deleted_at).reduce((sum: number, w: any) => sum + (w.bags_withdrawn || 0), 0)),
             bagsOut: null,
             hamali: record.hamali_payable || 0,
@@ -173,6 +184,7 @@ import { logError } from './error-logger';
               type: 'payment',
               description: `Payment - ${p.type || 'General'}`,
               invoiceNo: record.record_number || record.id.substring(0, 8),
+              lotName: lotNameOf(record),
               bagsIn: null,
               bagsOut: null,
               hamali: null,
@@ -219,11 +231,17 @@ import { logError } from './error-logger';
             .map(sl => sl.record.record_number)
             .filter(Boolean)
             .sort((a: number, b: number) => a - b);
+          // A batch can span lots, so collapse to the distinct set; the per-slice
+          // rows beneath carry the individual lot for anyone who needs detail.
+          const batchLotNames = Array.from(
+            new Set(slices.map(sl => lotNameOf(sl.record)).filter(Boolean))
+          ).sort();
           transactions.push({
             date: new Date(earliestDate).toISOString(),
             type: 'outflow',
             description: `Bulk Outflow — ${slices.length} records, ${totalBags} bags${recordNumbers.length ? ' (#' + recordNumbers.join(', #') + ')' : ''}`,
             invoiceNo,
+            lotName: batchLotNames.join(', '),
             bagsIn: null,
             bagsOut: totalBags,
             hamali: null,
@@ -233,6 +251,7 @@ import { logError } from './error-logger';
             slices: slices.map(sl => ({
               recordNumber: sl.record.record_number,
               recordId: sl.record.id,
+              lotName: lotNameOf(sl.record),
               bagsOut: sl.w.bags_withdrawn,
               rent: parseFloat(sl.w.rent_collected) || 0,
               withdrawalDate: sl.w.withdrawal_date,
@@ -247,6 +266,7 @@ import { logError } from './error-logger';
             type: 'outflow',
             description: 'Outflow',
             invoiceNo: record.record_number || record.id.substring(0, 8),
+            lotName: lotNameOf(record),
             bagsIn: null,
             bagsOut: w.bags_withdrawn,
             hamali: null,
@@ -934,7 +954,7 @@ import { logError } from './error-logger';
     
     // Group by date for daily totals
     const groupedByDate = transactions.reduce((acc: any, t) => {
-      const dateKey = t.date.toLocaleDateString();
+      const dateKey = formatDate(t.date);
       if (!acc[dateKey]) {
         acc[dateKey] = [];
       }

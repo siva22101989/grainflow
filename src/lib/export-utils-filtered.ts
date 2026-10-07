@@ -1,6 +1,7 @@
 import { StorageRecord } from './definitions';
 import { exportToPdfWithFilters } from './export-pdf-utils';
 import type { ExportFormat } from './export-utils';
+import { formatDate } from '@/lib/utils';
 
 export interface ExportMetadata {
   totalRecords: number;
@@ -89,7 +90,7 @@ export function exportStorageRecordsWithFilters(
 ) {
   const data = records.map(r => ({
     'Record Number': r.recordNumber || r.id.substring(0, 8),
-    'Date': new Date(r.storageStartDate).toLocaleDateString(),
+    'Date': formatDate(r.storageStartDate),
     'Customer': r.customerName || 'Unknown',
     'Commodity': r.commodityDescription || '-',
     'Location': r.location || '-',
@@ -98,7 +99,7 @@ export function exportStorageRecordsWithFilters(
     'Insurance Payable': r.insurancePayable || 0,
     'Rent Billed': r.totalRentBilled || 0,
     'Status': r.storageEndDate ? 'Completed' : 'Active',
-    'End Date': r.storageEndDate ? new Date(r.storageEndDate).toLocaleDateString() : '-'
+    'End Date': r.storageEndDate ? formatDate(r.storageEndDate) : '-'
   }));
 
   return dispatchFiltered(data, 'filtered-storage-records', metadata, 'Storage Records', format);
@@ -111,7 +112,7 @@ export function exportInflowRecordsWithFilters(
   format: ExportFormat = 'excel',
 ) {
     const data = records.map(r => ({
-        'Date': r.unload_date ? new Date(r.unload_date).toLocaleDateString() : '-',
+        'Date': r.unload_date ? formatDate(r.unload_date) : '-',
         'Customer': r.customer?.name || 'Unknown',
         'Commodity': r.commodity_description,
         'Lorry No': r.lorry_tractor_no || '-',
@@ -129,7 +130,7 @@ export function exportOutflowRecordsWithFilters(
   format: ExportFormat = 'excel',
 ) {
     const data = records.map(r => ({
-        'Date': r.created_at ? new Date(r.created_at).toLocaleDateString() : '-',
+        'Date': r.created_at ? formatDate(r.created_at) : '-',
         'Transaction ID': r.transaction_number || r.id.substring(0, 8),
         'Customer': r.customer?.name || 'Unknown',
         'Bags Out': r.quantity,
@@ -147,7 +148,7 @@ export function exportExpensesWithFilters(
   format: ExportFormat = 'excel',
 ) {
     const data = expenses.map(e => ({
-        'Date': new Date(e.date).toLocaleDateString(),
+        'Date': formatDate(e.date),
         'Description': e.description,
         'Amount': e.amount,
         'Category': e.category,

@@ -70,7 +70,7 @@ export function GlobalActivityFeed({ logs }: GlobalActivityFeedProps) {
                                     </span>
                                 </div>
                                 <span className="text-xs text-slate-400 whitespace-nowrap">
-                                    {format(new Date(log.created_at), 'HH:mm • MMM d')}
+                                    {format(new Date(log.created_at), 'dd MMM yyyy, HH:mm')}
                                 </span>
                             </div>
 

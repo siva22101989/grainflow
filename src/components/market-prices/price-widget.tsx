@@ -72,7 +72,7 @@ export function MarketPricesWidget({ watchlist, priceData }: MarketPricesWidgetP
             <span className="text-xl">📊</span>
             Market Prices
             <Badge variant="secondary" className="ml-2 text-xs">
-              {format(new Date(), 'MMM d')}
+              {format(new Date(), 'dd MMM yyyy')}
             </Badge>
           </CardTitle>
           <Button asChild variant="ghost" size="sm" className="h-8 text-xs">

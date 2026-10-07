@@ -7,7 +7,7 @@ import { PageHeader } from "@/components/shared/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ArrowDown, ArrowUp, Warehouse, IndianRupee, Search, X } from "lucide-react";
 import { calculateFinalRent } from "@/lib/billing";
-import { formatCurrency } from "@/lib/utils";
+import { formatCurrency, formatDate } from "@/lib/utils";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Pagination } from "@/components/ui/pagination";
 import { Input } from "@/components/ui/input";
@@ -568,7 +568,7 @@ export function StoragePageClient({
                     <div className="flex-1">
                       <MobileCard.Title>{record.commodityDescription}</MobileCard.Title>
                       <p className="text-xs text-muted-foreground mt-1">
-                        #{record.recordNumber} • {new Date(record.storageStartDate).toLocaleDateString()}
+                        #{record.recordNumber} • {formatDate(record.storageStartDate)}
                       </p>
                     </div>
                     <MobileCard.Badge>{record.location}</MobileCard.Badge>
@@ -650,7 +650,7 @@ export function StoragePageClient({
                                             onCheckedChange={(checked) => handleSelectOne(record.id, !!checked)}
                                         />
                                     </TableCell>
-                                    <TableCell>{new Date(record.storageStartDate).toLocaleDateString()}</TableCell>
+                                    <TableCell>{formatDate(record.storageStartDate)}</TableCell>
                                     <TableCell className="font-medium font-mono">
                                       #{record.recordNumber}
                                       {isDrying && (

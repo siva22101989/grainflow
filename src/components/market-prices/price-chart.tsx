@@ -54,7 +54,7 @@ export function PriceChart({ commodity, market, state, trend }: PriceChartProps)
       return (
         <div className="bg-background border rounded-lg shadow-lg p-3">
           <p className="text-sm font-medium">
-            {format(new Date(payload[0].payload.date), 'MMM d, yyyy')}
+            {format(new Date(payload[0].payload.date), 'dd MMM yyyy')}
           </p>
           <p className="text-lg font-bold text-primary">
             ₹{payload[0].value.toLocaleString('en-IN')}/qtl

@@ -17,6 +17,7 @@ import { useUnifiedToast } from '@/components/shared/toast-provider';
 import { Loader2, Gift } from 'lucide-react';
 import { redeemCodeAction } from '@/lib/subscription-code-actions';
 import { useRouter } from 'next/navigation';
+import { formatDate } from '@/lib/utils';
 
 interface RedeemCodeDialogProps {
   warehouseId: string;
@@ -46,7 +47,7 @@ export function RedeemCodeDialog({ warehouseId, trigger }: RedeemCodeDialogProps
         const result = await redeemCodeAction(code, warehouseId);
         success(
             "Subscription Activated!", 
-            `You are now on the ${result.plan} plan until ${new Date(result.endDate).toLocaleDateString()}.`
+            `You are now on the ${result.plan} plan until ${formatDate(result.endDate)}.`
         );
         setOpen(false);
         setCode('');

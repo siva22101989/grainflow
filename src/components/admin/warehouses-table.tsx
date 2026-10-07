@@ -56,6 +56,8 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { logError } from '@/lib/error-logger';
+import { formatDate } from '@/lib/utils';
 
 interface AdminWarehousesTableProps {
     warehouses: any[];
@@ -91,7 +93,7 @@ function AdminWarehousesTableComponent({ warehouses }: AdminWarehousesTableProps
 
                 setPlans(data);
             } catch (err) {
-                console.error('Failed to load plans:', err);
+                logError(err, { operation: 'warehousesTable.loadPlans' });
             }
         }
         fetchPlans();
@@ -222,7 +224,7 @@ function AdminWarehousesTableComponent({ warehouses }: AdminWarehousesTableProps
                                 </Badge>
                             </TableCell>
                             <TableCell className="text-xs text-muted-foreground">
-                                {format(new Date(w.created_at), 'MMM d, yyyy')}
+                                {format(new Date(w.created_at), 'dd MMM yyyy')}
                             </TableCell>
                             <TableCell className="text-right">
                                 <DropdownMenu>
@@ -335,7 +337,7 @@ function AdminWarehousesTableComponent({ warehouses }: AdminWarehousesTableProps
                                 {w.activeRecords} active
                             </Badge>
                             <span className="text-xs text-slate-500">
-                                {format(new Date(w.created_at), 'MMM d, yyyy')}
+                                {format(new Date(w.created_at), 'dd MMM yyyy')}
                             </span>
                         </div>
                     </CardContent>
@@ -368,7 +370,7 @@ function AdminWarehousesTableComponent({ warehouses }: AdminWarehousesTableProps
                         <AlertDescription className="text-orange-800 dark:text-orange-200">
                             This subscription is in grace period until{' '}
                             {(selectedWarehouse as any)?.subscription?.grace_period_end && 
-                                new Date((selectedWarehouse as any).subscription.grace_period_end).toLocaleDateString()}.
+                                formatDate((selectedWarehouse as any).subscription.grace_period_end)}.
                             Updating to an active plan will clear the grace period.
                         </AlertDescription>
                     </Alert>
@@ -436,7 +438,7 @@ function AdminWarehousesTableComponent({ warehouses }: AdminWarehousesTableProps
                                 </strong>
                             </p>
                             <p className="text-xs mt-1">
-                                {newTier !== 'free' && 'Subscription will expire on: ' + new Date(Date.now() + (plans.find(p => p.tier === newTier)?.duration_days || 0) * 24 * 60 * 60 * 1000).toLocaleDateString()}
+                                {newTier !== 'free' && 'Subscription will expire on: ' + formatDate(Date.now() + (plans.find(p => p.tier === newTier)?.duration_days || 0) * 24 * 60 * 60 * 1000)}
                             </p>
                         </div>
                     )}

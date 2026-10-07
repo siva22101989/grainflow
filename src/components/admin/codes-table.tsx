@@ -106,13 +106,13 @@ export function CodesTable({ codes }: CodesTableProps) {
                                             </div>
                                             <div className="flex justify-between">
                                                 <span className="text-muted-foreground">Redeemed On:</span>
-                                                <span>{code.used_at ? format(new Date(code.used_at), 'MMM d, yyyy') : '-'}</span>
+                                                <span>{code.used_at ? format(new Date(code.used_at), 'dd MMM yyyy') : '-'}</span>
                                             </div>
                                         </>
                                     )}
                                     <div className="flex justify-between">
                                         <span className="text-muted-foreground">Created:</span>
-                                        <span>{format(new Date(code.created_at), 'MMM d, yyyy')}</span>
+                                        <span>{format(new Date(code.created_at), 'dd MMM yyyy')}</span>
                                     </div>
                                 </div>
                                 
@@ -193,7 +193,7 @@ export function CodesTable({ codes }: CodesTableProps) {
                                             <div className="flex flex-col">
                                                 <span className="text-sm font-medium">{code.warehouses.name}</span>
                                                 <span className="text-xs text-muted-foreground">
-                                                     {code.used_at ? format(new Date(code.used_at), 'MMM d, yyyy') : '-'}
+                                                     {code.used_at ? format(new Date(code.used_at), 'dd MMM yyyy') : '-'}
                                                 </span>
                                             </div>
                                         ) : (
@@ -201,7 +201,7 @@ export function CodesTable({ codes }: CodesTableProps) {
                                         )}
                                     </TableCell>
                                     <TableCell className="text-sm text-muted-foreground">
-                                        {format(new Date(code.created_at), 'MMM d, yyyy')}
+                                        {format(new Date(code.created_at), 'dd MMM yyyy')}
                                     </TableCell>
                                     <TableCell className="text-right">
                                         <Button 

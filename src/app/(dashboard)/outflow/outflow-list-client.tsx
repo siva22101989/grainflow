@@ -22,7 +22,7 @@ import { useUrlFilters } from '@/hooks/use-url-filters';
 import { usePagination } from '@/hooks/use-pagination';
 import { Pagination } from '@/components/ui/pagination';
 import { useWarehouses } from '@/contexts/warehouse-context';
-import { formatCurrency } from '@/lib/utils';
+import { formatCurrency, formatDate } from '@/lib/utils';
 import type { OutflowRecord } from '@/lib/definitions';
 
 // Filter state interface
@@ -233,7 +233,7 @@ export function OutflowListClient({ outflows }: OutflowListClientProps) {
                             <div className="flex-1">
                                 <MobileCard.Title>{record.customerName}</MobileCard.Title>
                                 <p className="text-xs text-muted-foreground mt-1">
-                                    {record.date.toLocaleDateString()} • {record.recordNumber || record.id.slice(0, 8)}
+                                    {formatDate(record.date)} • {record.recordNumber || record.id.slice(0, 8)}
                                 </p>
                             </div>
                             <MobileCard.Badge variant="destructive">-{record.bags} Bags</MobileCard.Badge>
@@ -309,7 +309,7 @@ export function OutflowListClient({ outflows }: OutflowListClientProps) {
                         {paginatedOutflows.map((record) => {
                             return (
                                 <TableRow key={record.id}>
-                                    <TableCell>{record.date.toLocaleDateString()}</TableCell>
+                                    <TableCell>{formatDate(record.date)}</TableCell>
                                     <TableCell className="font-medium font-mono">{record.recordNumber || record.id.slice(0, 8)}</TableCell>
                                     <TableCell>{record.customerName}</TableCell>
                                     <TableCell>{record.commodity}</TableCell>
